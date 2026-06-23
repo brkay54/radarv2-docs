@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>README — aros Vault</title>
+<style>
+
+:root {
+  --color-blue:    #007ACC;
+  --color-green:   #2DA44E;
+  --color-yellow:  #D29922;
+  --color-purple:  #8B5CF6;
+  --color-orange:  #F59E0B;
+  --color-red:     #E5534B;
+  --color-cyan:    #0BC5EA;
+  --color-accent:  #7C3AED;
+  --text-normal:   #DCDDDE;
+  --text-muted:    #8E8EA0;
+  --background-primary:         #1E1E2E;
+  --background-secondary:       #181825;
+  --background-modifier-border: #313244;
+  --color-base-30:              #45475A;
+}
+body {
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.6;
+  margin: 0;
+}
+
+</style>
+<!-- Mermaid -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<!-- MathJax -->
+<script>window.MathJax={tex:{inlineMath:[['$','$'],['\\(','\\)']],displayMath:[['$$','$$'],['\\[','\\]']]},options:{skipHtmlTags:['script','noscript','style','textarea','pre']}};</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+<!-- Site CSS -->
+<link rel="stylesheet" href="../site.css">
+</head>
+<body class="markdown-reading-view">
+<div class="site-shell">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <a href="../00-Index.html" class="site-title">radarv2 / AERIS-10</a>
+      <div class="site-subtitle">aros Radar Documentation</div>
+    </div>
+    <ul class="nav-list">
+      <li class="nav-section">Core Docs</li>
+      <li><a href="../09-Concepts-Primer.html">Radar Primer</a></li>
+      <li><a href="../00-Index.html">Index</a></li>
+      <li><a href="../01-System-Overview.html">System Overview</a></li>
+      <li><a href="../02-Physics-and-Waveform.html">Physics &amp; Waveform</a></li>
+      <li><a href="../03-Beamforming-and-Scan.html">Beamforming &amp; Scan</a></li>
+      <li><a href="../04-Signal-Processing-Pipeline.html">Signal Processing</a></li>
+      <li><a href="../05-Node-Architecture.html">Node Architecture</a></li>
+      <li><a href="../06-Message-Catalog.html">Message Catalog</a></li>
+      <li><a href="../07-Detection-and-Tracking.html">Detection &amp; Tracking</a></li>
+      <li><a href="../08-Scenarios-and-Targets.html">Scenarios &amp; Targets</a></li>
+      <li class="nav-section">Advanced</li>
+      <li><a href="../10-Radar-Model-Library.html">Radar Model Library</a></li>
+      <li><a href="../11-Multi-Radar-Fusion.html">Multi-Radar Fusion</a></li>
+      <li><a href="../12-3D-Scene.html">3-D Scene</a></li>
+      <li><a href="../13-Reference-Tables.html">Reference Tables</a></li>
+      <li><a href="../FUTURE-DEVELOPMENT.html">Future Development</a></li>
+      <li class="nav-section">Upstream Theory</li>
+      <li><a href="../upstream/README.html">Upstream README</a></li>
+      <li><a href="../upstream/00_notation/conventions.html">Notation</a></li>
+      <li><a href="../upstream/01_physics/01_fmcw_theory.html">FMCW Theory</a></li>
+      <li><a href="../upstream/01_physics/02_lfm_waveform_model.html">LFM Waveform</a></li>
+      <li><a href="../upstream/01_physics/03_beamforming_theory.html">Beamforming Theory</a></li>
+      <li><a href="../upstream/01_physics/04_detection_theory.html">Detection Theory</a></li>
+      <li><a href="../upstream/01_physics/05_noise_analysis.html">Noise Analysis</a></li>
+      <li><a href="../upstream/01_physics/06_calibration_theory.html">Calibration</a></li>
+      <li><a href="../upstream/02_hardware/01_system_overview.html">HW Overview</a></li>
+      <li><a href="../upstream/04_research/01_cfar_variants.html">CFAR Variants</a></li>
+    </ul>
+    <div class="sidebar-footer">
+      <a href="https://github.com/brkay54/radarv2-docs" target="_blank">GitHub</a>
+    </div>
+  </nav>
+  <div class="main-content">
+
+<div class="markdown-preview-section">
+<h1 id="upstream-reference-aeris-10-plfm-radar">Upstream Reference — AERIS-10 / PLFM_RADAR<a class="ha" href="#upstream-reference-aeris-10-plfm-radar" aria-hidden="true">¶</a></h1>
+
+<p>This folder is a <strong>vendored, read-only mirror</strong> of the theory documentation from the</p>
+<p>upstream radar project that <code>radarv2</code> models. The radarv2 example is a software</p>
+<p>re-implementation (on the aros executor model) of AERIS-10&#x27;s receive signal-processing</p>
+<p>chain; these documents are the primary source the per-algorithm READMEs cite.</p>
+
+<blockquote><strong>Do not edit these files.</strong> They are an upstream copy kept here so radarv2&#x27;s</blockquote>
+<blockquote>educational READMEs can link to stable, in-repo theory instead of an external URL that</blockquote>
+<blockquote>may move or go private. To refresh, re-copy from the upstream repo (see below).</blockquote>
+
+<h2 id="provenance">Provenance<a class="ha" href="#provenance" aria-hidden="true">¶</a></h2>
+
+<table class="md-table"><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody><tr><td>Upstream</td><td><code>github.com/mitgor/PLFM_RADAR</code> (project name <strong>AERIS-10</strong>)</td></tr><tr><td>Commit pinned</td><td><code>efae9a23ba9b7ef1c13fcf7372b2840618816ea0</code></td></tr><tr><td>Commit date</td><td>2026-03-14</td></tr><tr><td>License</td><td>MIT (per upstream README) — attribution retained here</td></tr><tr><td>Mirrored</td><td>markdown theory only (<code>00_notation</code>, <code>01_physics</code>, <code>02_hardware</code>, <code>03_software</code>, <code>04_research</code>) + <code>01_physics/figures</code></td></tr><tr><td><strong>Not</strong> mirrored</td><td>datasheets, schematics, Gerbers, board simulations, firmware sources (binary/hardware artifacts — they stay in the upstream repo)</td></tr></tbody></table>
+
+<p>Some links inside these documents point at hardware artifacts (datasheet PDFs, <code>.drawio</code></p>
+<p>diagrams) that were <strong>not</strong> mirrored; those links are dangling here by design. The</p>
+<p>software-relevant theory is self-contained within this folder.</p>
+
+<h2 id="what-each-document-covers">What each document covers<a class="ha" href="#what-each-document-covers" aria-hidden="true">¶</a></h2>
+
+<h3 id="00-notation-symbol-and-parameter-conventions"><code>00_notation/</code> — symbol and parameter conventions<a class="ha" href="#00-notation-symbol-and-parameter-conventions" aria-hidden="true">¶</a></h3>
+<ul><li><strong><code>symbol_table.md</code></strong> — every symbol used in the theory docs (carrier, chirp, range, Doppler, antenna, detection).</li><li><strong><code>parameter_table.md</code></strong> — numerical values for both AERIS-10 variants (Nexus 3 km, Extended 20 km).</li><li><strong><code>conventions.md</code></strong> — equation-formatting and sign conventions.</li></ul>
+
+<h3 id="01-physics-first-principles-derivations"><code>01_physics/</code> — first-principles derivations<a class="ha" href="#01-physics-first-principles-derivations" aria-hidden="true">¶</a></h3>
+<ul><li><strong><code>01_fmcw_theory.md</code></strong> — wave propagation, radar range equation, beat frequency with Doppler coupling, range/velocity measurement. <em>(→ rx_synthesizer, doppler_processor)</em></li><li><strong><code>02_lfm_waveform_model.md</code></strong> — LFM chirp math, matched filter, compressed-pulse sidelobe structure. <em>(→ pulse_compressor, window)</em></li><li><strong><code>03_beamforming_theory.md</code></strong> — ULA array factor, electronic steering, grating lobes, beamwidth. <em>(→ scan_controller, geometry)</em></li><li><strong><code>04_detection_theory.md</code></strong> — SNR, Swerling models, CFAR threshold derivation, P_d/P_fa curves. <em>(→ cfar_detector, plot_conditioner)</em></li><li><strong><code>05_noise_analysis.md</code></strong> — thermal noise, noise figure, integration gain. <em>(→ rx_synthesizer)</em></li><li><strong><code>06_calibration_theory.md</code></strong> — amplitude/phase calibration of the array.</li></ul>
+
+<h3 id="02-hardware-system-context-selected-docs-are-algorithmically-relevant"><code>02_hardware/</code> — system context (selected docs are algorithmically relevant)<a class="ha" href="#02-hardware-system-context-selected-docs-are-algorithmically-relevant" aria-hidden="true">¶</a></h3>
+<ul><li><strong><code>04_antenna_beamforming.md</code></strong> — array geometry / phase-shifter steering. <em>(→ scan_controller)</em></li><li><strong><code>07_timing_budget.md</code></strong> — dwell / PRI / revolution timing. <em>(→ scan_controller, doppler_processor)</em></li><li><strong><code>09_gps_imu_transforms.md</code></strong> — GPS/IMU → world-frame coordinate transforms. <em>(→ nav_source, host_egress)</em></li><li>(remaining hardware docs are mirrored for completeness but radarv2 does not model the RF/power hardware.)</li></ul>
+
+<h3 id="03-software-the-on-board-reference-implementation"><code>03_software/</code> — the on-board reference implementation<a class="ha" href="#03-software-the-on-board-reference-implementation" aria-hidden="true">¶</a></h3>
+<ul><li><strong><code>01_fpga_pipeline.md</code></strong> — the 10-stage AERIS-10 FPGA chain (ADC → DDC → matched filter → Doppler → MTI → CFAR). radarv2&#x27;s signal-processing nodes mirror these stages. <em>(→ pulse_compressor, doppler_processor, cfar_detector)</em></li><li><strong><code>02_stm32_firmware.md</code></strong>, <strong><code>03_python_gui.md</code></strong>, <strong><code>04_usb_protocol.md</code></strong> — host/MCU context.</li></ul>
+
+<h3 id="04-research-improvement-surveys-radarv2-s-future-realism-hooks-map-here"><code>04_research/</code> — improvement surveys (radarv2&#x27;s &quot;future realism&quot; hooks map here)<a class="ha" href="#04-research-improvement-surveys-radarv2-s-future-realism-hooks-map-here" aria-hidden="true">¶</a></h3>
+<ul><li><strong><code>01_cfar_variants.md</code></strong> — CA/GO/SO/OS-CFAR comparison. <em>(→ cfar_detector RS2)</em></li><li><strong><code>02_clutter_rejection.md</code></strong> — MTI/clutter maps. <em>(→ rx_synthesizer clutter, RS1)</em></li><li><strong><code>03_range_extension.md</code></strong> — integration / range budget.</li><li><strong><code>06_pulse_compression.md</code></strong> — NLFM, windowed matched filter, stretch processing. <em>(→ pulse_compressor, window)</em></li><li><strong><code>07_target_tracking.md</code></strong> — association, Kalman/IMM tracking. <em>(→ tracking, fusion)</em></li><li><strong><code>08_adaptive_beamforming.md</code></strong> — adaptive nulling / DBF. <em>(→ scan_controller, future)</em></li><li><strong><code>04_fpga_optimization.md</code></strong>, <strong><code>05_ml_detection.md</code></strong> — implementation / ML detection surveys.</li></ul>
+
+<h2 id="how-radarv2-cites-these">How radarv2 cites these<a class="ha" href="#how-radarv2-cites-these" aria-hidden="true">¶</a></h2>
+
+<p>Each <code>examples/radarv2/packages/&lt;pkg&gt;/README.md</code> ends with a <strong>References</strong> section that</p>
+<p>links the algorithm it implements to the relevant document(s) here (relative path from the</p>
+<p>package up into the vault), plus the upstream GitHub URL for the canonical copy.</p>
+
+</div>
+  </div><!-- main-content -->
+</div><!-- site-shell -->
+<script>
+mermaid.initialize({ startOnLoad: true, theme: 'dark', securityLevel: 'loose' });
+</script>
+</body>
+
+</html>

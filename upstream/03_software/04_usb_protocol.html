@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>04_usb_protocol — aros Vault</title>
+<style>
+
+:root {
+  --color-blue:    #007ACC;
+  --color-green:   #2DA44E;
+  --color-yellow:  #D29922;
+  --color-purple:  #8B5CF6;
+  --color-orange:  #F59E0B;
+  --color-red:     #E5534B;
+  --color-cyan:    #0BC5EA;
+  --color-accent:  #7C3AED;
+  --text-normal:   #DCDDDE;
+  --text-muted:    #8E8EA0;
+  --background-primary:         #1E1E2E;
+  --background-secondary:       #181825;
+  --background-modifier-border: #313244;
+  --color-base-30:              #45475A;
+}
+body {
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.6;
+  margin: 0;
+}
+
+</style>
+<!-- Mermaid -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<!-- MathJax -->
+<script>window.MathJax={tex:{inlineMath:[['$','$'],['\\(','\\)']],displayMath:[['$$','$$'],['\\[','\\]']]},options:{skipHtmlTags:['script','noscript','style','textarea','pre']}};</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+<!-- Site CSS -->
+<link rel="stylesheet" href="../../site.css">
+</head>
+<body class="markdown-reading-view">
+<div class="site-shell">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <a href="../../00-Index.html" class="site-title">radarv2 / AERIS-10</a>
+      <div class="site-subtitle">aros Radar Documentation</div>
+    </div>
+    <ul class="nav-list">
+      <li class="nav-section">Core Docs</li>
+      <li><a href="../../09-Concepts-Primer.html">Radar Primer</a></li>
+      <li><a href="../../00-Index.html">Index</a></li>
+      <li><a href="../../01-System-Overview.html">System Overview</a></li>
+      <li><a href="../../02-Physics-and-Waveform.html">Physics &amp; Waveform</a></li>
+      <li><a href="../../03-Beamforming-and-Scan.html">Beamforming &amp; Scan</a></li>
+      <li><a href="../../04-Signal-Processing-Pipeline.html">Signal Processing</a></li>
+      <li><a href="../../05-Node-Architecture.html">Node Architecture</a></li>
+      <li><a href="../../06-Message-Catalog.html">Message Catalog</a></li>
+      <li><a href="../../07-Detection-and-Tracking.html">Detection &amp; Tracking</a></li>
+      <li><a href="../../08-Scenarios-and-Targets.html">Scenarios &amp; Targets</a></li>
+      <li class="nav-section">Advanced</li>
+      <li><a href="../../10-Radar-Model-Library.html">Radar Model Library</a></li>
+      <li><a href="../../11-Multi-Radar-Fusion.html">Multi-Radar Fusion</a></li>
+      <li><a href="../../12-3D-Scene.html">3-D Scene</a></li>
+      <li><a href="../../13-Reference-Tables.html">Reference Tables</a></li>
+      <li><a href="../../FUTURE-DEVELOPMENT.html">Future Development</a></li>
+      <li class="nav-section">Upstream Theory</li>
+      <li><a href="../../upstream/README.html">Upstream README</a></li>
+      <li><a href="../../upstream/00_notation/conventions.html">Notation</a></li>
+      <li><a href="../../upstream/01_physics/01_fmcw_theory.html">FMCW Theory</a></li>
+      <li><a href="../../upstream/01_physics/02_lfm_waveform_model.html">LFM Waveform</a></li>
+      <li><a href="../../upstream/01_physics/03_beamforming_theory.html">Beamforming Theory</a></li>
+      <li><a href="../../upstream/01_physics/04_detection_theory.html">Detection Theory</a></li>
+      <li><a href="../../upstream/01_physics/05_noise_analysis.html">Noise Analysis</a></li>
+      <li><a href="../../upstream/01_physics/06_calibration_theory.html">Calibration</a></li>
+      <li><a href="../../upstream/02_hardware/01_system_overview.html">HW Overview</a></li>
+      <li><a href="../../upstream/04_research/01_cfar_variants.html">CFAR Variants</a></li>
+    </ul>
+    <div class="sidebar-footer">
+      <a href="https://github.com/brkay54/radarv2-docs" target="_blank">GitHub</a>
+    </div>
+  </nav>
+  <div class="main-content">
+
+<div class="markdown-preview-section">
+<h1 id="usb-interface-protocol">USB Interface Protocol<a class="ha" href="#usb-interface-protocol" aria-hidden="true">¶</a></h1>
+
+<p class="kv-line"><span class="kv-key">Purpose:</span> <span class="kv-value">Specify the AERIS-10 USB communication protocol completely enough that an engineer can implement a new host-side client without reading the FPGA Verilog or STM32 C++ source code. Covers all three communication paths: FPGA radar data (FT601 USB 3.0), STM32 telemetry (USB CDC), and host commands (USB CDC).</span></p>
+
+<p class="kv-line"><span class="kv-key">Prerequisites:</span> <span class="kv-value">Familiarity with:</span></p>
+<ul><li><a href="../00_notation/symbol_table.md">Symbol Table</a> -- all symbols used herein</li><li><a href="../00_notation/parameter_table.md">Parameter Table</a> -- numerical values for both variants</li><li><a href="../00_notation/conventions.md">Conventions</a> -- equation formatting rules</li><li><a href="01_fpga_pipeline.md">FPGA Pipeline</a> -- signal processing chain producing USB output data</li></ul>
+
+<hr>
+
+<h2 id="1-protocol-overview">1. Protocol Overview<a class="ha" href="#1-protocol-overview" aria-hidden="true">¶</a></h2>
+
+<p>The AERIS-10 radar system uses three independent USB communication paths between the embedded hardware and the host PC:</p>
+
+<table class="md-table"><thead><tr><th>Path</th><th>Direction</th><th>Transport</th><th>Controller</th><th>Data</th></tr></thead><tbody><tr><td>Radar data</td><td>FPGA -&gt; Host</td><td>USB 3.0 bulk transfer</td><td>FT601</td><td>Range profile, Doppler I/Q, CFAR detection</td></tr><tr><td>GPS/telemetry</td><td>STM32 -&gt; Host</td><td>USB CDC (virtual COM)</td><td>STM32F4 USB-FS</td><td>GPS position, pitch, altitude, system status</td></tr><tr><td>Commands</td><td>Host -&gt; STM32</td><td>USB CDC (virtual COM)</td><td>STM32F4 USB-FS</td><td>Start/stop flag, radar settings</td></tr></tbody></table>
+
+<p>The FT601 path carries high-bandwidth radar data at the chirp repetition rate. The STM32 CDC path carries low-bandwidth control and telemetry. These two paths are electrically and logically independent -- the FPGA connects to the host via the FT601 USB 3.0 bridge IC, while the STM32 connects via its built-in USB Full-Speed peripheral.</p>
+
+<hr>
+
+<h2 id="2-ft601-physical-layer">2. FT601 Physical Layer<a class="ha" href="#2-ft601-physical-layer" aria-hidden="true">¶</a></h2>
+
+<h3 id="2-1-ft601-slave-fifo-interface">2.1 FT601 Slave FIFO Interface<a class="ha" href="#2-1-ft601-slave-fifo-interface" aria-hidden="true">¶</a></h3>
+
+<p>The FT601 USB 3.0 bridge IC operates in <strong>Slave FIFO mode</strong>, where the FPGA acts as the bus master controlling data transfers to/from the host PC.</p>
+
+<table class="md-table"><thead><tr><th>Parameter</th><th>Value</th><th>Source</th></tr></thead><tbody><tr><td>Data bus width</td><td>32 bits</td><td><code>ft601_data[31:0]</code> in <code>usb_data_interface.v</code></td></tr><tr><td>Clock source</td><td><code>ft601_clk_in</code> (100 MHz)</td><td>FT601 on-board oscillator</td></tr><tr><td>Clock relationship</td><td>Asynchronous to FPGA system 100 MHz</td><td>Separate oscillator (see <a href="../02_hardware/05_fpga_board.md">FPGA Board</a>)</td></tr><tr><td>Max burst size</td><td>512 bytes</td><td><code>FT601_BURST_SIZE</code> parameter</td></tr><tr><td>USB vendor ID</td><td><code>0x0403</code></td><td>FTDI standard VID</td></tr><tr><td>USB product ID</td><td><code>0x6030</code> (FT601) or <code>0x6031</code> (FT601Q)</td><td>Per FT601 datasheet</td></tr></tbody></table>
+
+<h3 id="2-2-signal-descriptions">2.2 Signal Descriptions<a class="ha" href="#2-2-signal-descriptions" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Signal</th><th>Direction</th><th>Active</th><th>Description</th></tr></thead><tbody><tr><td><code>ft601_data[31:0]</code></td><td>Bidirectional</td><td>--</td><td>32-bit data bus with tri-state control (<code>ft601_data_oe</code>)</td></tr><tr><td><code>ft601_be[1:0]</code></td><td>FPGA -&gt; FT601</td><td>--</td><td>Byte enable: <code>2&#x27;b01</code> = lower byte only, <code>2&#x27;b11</code> = full 32-bit word</td></tr><tr><td><code>ft601_wr_n</code></td><td>FPGA -&gt; FT601</td><td>Low</td><td>Write strobe -- asserted to push data into FT601 TX FIFO</td></tr><tr><td><code>ft601_rd_n</code></td><td>FPGA -&gt; FT601</td><td>Low</td><td>Read strobe -- asserted to pull data from FT601 RX FIFO</td></tr><tr><td><code>ft601_oe_n</code></td><td>FPGA -&gt; FT601</td><td>Low</td><td>Output enable for FT601 data bus direction</td></tr><tr><td><code>ft601_txe</code></td><td>FT601 -&gt; FPGA</td><td>High</td><td>TX FIFO empty flag -- when low, FIFO has space for writes</td></tr><tr><td><code>ft601_rxf</code></td><td>FT601 -&gt; FPGA</td><td>High</td><td>RX FIFO full flag -- when low, data available for reads</td></tr><tr><td><code>ft601_siwu_n</code></td><td>FPGA -&gt; FT601</td><td>Low</td><td>Send Immediate / Wake Up signal</td></tr><tr><td><code>ft601_clk_in</code></td><td>FT601 -&gt; FPGA</td><td>--</td><td>Reference clock from FT601 (100 MHz)</td></tr><tr><td><code>ft601_clk_out</code></td><td>FPGA -&gt; FT601</td><td>--</td><td>Optional clock output (system clock / 2)</td></tr></tbody></table>
+
+<h3 id="2-3-data-bus-direction-control">2.3 Data Bus Direction Control<a class="ha" href="#2-3-data-bus-direction-control" aria-hidden="true">¶</a></h3>
+
+<p>The 32-bit data bus is bidirectional with tri-state control:</p>
+
+<pre><code>ft601_data = ft601_data_oe ? ft601_data_out : 32&#x27;hzzzz_zzzz</code></pre>
+
+<p>The FPGA drives the bus (<code>ft601_data_oe = 1</code>) only during active write states. In IDLE and WAIT_ACK states, the bus is released to high-impedance.</p>
+
+<hr>
+
+<h2 id="3-fpga-to-host-packet-format">3. FPGA-to-Host Packet Format<a class="ha" href="#3-fpga-to-host-packet-format" aria-hidden="true">¶</a></h2>
+
+<h3 id="3-1-state-machine">3.1 State Machine<a class="ha" href="#3-1-state-machine" aria-hidden="true">¶</a></h3>
+
+<p>The FPGA transmits radar data packets using a seven-state machine clocked on <code>ft601_clk_in</code> (from <code>usb_data_interface.v</code>):</p>
+
+<pre><code>IDLE -&gt; SEND_HEADER -&gt; SEND_RANGE_DATA -&gt; SEND_DOPPLER_DATA -&gt;
+        SEND_DETECTION_DATA -&gt; SEND_FOOTER -&gt; WAIT_ACK -&gt; IDLE</code></pre>
+
+<p class="kv-line"><span class="kv-key">Trigger condition:</span> <span class="kv-value">The state machine exits IDLE when any of <code>range_valid</code>, <code>doppler_valid</code>, or <code>cfar_valid</code> is asserted. All subsequent states wait for <code>ft601_txe</code> to be low (FT601 TX FIFO has space) before writing.</span></p>
+
+<h3 id="3-2-packet-structure">3.2 Packet Structure<a class="ha" href="#3-2-packet-structure" aria-hidden="true">¶</a></h3>
+
+<p>Each radar data packet contains the following fields, transmitted sequentially:</p>
+
+<table class="md-table"><thead><tr><th>Field</th><th>Transfers</th><th>Byte Enable</th><th>Content</th><th>Total Bits</th></tr></thead><tbody><tr><td>Header</td><td>1</td><td><code>BE=01</code></td><td><code>{24&#x27;b0, 0xAA}</code> -- constant header marker</td><td>8 valid</td></tr><tr><td>Range profile</td><td>4</td><td><code>BE=11</code></td><td>32-bit range bin magnitudes, shifted across 4 transfers</td><td>4 x 32 = 128</td></tr><tr><td>Doppler I/Q</td><td>4</td><td><code>BE=11</code></td><td>Packed <code>{doppler_real[15:0], doppler_imag[15:0]}</code>, shifted across 4 transfers</td><td>4 x 32 = 128</td></tr><tr><td>Detection flag</td><td>1</td><td><code>BE=01</code></td><td><code>{24&#x27;b0, 7&#x27;b0, cfar_detection}</code> -- single-bit CFAR result</td><td>1 valid</td></tr><tr><td>Footer</td><td>1</td><td><code>BE=01</code></td><td><code>{24&#x27;b0, 0x55}</code> -- constant footer marker</td><td>8 valid</td></tr></tbody></table>
+
+<p class="kv-line"><span class="kv-key">Total transfers per packet:</span> <span class="kv-value">11 (1 header + 4 range + 4 Doppler + 1 detection + 1 footer)</span></p>
+
+<h3 id="3-3-header-0xaa">3.3 Header (0xAA)<a class="ha" href="#3-3-header-0xaa" aria-hidden="true">¶</a></h3>
+
+<p>The header byte <code>0xAA</code> marks the start of every radar data packet. It is transmitted as the least-significant byte of the 32-bit data bus with <code>BE=01</code> (only lower byte valid). A host parser should scan for this byte to synchronize to the packet boundary.</p>
+
+<pre><code class="language-verilog">ft601_data_out &lt;= {24&#x27;b0, 8&#x27;hAA};   // Header = 0xAA
+ft601_be &lt;= 2&#x27;b01;                    // Lower byte valid</code></pre>
+
+<h3 id="3-4-range-profile-data">3.4 Range Profile Data<a class="ha" href="#3-4-range-profile-data" aria-hidden="true">¶</a></h3>
+
+<p>The 32-bit <code>range_profile</code> input is transmitted across four 32-bit transfers with shifting:</p>
+
+<table class="md-table"><thead><tr><th>Transfer</th><th>Data</th><th>Description</th></tr></thead><tbody><tr><td>0</td><td><code>range_profile[31:0]</code></td><td>Full 32-bit word, unshifted</td></tr><tr><td>1</td><td><code>{range_profile[23:0], 8&#x27;h00}</code></td><td>Shifted left 8 bits</td></tr><tr><td>2</td><td><code>{range_profile[15:0], 16&#x27;h0000}</code></td><td>Shifted left 16 bits</td></tr><tr><td>3</td><td><code>{range_profile[7:0], 24&#x27;h000000}</code></td><td>Shifted left 24 bits</td></tr></tbody></table>
+
+<p>All four transfers use <code>BE=11</code> (full 32-bit word valid).</p>
+
+<h3 id="3-5-doppler-i-q-data">3.5 Doppler I/Q Data<a class="ha" href="#3-5-doppler-i-q-data" aria-hidden="true">¶</a></h3>
+
+<p>Doppler data packs real (I) and imaginary (Q) components, each 16-bit signed integers, across four 32-bit transfers:</p>
+
+<table class="md-table"><thead><tr><th>Transfer</th><th>Data</th><th>Description</th></tr></thead><tbody><tr><td>0</td><td><code>{doppler_real[15:0], doppler_imag[15:0]}</code></td><td>I in upper half, Q in lower half</td></tr><tr><td>1</td><td><code>{doppler_imag[15:0], doppler_real[15:8], 8&#x27;h00}</code></td><td>Cross-boundary packing</td></tr><tr><td>2</td><td><code>{doppler_real[7:0], doppler_imag[15:8], 16&#x27;h0000}</code></td><td>Cross-boundary packing</td></tr><tr><td>3</td><td><code>{doppler_imag[7:0], 24&#x27;h000000}</code></td><td>Final byte</td></tr></tbody></table>
+
+<p>Doppler transfers are gated by <code>doppler_valid</code> in addition to <code>ft601_txe</code>. All four transfers use <code>BE=11</code>.</p>
+
+<h3 id="3-6-detection-flag">3.6 Detection Flag<a class="ha" href="#3-6-detection-flag" aria-hidden="true">¶</a></h3>
+
+<p>A single-byte field containing the CFAR detection result:</p>
+
+<pre><code class="language-verilog">ft601_data_out &lt;= {24&#x27;b0, 7&#x27;b0, cfar_detection};   // Bit 0 = detection
+ft601_be &lt;= 2&#x27;b01;                                   // Lower byte valid</code></pre>
+
+<ul><li><code>cfar_detection = 1</code>: Target detected in the current range-Doppler cell</li><li><code>cfar_detection = 0</code>: No detection</li></ul>
+
+<p>This field is gated by <code>cfar_valid</code> -- the state machine waits for <code>cfar_valid</code> before proceeding.</p>
+
+<blockquote><strong>Note:</strong> The current FPGA implementation uses a simple magnitude threshold (<code>|I|+|Q| &gt; 10000</code>) rather than a true CA-CFAR algorithm. See <a href="01_fpga_pipeline.md">FPGA Pipeline</a> for details.</blockquote>
+
+<h3 id="3-7-footer-0x55">3.7 Footer (0x55)<a class="ha" href="#3-7-footer-0x55" aria-hidden="true">¶</a></h3>
+
+<p>The footer byte <code>0x55</code> marks the end of the packet. A host parser should verify this byte to confirm packet integrity. After the footer, the state machine transitions to WAIT_ACK (one clock cycle of bus release) and then returns to IDLE.</p>
+
+<pre><code class="language-verilog">ft601_data_out &lt;= {24&#x27;b0, 8&#x27;h55};   // Footer = 0x55
+ft601_be &lt;= 2&#x27;b01;                    // Lower byte valid</code></pre>
+
+<h3 id="3-8-packet-validation-analyzer-module">3.8 Packet Validation (Analyzer Module)<a class="ha" href="#3-8-packet-validation-analyzer-module" aria-hidden="true">¶</a></h3>
+
+<p>The companion <code>usb_packet_analyzer.v</code> module provides an independent verification path for received packets. It checks:</p>
+
+<ul><li>Header byte matches <code>0xAA</code> (in <code>usb_data[31:24]</code> or <code>usb_data[7:0]</code> depending on byte position)</li><li>Footer byte matches <code>0x55</code></li><li>Maintains <code>error_count</code> register for mismatched footers</li><li>Asserts <code>packet_valid</code> for one clock cycle on successful packet reception</li></ul>
+
+<p>This module is intended for FPGA-side loopback testing and is not part of the host-facing protocol.</p>
+
+<hr>
+
+<h2 id="4-stm32-to-host-protocol-gps-telemetry">4. STM32-to-Host Protocol (GPS/Telemetry)<a class="ha" href="#4-stm32-to-host-protocol-gps-telemetry" aria-hidden="true">¶</a></h2>
+
+<p>The STM32 communicates with the host PC over USB CDC (virtual COM port) using the STM32F4 USB Full-Speed peripheral. The firmware uses the STM32 HAL CDC class (<code>usbd_cdc_if.h</code>) for USB communication.</p>
+
+<h3 id="4-1-gps-binary-packet-format">4.1 GPS Binary Packet Format<a class="ha" href="#4-1-gps-binary-packet-format" aria-hidden="true">¶</a></h3>
+
+<p>The <code>GPS_SendBinaryToGUI()</code> function (in <code>gps_handler.cpp</code>) transmits the platform&#x27;s GPS position and pitch angle to the host in a 30-byte binary packet:</p>
+
+<table class="md-table"><thead><tr><th>Offset</th><th>Size</th><th>Type</th><th>Byte Order</th><th>Content</th></tr></thead><tbody><tr><td>0</td><td>4</td><td>char[4]</td><td>--</td><td>Header: <code>&quot;GPSB&quot;</code> (ASCII <code>0x47 0x50 0x53 0x42</code>)</td></tr><tr><td>4</td><td>8</td><td>double</td><td>Big-endian</td><td>Latitude (decimal degrees, <code>GPS_Data_t.latitude</code>)</td></tr><tr><td>12</td><td>8</td><td>double</td><td>Big-endian</td><td>Longitude (decimal degrees, <code>GPS_Data_t.longitude</code>)</td></tr><tr><td>20</td><td>4</td><td>float</td><td>Big-endian</td><td>Altitude (meters, <code>GPS_Data_t.altitude</code>)</td></tr><tr><td>24</td><td>4</td><td>float</td><td>Big-endian</td><td>Pitch angle (degrees, <code>GPS_Data_t.pitch</code>)</td></tr><tr><td>28</td><td>2</td><td>uint16</td><td>Big-endian</td><td>Checksum: sum of bytes [0..27]</td></tr></tbody></table>
+
+<p class="kv-line"><span class="kv-key">Total packet size:</span> <span class="kv-value">30 bytes</span></p>
+
+<p>The <code>GPS_Data_t</code> structure (defined in <code>gps_handler.h</code>) contains:</p>
+
+<pre><code class="language-c">typedef struct {
+    double latitude;     // Decimal degrees
+    double longitude;    // Decimal degrees
+    float altitude;      // Meters
+    float pitch;         // Degrees
+    uint32_t timestamp;  // HAL_GetTick() value (milliseconds since boot)
+} GPS_Data_t;</code></pre>
+
+<blockquote><strong>Note:</strong> The <code>timestamp</code> field from <code>GPS_Data_t</code> is not transmitted in the binary packet; only latitude, longitude, altitude, and pitch are sent.</blockquote>
+
+<h3 id="4-2-system-status-messages">4.2 System Status Messages<a class="ha" href="#4-2-system-status-messages" aria-hidden="true">¶</a></h3>
+
+<p>The STM32 also sends ASCII status strings to the host via <code>CDC_Transmit_FS()</code>. The <code>getSystemStatusForGUI()</code> function formats a human-readable status string covering system initialization state, sensor readings, and error conditions.</p>
+
+<h3 id="4-3-gps-text-protocol-alternative">4.3 GPS Text Protocol (Alternative)<a class="ha" href="#4-3-gps-text-protocol-alternative" aria-hidden="true">¶</a></h3>
+
+<p>The <code>GPS_SendToGUI()</code> function provides an alternative ASCII format:</p>
+
+<pre><code>GPS:lat,lon,alt\r\n</code></pre>
+
+<p>This is a simpler format used for debugging. The binary protocol (<code>GPS_SendBinaryToGUI</code>) is preferred for production use due to its fixed-length structure and checksum.</p>
+
+<hr>
+
+<h2 id="5-host-to-stm32-commands">5. Host-to-STM32 Commands<a class="ha" href="#5-host-to-stm32-commands" aria-hidden="true">¶</a></h2>
+
+<p>The host PC sends commands to the STM32 over the same USB CDC interface. The <code>USBHandler</code> class (in <code>USBHandler.h</code>) manages incoming USB data with a three-state protocol:</p>
+
+<h3 id="5-1-usbhandler-state-machine">5.1 USBHandler State Machine<a class="ha" href="#5-1-usbhandler-state-machine" aria-hidden="true">¶</a></h3>
+
+<pre><code>WAITING_FOR_START -&gt; RECEIVING_SETTINGS -&gt; READY_FOR_DATA</code></pre>
+
+<table class="md-table"><thead><tr><th>State</th><th>Description</th><th>Transition</th></tr></thead><tbody><tr><td><code>WAITING_FOR_START</code></td><td>Idle, waiting for start flag from host</td><td>Start flag received -&gt; <code>RECEIVING_SETTINGS</code></td></tr><tr><td><code>RECEIVING_SETTINGS</code></td><td>Parsing <code>RadarSettings</code> from USB data</td><td>Settings parsed and valid -&gt; <code>READY_FOR_DATA</code></td></tr><tr><td><code>READY_FOR_DATA</code></td><td>Settings applied, radar operation begins</td><td><code>reset()</code> called -&gt; <code>WAITING_FOR_START</code></td></tr></tbody></table>
+
+<p>Incoming USB data is routed through the STM32 HAL CDC receive callback:</p>
+
+<pre><code class="language-c">void CDC_Receive_FS(uint8_t* Buf, uint32_t *Len) {
+    usbHandler.processUSBData(Buf, *Len);
+    USBD_CDC_SetRxBuffer(&amp;hUsbDeviceFS, &amp;usb_rx_buffer[0]);
+    USBD_CDC_ReceivePacket(&amp;hUsbDeviceFS);
+}</code></pre>
+
+<h3 id="5-2-start-stop-protocol">5.2 Start/Stop Protocol<a class="ha" href="#5-2-start-stop-protocol" aria-hidden="true">¶</a></h3>
+
+<p>The host sends a start flag to initiate radar operation. The firmware waits in a blocking loop:</p>
+
+<pre><code class="language-c">do {
+    if (usbHandler.isStartFlagReceived() &amp;&amp;
+        usbHandler.getState() == USBHandler::USBState::READY_FOR_DATA) {
+        const RadarSettings&amp; settings = usbHandler.getSettings();
+        // Configure radar with received settings
+    }
+} while(!usbHandler.isStartFlagReceived());</code></pre>
+
+<p>The start flag must be sent before the radar begins its power-up and scanning sequence. Once received, the STM32 proceeds with RF power amplifier sequencing and radar loop execution.</p>
+
+<h3 id="5-3-radarsettings-structure">5.3 RadarSettings Structure<a class="ha" href="#5-3-radarsettings-structure" aria-hidden="true">¶</a></h3>
+
+<p>The <code>RadarSettings</code> class (in <code>RadarSettings.h</code>) contains all configurable radar parameters sent from the host GUI to the STM32:</p>
+
+<table class="md-table"><thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Standard Symbol</th><th>Description</th></tr></thead><tbody><tr><td><code>system_frequency</code></td><td><code>double</code></td><td>--</td><td>$f_c$</td><td>Center frequency (Hz)</td></tr><tr><td><code>chirp_duration_1</code></td><td><code>double</code></td><td>--</td><td>$T_{c,1}$</td><td>Long chirp duration (s)</td></tr><tr><td><code>chirp_duration_2</code></td><td><code>double</code></td><td>--</td><td>$T_{c,2}$</td><td>Short chirp duration (s)</td></tr><tr><td><code>chirps_per_position</code></td><td><code>uint32_t</code></td><td>--</td><td>$M$</td><td>Chirps per beam position</td></tr><tr><td><code>freq_min</code></td><td><code>double</code></td><td>--</td><td>--</td><td>Minimum frequency (Hz)</td></tr><tr><td><code>freq_max</code></td><td><code>double</code></td><td>--</td><td>--</td><td>Maximum frequency (Hz)</td></tr><tr><td><code>prf1</code></td><td><code>double</code></td><td>--</td><td>--</td><td>Display update rate, long chirp (Hz)</td></tr><tr><td><code>prf2</code></td><td><code>double</code></td><td>--</td><td>--</td><td>Display update rate, short chirp (Hz)</td></tr><tr><td><code>max_distance</code></td><td><code>double</code></td><td>--</td><td>$R_\text{max}$</td><td>Maximum display range (m)</td></tr><tr><td><code>map_size</code></td><td><code>double</code></td><td>--</td><td>--</td><td>Map display size (m)</td></tr></tbody></table>
+
+<p>The <code>parseFromUSB()</code> method deserializes binary USB data into this structure using <code>extractDouble()</code> and <code>extractUint32()</code> helper methods. After parsing, <code>validateSettings()</code> checks that all values are within acceptable bounds before the handler transitions to <code>READY_FOR_DATA</code>.</p>
+
+<p>The USB receive buffer is 256 bytes (<code>MAX_BUFFER_SIZE</code> in <code>USBHandler.h</code>), which is sufficient for the full settings payload.</p>
+
+<hr>
+
+<h2 id="6-streaming-protocol">6. Streaming Protocol<a class="ha" href="#6-streaming-protocol" aria-hidden="true">¶</a></h2>
+
+<h3 id="6-1-continuous-data-flow">6.1 Continuous Data Flow<a class="ha" href="#6-1-continuous-data-flow" aria-hidden="true">¶</a></h3>
+
+<p>During radar operation, the FPGA generates one USB data packet per chirp processing cycle. The data flow is:</p>
+
+<ul><li><strong>FPGA produces data:</strong> Each chirp cycle produces range profile, Doppler I/Q, and CFAR detection outputs</li><li><strong>State machine packetizes:</strong> The <code>usb_data_interface.v</code> state machine wraps the data in header/footer framing</li><li><strong>FT601 buffers:</strong> The FT601 IC buffers packets in its internal FIFO before USB 3.0 bulk transfer</li><li><strong>Host reads in bulk:</strong> The host application reads from the FT601 USB endpoint, typically in 512-byte or 4096-byte chunks</li></ul>
+
+<h3 id="6-2-data-rate-estimate">6.2 Data Rate Estimate<a class="ha" href="#6-2-data-rate-estimate" aria-hidden="true">¶</a></h3>
+
+<p>$$</p>
+<p>R_\text{data} = \frac{N_\text{transfers} \times W_\text{bus}}{T_{r,1}} \tag{SW-1}</p>
+<p>$$</p>
+
+<p>where $N_\text{transfers} = 11$ transfers per packet, $W_\text{bus} = 32$ bits per transfer, and $T_{r,1}$ is the chirp PRI (see <a href="../00_notation/parameter_table.md#waveform-and-timing">Parameter Table</a> for values).</p>
+
+<p>At the long chirp PRI of $T_{r,1} = 167~\mu\text{s}$:</p>
+
+<ul><li>Transfers per second: $1 / T_{r,1} \approx 5988$ packets/s</li><li>Bits per second: $5988 \times 11 \times 32 \approx 2.1~\text{Mbps}$</li></ul>
+
+<p>This is well within the FT601 USB 3.0 SuperSpeed bandwidth (5 Gbps theoretical, ~300 MBps practical).</p>
+
+<h3 id="6-3-flow-control">6.3 Flow Control<a class="ha" href="#6-3-flow-control" aria-hidden="true">¶</a></h3>
+
+<p>The FPGA respects the FT601&#x27;s flow control signals:</p>
+
+<ul><li><strong><code>ft601_txe</code> (TX FIFO empty):</strong> The state machine checks <code>!ft601_txe</code> before every write. If the FT601 TX FIFO is full, the state machine stalls in the current state until space becomes available.</li><li><strong>Back-pressure:</strong> If the host does not read data fast enough, the FT601 FIFO fills, <code>ft601_txe</code> goes high, and the FPGA state machine pauses. No data is lost -- the FPGA waits until the host drains the FIFO.</li><li><strong>No explicit ACK:</strong> The <code>WAIT_ACK</code> state is a single-cycle bus-release transition, not a true acknowledgment protocol. The FPGA does not wait for host confirmation of packet receipt.</li></ul>
+
+<hr>
+
+<h2 id="7-implementing-a-new-client">7. Implementing a New Client<a class="ha" href="#7-implementing-a-new-client" aria-hidden="true">¶</a></h2>
+
+<p>To implement a new host-side client for the AERIS-10 radar data stream:</p>
+
+<h3 id="7-1-ft601-radar-data-usb-3-0">7.1 FT601 Radar Data (USB 3.0)<a class="ha" href="#7-1-ft601-radar-data-usb-3-0" aria-hidden="true">¶</a></h3>
+
+<ul><li><strong>Enumerate FT601 device:</strong> Scan USB for VID <code>0x0403</code>, PID <code>0x6030</code> or <code>0x6031</code></li><li><strong>Open and configure:</strong> Set Synchronous FIFO mode, 100 MHz clock, 32-bit data bus</li><li><strong>Read data:</strong> Perform bulk reads in chunks (512 or 4096 bytes recommended)</li><li><strong>Parse packets:</strong></li><li>Scan for header byte <code>0xAA</code></li><li>Read 4 x 32-bit range transfers</li><li>Read 4 x 32-bit Doppler transfers (extract <code>doppler_real[15:0]</code> and <code>doppler_imag[15:0]</code>)</li><li>Read 1-byte detection flag (bit 0 = CFAR detection)</li><li>Verify footer byte <code>0x55</code></li><li>Discard packet if footer mismatch</li><li><strong>Interpret data:</strong></li><li>Range profile: 32-bit magnitude values for each range bin</li><li>Doppler I/Q: signed 16-bit I and Q components for velocity estimation</li><li>Detection: boolean target-present indicator</li></ul>
+
+<h3 id="7-2-stm32-telemetry-usb-cdc">7.2 STM32 Telemetry (USB CDC)<a class="ha" href="#7-2-stm32-telemetry-usb-cdc" aria-hidden="true">¶</a></h3>
+
+<ul><li><strong>Enumerate STM32 device:</strong> Open the virtual COM port (VCP) exposed by the STM32 USB CDC class</li><li><strong>Receive GPS packets:</strong> Parse 30-byte binary frames starting with <code>&quot;GPSB&quot;</code> header</li><li><strong>Verify checksum:</strong> Sum bytes [0..27], compare with bytes [28..29] (big-endian uint16)</li><li><strong>Extract fields:</strong> Latitude (double, offset 4), longitude (double, offset 12), altitude (float, offset 20), pitch (float, offset 24)</li></ul>
+
+<h3 id="7-3-host-commands-usb-cdc">7.3 Host Commands (USB CDC)<a class="ha" href="#7-3-host-commands-usb-cdc" aria-hidden="true">¶</a></h3>
+
+<ul><li><strong>Send start flag:</strong> Transmit the start flag byte sequence to trigger the STM32 start protocol</li><li><strong>Send settings:</strong> Serialize <code>RadarSettings</code> fields as binary payload (doubles as IEEE 754, uint32 as little-endian)</li><li><strong>Wait for ready:</strong> The STM32 will begin radar operation after receiving valid settings</li></ul>
+
+<h3 id="7-4-python-reference-implementation">7.4 Python Reference Implementation<a class="ha" href="#7-4-python-reference-implementation" aria-hidden="true">¶</a></h3>
+
+<p>The <code>FT601Interface</code> class in <code>GUI_V6.py</code> provides a reference implementation using two access methods:</p>
+
+<ul><li><strong>Primary:</strong> <code>pyftdi</code> library (<code>Ftdi.open_from_url()</code>, <code>set_bitmode(SYNCFF)</code>, <code>read_data()</code>)</li><li><strong>Fallback:</strong> <code>pyusb</code> direct USB access (<code>usb.core.find()</code>, endpoint read/write)</li></ul>
+
+<p>See <a href="03_python_gui.md">Python GUI V6</a> for the complete class documentation.</p>
+
+<hr>
+
+<h2 id="8-references">8. References<a class="ha" href="#8-references" aria-hidden="true">¶</a></h2>
+
+<ul><li><a href="../00_notation/symbol_table.md">Symbol Table</a> -- standard symbol definitions</li><li><a href="../00_notation/parameter_table.md">Parameter Table</a> -- chirp timing and system parameters</li><li><a href="01_fpga_pipeline.md">FPGA Pipeline</a> -- signal processing chain producing USB output data</li><li><a href="../02_hardware/05_fpga_board.md">FPGA Board</a> -- FT601 clock domain and hardware connection details</li><li>FTDI FT601 Datasheet -- USB 3.0 to FIFO bridge IC specification</li><li>STM32 USB CDC Application Note (AN4879) -- Virtual COM port implementation</li></ul>
+
+</div>
+  </div><!-- main-content -->
+</div><!-- site-shell -->
+<script>
+mermaid.initialize({ startOnLoad: true, theme: 'dark', securityLevel: 'loose' });
+</script>
+</body>
+
+</html>

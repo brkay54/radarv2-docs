@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>radarv2 — Signal Processing Pipeline — aros Vault</title>
+<style>
+
+:root {
+  --color-blue:    #007ACC;
+  --color-green:   #2DA44E;
+  --color-yellow:  #D29922;
+  --color-purple:  #8B5CF6;
+  --color-orange:  #F59E0B;
+  --color-red:     #E5534B;
+  --color-cyan:    #0BC5EA;
+  --color-accent:  #7C3AED;
+  --text-normal:   #DCDDDE;
+  --text-muted:    #8E8EA0;
+  --background-primary:         #1E1E2E;
+  --background-secondary:       #181825;
+  --background-modifier-border: #313244;
+  --color-base-30:              #45475A;
+}
+body {
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.6;
+  margin: 0;
+}
+
+</style>
+<!-- Mermaid -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<!-- MathJax -->
+<script>window.MathJax={tex:{inlineMath:[['$','$'],['\\(','\\)']],displayMath:[['$$','$$'],['\\[','\\]']]},options:{skipHtmlTags:['script','noscript','style','textarea','pre']}};</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+<!-- Site CSS -->
+<link rel="stylesheet" href="site.css">
+</head>
+<body class="markdown-reading-view">
+<div class="site-shell">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <a href="00-Index.html" class="site-title">radarv2 / AERIS-10</a>
+      <div class="site-subtitle">aros Radar Documentation</div>
+    </div>
+    <ul class="nav-list">
+      <li class="nav-section">Core Docs</li>
+      <li><a href="09-Concepts-Primer.html">Radar Primer</a></li>
+      <li><a href="00-Index.html">Index</a></li>
+      <li><a href="01-System-Overview.html">System Overview</a></li>
+      <li><a href="02-Physics-and-Waveform.html">Physics &amp; Waveform</a></li>
+      <li><a href="03-Beamforming-and-Scan.html">Beamforming &amp; Scan</a></li>
+      <li><a href="04-Signal-Processing-Pipeline.html">Signal Processing</a></li>
+      <li><a href="05-Node-Architecture.html">Node Architecture</a></li>
+      <li><a href="06-Message-Catalog.html">Message Catalog</a></li>
+      <li><a href="07-Detection-and-Tracking.html">Detection &amp; Tracking</a></li>
+      <li><a href="08-Scenarios-and-Targets.html">Scenarios &amp; Targets</a></li>
+      <li class="nav-section">Advanced</li>
+      <li><a href="10-Radar-Model-Library.html">Radar Model Library</a></li>
+      <li><a href="11-Multi-Radar-Fusion.html">Multi-Radar Fusion</a></li>
+      <li><a href="12-3D-Scene.html">3-D Scene</a></li>
+      <li><a href="13-Reference-Tables.html">Reference Tables</a></li>
+      <li><a href="FUTURE-DEVELOPMENT.html">Future Development</a></li>
+      <li class="nav-section">Upstream Theory</li>
+      <li><a href="upstream/README.html">Upstream README</a></li>
+      <li><a href="upstream/00_notation/conventions.html">Notation</a></li>
+      <li><a href="upstream/01_physics/01_fmcw_theory.html">FMCW Theory</a></li>
+      <li><a href="upstream/01_physics/02_lfm_waveform_model.html">LFM Waveform</a></li>
+      <li><a href="upstream/01_physics/03_beamforming_theory.html">Beamforming Theory</a></li>
+      <li><a href="upstream/01_physics/04_detection_theory.html">Detection Theory</a></li>
+      <li><a href="upstream/01_physics/05_noise_analysis.html">Noise Analysis</a></li>
+      <li><a href="upstream/01_physics/06_calibration_theory.html">Calibration</a></li>
+      <li><a href="upstream/02_hardware/01_system_overview.html">HW Overview</a></li>
+      <li><a href="upstream/04_research/01_cfar_variants.html">CFAR Variants</a></li>
+    </ul>
+    <div class="sidebar-footer">
+      <a href="https://github.com/brkay54/radarv2-docs" target="_blank">GitHub</a>
+    </div>
+  </nav>
+  <div class="main-content">
+
+<div class="markdown-preview-section">
+<h1 id="signal-processing-pipeline">Signal Processing Pipeline<a class="ha" href="#signal-processing-pipeline" aria-hidden="true">¶</a></h1>
+
+<div class="callout" data-callout="abstract"><div class="callout-title">Scope</div><div class="callout-content"><p>The AERIS-10 10-stage FPGA receive pipeline, the math each stage performs, and</p>
+<p>how the stages fold into radarv2&#x27;s four RX/DET nodes. This is the heart of the</p>
+<p>example — the rest of the system exists to feed and drain this chain.</p></div></div>
+
+<hr>
+
+<h2 id="1-the-aeris-10-fpga-pipeline-reference">1. The AERIS-10 FPGA pipeline (reference)<a class="ha" href="#1-the-aeris-10-fpga-pipeline-reference" aria-hidden="true">¶</a></h2>
+
+<p>The real receive pipeline runs in <code>radar_receiver_final.v</code> across three clock</p>
+<p>domains (400 MHz ADC, 100 MHz system, 100 MHz FT601). Ten stages convert raw ADC</p>
+<p>samples into a thresholded range-Doppler map.</p>
+
+<table class="md-table"><thead><tr><th>Stage</th><th>Function</th><th>In → Out</th></tr></thead><tbody><tr><td>1</td><td>ADC acquisition (LVDS→CMOS, clock recovery)</td><td>8-bit LVDS → 8-bit CMOS</td></tr><tr><td>2</td><td>CDC ADC→processing</td><td>8-bit synchronized</td></tr><tr><td>3</td><td><strong>Digital down-conversion</strong> (NCO mix + CIC + FIR)</td><td>8-bit → 18-bit I/Q baseband</td></tr><tr><td>4</td><td>DDC output interface (scale/align)</td><td>18-bit → 16-bit I/Q</td></tr><tr><td>5</td><td>Reference chirp load + latency buffer</td><td>segment select → delayed 16-bit I/Q ref</td></tr><tr><td>6</td><td><strong>Matched filter</strong> (overlap-save pulse compression)</td><td>16-bit I/Q → 1024-bin range profile</td></tr><tr><td>7</td><td>Range-bin decimation (peak-detect 1024→64)</td><td>16-bit I/Q → 64 bins</td></tr><tr><td>8</td><td><strong>Doppler processing</strong> (Hamming + 32-pt FFT over M chirps)</td><td>64 bins × 32 chirps → 64×32 map</td></tr><tr><td>9</td><td><strong>Threshold detection</strong> (placeholder, not true CFAR)</td><td>16-bit I+Q → 1-bit flag</td></tr><tr><td>10</td><td>USB output (FT601 packets)</td><td>range + Doppler + detection → 32-bit packets</td></tr></tbody></table>
+
+<h3 id="stage-math-worth-knowing">Stage math worth knowing<a class="ha" href="#stage-math-worth-knowing" aria-hidden="true">¶</a></h3>
+
+<ul><li><strong>DDC (stage 3)</strong> — an NCO quadrature mixer translates the 120 MHz IF to baseband.</li></ul>
+<p>  The 32-bit NCO phase increment is $\Delta\phi_\text{NCO} = (f_\text{IF}/f_s)\cdot 2^{32}</p>
+<p>  = 0.3 \cdot 2^{32} = $ <code>0x4CCCCCCD</code>. A 5-stage CIC decimates by 4 (DC gain</p>
+<p>  $4^5 = 1024 = 2^{10}$, compensated by a 10-bit right shift), then a FIR corrects</p>
+<p>  the CIC&#x27;s $\text{sinc}^5$ passband droop.</p>
+<ul><li><strong>Matched filter (stage 6)</strong> — frequency-domain pulse compression by overlap-save:</li></ul>
+<p>  forward FFT of the buffered chirp → element-wise multiply with the reference</p>
+<p>  chirp&#x27;s FFT → inverse FFT → time-domain range profile. The long chirp&#x27;s 3000</p>
+<p>  samples are processed as 4 segments of 1024 (overlap 128, advance 896); the short</p>
+<p>  chirp&#x27;s 50 samples are zero-padded to one 1024-segment. A 3187-cycle latency</p>
+<p>  buffer aligns the reference with the FFT pipeline.</p>
+<ul><li><strong>Range decimation (stage 7)</strong> — keep the peak-magnitude bin out of each group of</li></ul>
+<p>  16, reducing 1024 → 64 range bins while preserving target peaks.</p>
+<ul><li><strong>Doppler (stage 8)</strong> — accumulate M chirps per range bin in chirp-major memory</li></ul>
+<p>  (<code>addr = chirp_index·64 + range_bin</code>), apply a 32-point Hamming window (Q15), run a</p>
+<p>  32-point FFT per range bin → the range-Doppler map. Output is packed <code>{Q, I}</code> with</p>
+<p>  range_bin 0–63, doppler_bin 0–31.</p>
+<ul><li><strong>Detection (stage 9)</strong> — the shipped detector is a <strong>placeholder</strong>: $|I|+|Q| &gt; 10000$</li></ul>
+<p>  (L1 magnitude vs. a fixed threshold), with misleading <code>cfar_*</code> signal names. There</p>
+<p>  are no reference cells and the false-alarm rate is uncontrolled. radarv2 replaces</p>
+<p>  this with a real CA-CFAR (see <a href="07-Detection-and-Tracking.html" class="internal-link">07-Detection-and-Tracking</a>).</p>
+
+<h3 id="fpga-constants-worth-pinning">FPGA constants worth pinning<a class="ha" href="#fpga-constants-worth-pinning" aria-hidden="true">¶</a></h3>
+
+<p>The DDC&#x27;s &quot;magic numbers&quot; all derive from the 400 MHz / 120 MHz clock plan:</p>
+
+<table class="md-table"><thead><tr><th>Parameter</th><th>Formula</th><th>Value</th></tr></thead><tbody><tr><td>NCO phase increment</td><td><code>(f_IF/f_s)·2³²</code></td><td><code>0x4CCCCCCD</code> (120/400 MHz)</td></tr><tr><td>CIC stages / decimation</td><td>—</td><td>5 / 4 (400→100 MHz)</td></tr><tr><td>CIC DC gain</td><td><code>D^N = 4⁵</code></td><td>1024 = 2¹⁰ (compensated by <code>&gt;&gt;10</code>)</td></tr><tr><td>Matched-filter FFT</td><td>—</td><td>1024 (long chirp → 4 overlap-save segments)</td></tr><tr><td>Range decimation</td><td>1024 → 64 peak-pick</td><td>D = 16</td></tr><tr><td>Doppler</td><td>FFT / chirps</td><td>32 / 32</td></tr></tbody></table>
+
+<p>The stage-9/10 output crosses to the host as an FT601 USB3 frame, driven by STM32 GPIO</p>
+<p>toggles the FPGA edge-detects — which radarv2 turns into explicit <code>ScanCommand</code> fields:</p>
+
+<table class="md-table"><thead><tr><th>Signal</th><th>Pin</th><th>radarv2 <code>ScanCommand</code> field</th></tr></thead><tbody><tr><td><code>stm32_new_chirp</code></td><td>PD8</td><td><code>chirp_index</code> (increment)</td></tr><tr><td><code>stm32_new_elevation</code></td><td>PD9</td><td><code>el_position</code> + <code>frame_start</code> (Doppler reset)</td></tr><tr><td><code>stm32_new_azimuth</code></td><td>PD10</td><td><code>az_position</code></td></tr><tr><td><code>ft601_data</code></td><td>32-bit</td><td>the wire payload → <code>RangeProfile</code>/<code>RangeDopplerMap</code>/<code>DetectionReport</code></td></tr></tbody></table>
+
+<p>Full FPGA constant and packet tables are in</p>
+<p><span class="wikilink-unresolved">appendix R8</span>.</p>
+
+<hr>
+
+<h2 id="2-radarv2-s-rx-det-chain">2. radarv2&#x27;s RX/DET chain<a class="ha" href="#2-radarv2-s-rx-det-chain" aria-hidden="true">¶</a></h2>
+
+<p>radarv2 folds the ten stages into four nodes. The fast-time path (per chirp) flows</p>
+<p>through <code>RxSynthesizer → PulseCompressor</code>; the slow-time path (per dwell, M chirps)</p>
+<p>is completed by <code>DopplerProcessor</code>, then <code>CfarDetector</code> thresholds the map.</p>
+
+<div class="mermaid">flowchart LR
+  SCN[ScanCommand<br/>per chirp]:::in
+  RX[RxSynthesizer<br/>stages 1-4: ADC + DDC]:::rx
+  PC[PulseCompressor<br/>stages 5-7: matched filter]:::rx
+  DOP[DopplerProcessor<br/>stage 8: Doppler FFT]:::rx
+  CFAR[CfarDetector<br/>stage 9: CA-CFAR]:::det
+
+  SCN --> RX
+  RX -->|IqFrame<br/>256 cplx / chirp| PC
+  PC -->|RangeProfile<br/>64 cplx bins / chirp| DOP
+  DOP -->|RangeDopplerMap<br/>64x32 / dwell| CFAR
+  CFAR -->|DetectionReport| OUT[to HostEgress]:::out
+
+  classDef in fill:#0e7490,color:#ecfeff,stroke:#155e75
+  classDef rx fill:#1d4ed8,color:#eff6ff,stroke:#1e40af
+  classDef det fill:#a16207,color:#fefce8,stroke:#854d0e
+  classDef out fill:#7c3aed,color:#f5f3ff,stroke:#6d28d9</div>
+
+<div class="callout" data-callout="info"><div class="callout-title">Legend — RX/DET dataflow</div><div class="callout-content"><p><strong>Teal</strong> = scan input · <strong>Blue</strong> = receive DSP (per-chirp fast-time, then</p>
+<p>per-dwell slow-time) · <strong>Amber</strong> = detection · <strong>Purple</strong> = egress. The label on</p>
+<p>each arrow names the aros message and its dimensions; field detail in</p>
+<p><a href="06-Message-Catalog.html" class="internal-link">06-Message-Catalog</a>.</p></div></div>
+
+<h3 id="two-timescales-one-diagram">Two timescales, one diagram<a class="ha" href="#two-timescales-one-diagram" aria-hidden="true">¶</a></h3>
+
+<p>The single most important thing to &quot;get&quot; about this pipeline is that it runs on **two</p>
+<p>clocks**: a <em>fast-time</em> loop that fires once per chirp (range), and a <em>slow-time</em></p>
+<p>boundary that completes once per dwell of M chirps (velocity). This sequence shows</p>
+<p>both:</p>
+
+<div class="mermaid">sequenceDiagram
+  autonumber
+  participant SC as Scan
+  participant RX as RxSynth
+  participant PC as PulseComp
+  participant DP as Doppler
+  participant CF as Cfar
+  rect rgb(225,235,255)
+  loop per chirp (fast time) x32
+    SC->>RX: ScanCommand (chirp k)
+    RX->>PC: IqFrame
+    PC->>DP: RangeProfile (64 bins)
+  end
+  end
+  rect rgb(255,244,214)
+  DP->>CF: RangeDopplerMap (64x32, at frame_start)
+  CF->>CF: CA-CFAR threshold
+  end</div>
+
+<div class="callout" data-callout="info"><div class="callout-title">Reading the sequence</div><div class="callout-content"><p>The <strong>blue band</strong> is the fast-time loop: 32 chirps each flow Scan → Rx → PulseComp →</p>
+<p>Doppler, building one range profile per chirp. The <strong>amber band</strong> is the slow-time</p>
+<p>boundary: only after all 32 chirps land does <code>Doppler</code> emit the full map and <code>Cfar</code></p>
+<p>threshold it. <code>frame_start</code> on the dwell&#x27;s first <code>ScanCommand</code> is what resets the</p>
+<p>Doppler accumulator. (No <code>box</code> grouping per the vault mermaid rules — <code>rect</code> bands</p>
+<p>instead.)</p></div></div>
+
+<h3 id="what-each-node-computes">What each node computes<a class="ha" href="#what-each-node-computes" aria-hidden="true">¶</a></h3>
+
+<p><strong><code>RxSynthesizer</code> (stages 1–4 — the radar &quot;world model&quot;).</strong></p>
+<p>For each <code>ScanCommand</code> it walks the active scenario, selects targets inside the beam</p>
+<p>(within the HPBW around the commanded azimuth/elevation), and for each builds the</p>
+<p>baseband contribution of one chirp:</p>
+<ul><li>range → round-trip delay $\tau = 2R/c$ → a <strong>beat phase</strong> ramp across the 256</li></ul>
+<p>  fast-time samples (chirp rate $\mu = B/T_c$);</p>
+<ul><li>radial velocity → a <strong>Doppler phase</strong> advanced per chirp index (slow-time);</li><li>two-way SNR via the radar equation, anchored to a reference-range SNR:</li></ul>
+<p>  $\text{SNR} = \text{SNR}_\text{ref} + \sigma_\text{dBsm} - 40\log_{10}(R/R_\text{ref})$;</p>
+<ul><li>additive complex Gaussian noise at the configured floor;</li><li>optional <strong>micro-Doppler / JEM</strong> (RS3, <code>micro_doppler</code>): rotating jet-engine parts</li></ul>
+<p>  add a comb of symmetric Doppler sidebands around the body line, keyed off the</p>
+<p>  target type (a fighter carries a stronger, faster blade-pass comb than an airliner);</p>
+<ul><li>optional <strong>sea-surface multipath</strong> (RS3, <code>sea_multipath</code>): at low grazing angles the</li></ul>
+<p>  direct and sea-reflected rays interfere, so the two-way return is modulated by the</p>
+<p>  lobing factor $F^2$ ($F=\lvert 1+\rho e^{-j\Delta\phi}\rvert$, $\Delta\phi=4\pi h_r h_t/\lambda R$)</p>
+<p>  — elevation fading for a sea-skimmer;</p>
+<ul><li>optional <strong>terrain-shaped ground clutter</strong> (RS1, <code>ground_clutter</code>): one</li></ul>
+<p>  near-zero-Doppler (DC) clutter echo per illuminated range bin, sampled from the</p>
+<p>  <span class="wikilink-unresolved">MapLayer</span> DTED grid so ground returns follow the</p>
+<p>  real terrain rather than a flat floor. A constant-$\gamma$ backscatter</p>
+<p>  $\sigma^0=\gamma\sin(\text{grazing})$ is shaped by the local grazing angle</p>
+<p>  (depression $\pm$ radial terrain slope — a face tilted toward the radar returns</p>
+<p>  more), gated by the 4/3-Earth horizon and the beam&#x27;s elevation extent, and</p>
+<p>  LOS-occluded by nearer ridges. Being stationary it integrates at the DC Doppler</p>
+<p>  bin, so it competes with zero-Doppler targets and motivates the Doppler/CFAR</p>
+<p>  separation downstream.</p>
+<p>Output: <code>IqFrame</code> — 256 complex <code>int16</code> samples plus the beam/dwell/chirp ids.</p>
+
+<p><strong><code>PulseCompressor</code> (stages 5–7 — matched filter + decimation).</strong></p>
+<p>Correlates the <code>IqFrame</code> with the reference chirp (time-domain matched filter at this</p>
+<p>size), producing a range profile, then peak-decimates to <strong>64</strong> complex range bins.</p>
+<p>The reference bank is synthesized in <code>compress()</code> by default, but can instead be loaded</p>
+<p>at <code>on_configure</code> from a binary asset (param <code>matched_filter_table</code>, generated by</p>
+<p><code>scripts/gen_matched_filter_table.py</code>) — the host/build-time analog of the upstream</p>
+<p>FPGA chirp-reference block-RAM, loaded the same way <code>MapProvider</code> loads a DTED tile.</p>
+<p>Output: <code>RangeProfile</code> — 64 complex <code>int16</code> bins + <code>range_res</code> (and the <code>mono_az</code></p>
+<p>monopulse voltage carried through from the <code>IqFrame</code>).</p>
+
+<p><strong><code>DopplerProcessor</code> (stage 8 — coherent integration).</strong></p>
+<p>Accumulates the M = 32 <strong>same-waveform</strong> chirps of a dwell (reset on <code>frame_start</code>),</p>
+<p>applies a <strong>selectable</strong> slow-time taper (RS2: <code>window: rect|hann|hamming|blackman</code>,</p>
+<p>default Hamming — rect gives the narrowest mainlobe with −13 dB Doppler sidelobes,</p>
+<p>Blackman drives the sidelobes far lower at a wider mainlobe), runs a 32-point DFT per</p>
+<p>range bin, and <strong>fftshifts the Doppler axis so bin 16 = zero-Doppler (DC)</strong> — this is what</p>
+<p>makes the centered velocity formula $(\text{doppler\_bin} - 16)\cdot v_\text{res}$ in</p>
+<p><a href="07-Detection-and-Tracking.html" class="internal-link">07-Detection-and-Tracking</a> valid (bins 0–31 → −16…+15). Output, at the dwell</p>
+<p>boundary: <code>RangeDopplerMap</code> — a 64 (range) × 32 (Doppler) complex <code>int16</code> map +</p>
+<p><code>range_res</code> ($=R_\text{max}/64$ bin spacing) and <code>velocity_res</code>. (radarv2 integrates 32</p>
+<p>coherent same-mode chirps rather than the upstream&#x27;s mixed 16+16 burst — see</p>
+<p><span class="wikilink-unresolved">I-1</span></p>
+<p>and <span class="wikilink-unresolved">the dwell decision</span>.)</p>
+
+<p><strong><code>CfarDetector</code> (stage 9 — CA-CFAR).</strong></p>
+<p>Slides a CA-CFAR window over the range-Doppler magnitude map (configurable</p>
+<p>$N_\text{ref}$, $N_\text{guard}$, $P_\text{fa}$), declares detections where the cell</p>
+<p>under test exceeds the adaptive threshold, and converts each detected cell to a</p>
+<p>physical detection: range from the range bin, radial velocity from the Doppler bin,</p>
+<p>azimuth/elevation from the beam geometry, SNR from the cell-to-noise ratio. It also</p>
+<p>applies <strong>terrain masking / line-of-sight</strong> from the</p>
+<p><span class="wikilink-unresolved">MapLayer</span> — a detection whose geometry is occluded by</p>
+<p>terrain (below the radar horizon behind a ridge) is dropped. Output:</p>
+<p><code>DetectionReport</code> — up to 16 <code>RadarDetection</code> elements.</p>
+
+<hr>
+
+<h2 id="3-fidelity-notes">3. Fidelity notes<a class="ha" href="#3-fidelity-notes" aria-hidden="true">¶</a></h2>
+
+<div class="callout" data-callout="note"><div class="callout-title">Where radarv2 stays faithful and where it simplifies</div><div class="callout-content"><ul><li><strong>Faithful</strong>: the stage order and data products (Iq → range profile → RD map →</li></ul>
+<p>  detections), the matched-filter and Doppler-FFT transforms, the 64×32</p>
+<p>  dimensions, the Hamming window, and the M = 32 CPI.</p>
+<ul><li><strong>Simplified</strong>: fixed-point bit widths (<code>int16</code>/<code>float32</code> software math), the</li></ul>
+<p>  1024-point FFT + overlap-save segmentation (radarv2 matched-filters at the</p>
+<p>  smaller demo size directly), the three clock domains and CDC, and the NCO/CIC/FIR</p>
+<p>  internals of the DDC (modelled as ideal down-conversion).</p>
+<ul><li><strong>Upgraded</strong>: the placeholder fixed-threshold detector → real CA-CFAR.</li></ul></div></div>
+
+<p>The dimensions and the transform identities are what make the message catalog and</p>
+<p>the algorithms line up with the upstream pipeline doc stage-for-stage. Continue to</p>
+<p><a href="05-Node-Architecture.html" class="internal-link">05-Node-Architecture</a>.</p>
+
+</div>
+  </div><!-- main-content -->
+</div><!-- site-shell -->
+<script>
+mermaid.initialize({ startOnLoad: true, theme: 'dark', securityLevel: 'loose' });
+</script>
+</body>
+
+</html>

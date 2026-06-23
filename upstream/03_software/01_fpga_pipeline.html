@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>01_fpga_pipeline — aros Vault</title>
+<style>
+
+:root {
+  --color-blue:    #007ACC;
+  --color-green:   #2DA44E;
+  --color-yellow:  #D29922;
+  --color-purple:  #8B5CF6;
+  --color-orange:  #F59E0B;
+  --color-red:     #E5534B;
+  --color-cyan:    #0BC5EA;
+  --color-accent:  #7C3AED;
+  --text-normal:   #DCDDDE;
+  --text-muted:    #8E8EA0;
+  --background-primary:         #1E1E2E;
+  --background-secondary:       #181825;
+  --background-modifier-border: #313244;
+  --color-base-30:              #45475A;
+}
+body {
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.6;
+  margin: 0;
+}
+
+</style>
+<!-- Mermaid -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<!-- MathJax -->
+<script>window.MathJax={tex:{inlineMath:[['$','$'],['\\(','\\)']],displayMath:[['$$','$$'],['\\[','\\]']]},options:{skipHtmlTags:['script','noscript','style','textarea','pre']}};</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+<!-- Site CSS -->
+<link rel="stylesheet" href="../../site.css">
+</head>
+<body class="markdown-reading-view">
+<div class="site-shell">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <a href="../../00-Index.html" class="site-title">radarv2 / AERIS-10</a>
+      <div class="site-subtitle">aros Radar Documentation</div>
+    </div>
+    <ul class="nav-list">
+      <li class="nav-section">Core Docs</li>
+      <li><a href="../../09-Concepts-Primer.html">Radar Primer</a></li>
+      <li><a href="../../00-Index.html">Index</a></li>
+      <li><a href="../../01-System-Overview.html">System Overview</a></li>
+      <li><a href="../../02-Physics-and-Waveform.html">Physics &amp; Waveform</a></li>
+      <li><a href="../../03-Beamforming-and-Scan.html">Beamforming &amp; Scan</a></li>
+      <li><a href="../../04-Signal-Processing-Pipeline.html">Signal Processing</a></li>
+      <li><a href="../../05-Node-Architecture.html">Node Architecture</a></li>
+      <li><a href="../../06-Message-Catalog.html">Message Catalog</a></li>
+      <li><a href="../../07-Detection-and-Tracking.html">Detection &amp; Tracking</a></li>
+      <li><a href="../../08-Scenarios-and-Targets.html">Scenarios &amp; Targets</a></li>
+      <li class="nav-section">Advanced</li>
+      <li><a href="../../10-Radar-Model-Library.html">Radar Model Library</a></li>
+      <li><a href="../../11-Multi-Radar-Fusion.html">Multi-Radar Fusion</a></li>
+      <li><a href="../../12-3D-Scene.html">3-D Scene</a></li>
+      <li><a href="../../13-Reference-Tables.html">Reference Tables</a></li>
+      <li><a href="../../FUTURE-DEVELOPMENT.html">Future Development</a></li>
+      <li class="nav-section">Upstream Theory</li>
+      <li><a href="../../upstream/README.html">Upstream README</a></li>
+      <li><a href="../../upstream/00_notation/conventions.html">Notation</a></li>
+      <li><a href="../../upstream/01_physics/01_fmcw_theory.html">FMCW Theory</a></li>
+      <li><a href="../../upstream/01_physics/02_lfm_waveform_model.html">LFM Waveform</a></li>
+      <li><a href="../../upstream/01_physics/03_beamforming_theory.html">Beamforming Theory</a></li>
+      <li><a href="../../upstream/01_physics/04_detection_theory.html">Detection Theory</a></li>
+      <li><a href="../../upstream/01_physics/05_noise_analysis.html">Noise Analysis</a></li>
+      <li><a href="../../upstream/01_physics/06_calibration_theory.html">Calibration</a></li>
+      <li><a href="../../upstream/02_hardware/01_system_overview.html">HW Overview</a></li>
+      <li><a href="../../upstream/04_research/01_cfar_variants.html">CFAR Variants</a></li>
+    </ul>
+    <div class="sidebar-footer">
+      <a href="https://github.com/brkay54/radarv2-docs" target="_blank">GitHub</a>
+    </div>
+  </nav>
+  <div class="main-content">
+
+<div class="markdown-preview-section">
+<h1 id="fpga-signal-processing-pipeline">FPGA Signal Processing Pipeline<a class="ha" href="#fpga-signal-processing-pipeline" aria-hidden="true">¶</a></h1>
+
+<p class="kv-line"><span class="kv-key">Purpose:</span> <span class="kv-value">Trace the complete receive-path signal flow from the AD9484 ADC input at 400 MHz through every FPGA processing stage to USB output, documenting clock domains, I/O formats, transformations, and magic number derivations for each stage.</span></p>
+
+<p class="kv-line"><span class="kv-key">Prerequisites:</span> <span class="kv-value">Familiarity with:</span></p>
+<ul><li><a href="../00_notation/symbol_table.md">Symbol Table</a> -- all symbols used herein</li><li><a href="../00_notation/parameter_table.md">Parameter Table</a> -- numerical values for both variants</li><li><a href="../00_notation/conventions.md">Conventions</a> -- equation formatting rules</li><li><a href="../02_hardware/05_fpga_board.md">FPGA Board</a> -- clock domain architecture and resource capacity</li><li><a href="../02_hardware/07_timing_budget.md">Timing Budget</a> -- end-to-end pipeline latency analysis</li><li><a href="../01_physics/01_fmcw_theory.md">FMCW Theory</a> -- beat frequency and range equations</li></ul>
+
+<hr>
+
+<h2 id="1-pipeline-overview">1. Pipeline Overview<a class="ha" href="#1-pipeline-overview" aria-hidden="true">¶</a></h2>
+
+<p>The AERIS-10 receive pipeline in <code>radar_receiver_final.v</code> processes digitized IF samples through ten stages, converting raw ADC data into range-Doppler maps with threshold detection. The pipeline is organized by signal flow -- each stage receives the output of the previous stage and produces input for the next.</p>
+
+<h3 id="1-1-signal-flow-summary">1.1 Signal Flow Summary<a class="ha" href="#1-1-signal-flow-summary" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Stage</th><th>Function</th><th>Module</th><th>Clock Domain</th><th>Input Format</th><th>Output Format</th></tr></thead><tbody><tr><td>1</td><td>ADC Acquisition</td><td><code>lvds_to_cmos_400m</code> + <code>ad9484_lvds_to_cmos_400m</code></td><td>ADC 400 MHz</td><td>8-bit LVDS differential</td><td>8-bit CMOS single-ended</td></tr><tr><td>2</td><td>Clock Domain Crossing</td><td><code>cdc_adc_to_processing</code></td><td>ADC -&gt; Processing 400 MHz</td><td>8-bit CMOS</td><td>8-bit synchronized</td></tr><tr><td>3</td><td>Digital Down-Conversion</td><td><code>ddc_400m_enhanced</code></td><td>400 MHz (NCO, mixer, CIC) / 100 MHz (FIR)</td><td>8-bit unsigned</td><td>18-bit signed I/Q baseband</td></tr><tr><td>4</td><td>DDC Output Interface</td><td><code>ddc_input_interface</code></td><td>100 MHz</td><td>18-bit signed I/Q</td><td>16-bit signed I/Q, aligned</td></tr><tr><td>5</td><td>Reference Chirp Loading</td><td><code>chirp_memory_loader_param</code> + <code>latency_buffer_2159</code></td><td>100 MHz</td><td>Segment select</td><td>16-bit I/Q reference, delayed</td></tr><tr><td>6</td><td>Matched Filter</td><td><code>matched_filter_multi_segment</code></td><td>100 MHz</td><td>16-bit signed I/Q (signal + reference)</td><td>16-bit signed I/Q range profile</td></tr><tr><td>7</td><td>Range Bin Decimation</td><td><code>range_bin_decimator</code></td><td>100 MHz</td><td>16-bit I/Q, 1024 bins</td><td>16-bit I/Q, 64 bins</td></tr><tr><td>8</td><td>Doppler Processing</td><td><code>doppler_processor_optimized</code></td><td>100 MHz</td><td>32-bit packed I/Q per range bin</td><td>32-bit packed I/Q Doppler spectrum</td></tr><tr><td>9</td><td>Threshold Detection</td><td><code>radar_system_top.v</code> (inline)</td><td>100 MHz</td><td>16-bit I + 16-bit Q</td><td>1-bit detection flag</td></tr><tr><td>10</td><td>USB Output</td><td><code>usb_data_interface</code></td><td>FT601 100 MHz</td><td>Range + Doppler + detection</td><td>FT601 32-bit packets</td></tr></tbody></table>
+
+<hr>
+
+<h2 id="2-clock-domain-map">2. Clock Domain Map<a class="ha" href="#2-clock-domain-map" aria-hidden="true">¶</a></h2>
+
+<p>The FPGA operates across three independent clock domains. All clock domain crossings (CDC) use 3-stage synchronizers to prevent metastability. For clock tree details, see <a href="../02_hardware/05_fpga_board.md#clock-domain-architecture"><code>02_hardware/05_fpga_board.md</code></a>.</p>
+
+<table class="md-table"><thead><tr><th>Clock Domain</th><th>Frequency</th><th>Source</th><th>Modules</th></tr></thead><tbody><tr><td>ADC clock</td><td>400 MHz</td><td>AD9484 DCO (LVDS)</td><td><code>lvds_to_cmos_400m</code>, <code>ad9484_lvds_to_cmos_400m</code>, <code>cdc_adc_to_processing</code></td></tr><tr><td>Processing (400 MHz)</td><td>400 MHz</td><td>Recovered from ADC DCO via <code>lvds_to_cmos_400m</code></td><td>NCO (<code>nco_400m_enhanced</code>), mixer, CIC decimators (<code>cic_decimator_4x_enhanced</code>)</td></tr><tr><td>System</td><td>100 MHz</td><td>AD9523-1 clock tree</td><td>FIR filters (<code>fir_lowpass_parallel_enhanced</code>), <code>ddc_input_interface</code>, <code>matched_filter_multi_segment</code>, <code>chirp_memory_loader_param</code>, <code>latency_buffer_2159</code>, <code>range_bin_decimator</code>, <code>doppler_processor_optimized</code>, <code>radar_system_top</code> threshold logic</td></tr><tr><td>FT601 USB</td><td>100 MHz</td><td>FT601 on-chip oscillator (asynchronous to system 100 MHz)</td><td><code>usb_data_interface</code></td></tr></tbody></table>
+
+<blockquote><strong>Note:</strong> The FT601 100 MHz clock is generated by a separate oscillator on the FT601 IC and is asynchronous to the system 100 MHz clock from the AD9523. See the <a href="../02_hardware/05_fpga_board.md">FPGA Board documentation</a> for details on the clock buffering (BUFG) architecture.</blockquote>
+
+<h3 id="2-1-cdc-crossings">2.1 CDC Crossings<a class="ha" href="#2-1-cdc-crossings" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Crossing</th><th>From</th><th>To</th><th>Method</th><th>Width</th><th>Location</th></tr></thead><tbody><tr><td>ADC -&gt; Processing</td><td>ADC DCO</td><td>400 MHz recovered</td><td>3-stage synchronizer</td><td>8-bit</td><td><code>cdc_adc_to_processing</code> in <code>radar_receiver_final.v</code></td></tr><tr><td>CIC -&gt; FIR (I)</td><td>400 MHz</td><td>100 MHz</td><td>3-stage synchronizer</td><td>18-bit</td><td><code>CDC_FIR_i</code> in <code>ddc_400m_enhanced</code></td></tr><tr><td>CIC -&gt; FIR (Q)</td><td>400 MHz</td><td>100 MHz</td><td>3-stage synchronizer</td><td>18-bit</td><td><code>CDC_FIR_q</code> in <code>ddc_400m_enhanced</code></td></tr><tr><td>System -&gt; FT601</td><td>100 MHz system</td><td>100 MHz FT601</td><td>Async FIFO (internal to <code>usb_data_interface</code>)</td><td>32-bit</td><td><code>usb_data_interface</code></td></tr></tbody></table>
+
+<hr>
+
+<h2 id="3-stage-1-adc-acquisition">3. Stage 1: ADC Acquisition<a class="ha" href="#3-stage-1-adc-acquisition" aria-hidden="true">¶</a></h2>
+
+<p class="kv-line"><span class="kv-key">Modules:</span> <span class="kv-value"><code>lvds_to_cmos_400m</code>, <code>ad9484_lvds_to_cmos_400m</code></span></p>
+<p class="kv-line"><span class="kv-key">Clock domain:</span> <span class="kv-value">ADC 400 MHz (LVDS)</span></p>
+
+<p>The AD9484 ADC digitizes the IF signal at $f_s$ (see <a href="../00_notation/parameter_table.md#signal-processing-fpga">Parameter Table</a>) with 8-bit resolution. The ADC outputs data on differential LVDS pairs along with a data clock output (DCO) at $f_s$.</p>
+
+<h3 id="3-1-lvds-to-cmos-conversion">3.1 LVDS-to-CMOS Conversion<a class="ha" href="#3-1-lvds-to-cmos-conversion" aria-hidden="true">¶</a></h3>
+
+<p>The <code>lvds_to_cmos_400m</code> module recovers a single-ended 400 MHz CMOS clock (<code>clk_400m</code>) from the LVDS DCO differential pair (<code>adc_dco_p</code>, <code>adc_dco_n</code>). This recovered clock becomes the processing clock for the entire 400 MHz domain.</p>
+
+<p>The <code>ad9484_lvds_to_cmos_400m</code> module converts the 8-bit LVDS data bus (<code>adc_d_p[7:0]</code>, <code>adc_d_n[7:0]</code>) to single-ended CMOS (<code>adc_data_cmos[7:0]</code>) and generates data valid signaling (<code>adc_valid</code>). It also provides an ADC power-down control output (<code>adc_pwdn</code>).</p>
+
+<h3 id="3-2-clock-domain-crossing-to-processing-domain">3.2 Clock Domain Crossing to Processing Domain<a class="ha" href="#3-2-clock-domain-crossing-to-processing-domain" aria-hidden="true">¶</a></h3>
+
+<p>The <code>cdc_adc_to_processing</code> module synchronizes 8-bit ADC data from the ADC DCO clock domain to the recovered 400 MHz processing clock domain using a 3-stage synchronizer (<code>STAGES=3</code>, <code>WIDTH=8</code>):</p>
+
+<table class="md-table"><thead><tr><th>Parameter</th><th>Value</th></tr></thead><tbody><tr><td>Input clock</td><td><code>adc_dco_cmos</code> (ADC DCO)</td></tr><tr><td>Output clock</td><td><code>clk_400m</code> (recovered CMOS)</td></tr><tr><td>Data width</td><td>8 bits</td></tr><tr><td>Synchronizer stages</td><td>3</td></tr><tr><td>Output</td><td><code>cdc_data_cmos[7:0]</code>, <code>cdc_valid</code></td></tr></tbody></table>
+
+<hr>
+
+<h2 id="4-stage-2-digital-down-conversion">4. Stage 2: Digital Down-Conversion<a class="ha" href="#4-stage-2-digital-down-conversion" aria-hidden="true">¶</a></h2>
+
+<p class="kv-line"><span class="kv-key">Module:</span> <span class="kv-value"><code>ddc_400m_enhanced</code></span></p>
+<p class="kv-line"><span class="kv-key">Clock domain:</span> <span class="kv-value">400 MHz (NCO, mixer, CIC) transitioning to 100 MHz (FIR output)</span></p>
+
+<p>The DDC translates the digitized IF signal from $f_\text{IF}$ (see <a href="../00_notation/parameter_table.md#signal-processing-fpga">Parameter Table</a>) to complex baseband (I/Q) using an NCO-based quadrature mixer, followed by CIC decimation and FIR compensation filtering.</p>
+
+<h3 id="4-1-nco-phase-increment-derivation">4.1 NCO Phase Increment Derivation<a class="ha" href="#4-1-nco-phase-increment-derivation" aria-hidden="true">¶</a></h3>
+
+<p>The NCO generates complex sinusoids at $f_\text{IF}$ using a 32-bit phase accumulator. The phase increment per clock cycle $\Delta\phi_\text{NCO}$ (defined in the <a href="../00_notation/symbol_table.md#software-signal-processing">Symbol Table</a>) is:</p>
+
+<p>$$</p>
+<p>\Delta\phi_\text{NCO} = \frac{f_\text{IF}}{f_s} \times 2^{32} \tag{SW-1}</p>
+<p>$$</p>
+
+<p><strong>Numerical verification</strong> (this derives the magic number <code>PHASE_INC_120MHZ</code> in <code>ddc_400m.v</code>):</p>
+
+<p>$$</p>
+<p>\Delta\phi_\text{NCO} = \frac{120 \times 10^6}{400 \times 10^6} \times 2^{32} = 0.3 \times 4{,}294{,}967{,}296 = 1{,}288{,}490{,}189 = \text{0x4CCCCCCD} \tag{SW-2}</p>
+<p>$$</p>
+
+<p>The NCO module <code>nco_400m_enhanced</code> uses this phase increment (<code>frequency_tuning_word</code>) to produce 16-bit signed sine and cosine outputs (<code>sin_out[15:0]</code>, <code>cos_out[15:0]</code>).</p>
+
+<h3 id="4-2-lfsr-phase-dithering">4.2 LFSR Phase Dithering<a class="ha" href="#4-2-lfsr-phase-dithering" aria-hidden="true">¶</a></h3>
+
+<p>To reduce spurious tones caused by phase truncation, an 8-bit linear feedback shift register (LFSR) module <code>lfsr_dither_enhanced</code> adds pseudo-random dither to the phase increment:</p>
+
+<pre><code>phase_inc_dithered = PHASE_INC_120MHZ + {24&#x27;b0, phase_dither_bits}</code></pre>
+
+<p>The LFSR uses the polynomial $x^8 + x^6 + x^5 + x^4 + 1$ (feedback taps at bits 7, 5, 4, 3) with a non-zero initial state. The 8-bit dither is zero-extended to 32 bits, perturbing only the least significant bits of the phase increment to spread phase truncation spurs across the noise floor.</p>
+
+<h3 id="4-3-quadrature-mixer">4.3 Quadrature Mixer<a class="ha" href="#4-3-quadrature-mixer" aria-hidden="true">¶</a></h3>
+
+<p>The mixer multiplies the sign-extended ADC data by the NCO cosine (I channel) and sine (Q channel) outputs:</p>
+
+<table class="md-table"><thead><tr><th>Signal</th><th>Width</th><th>Description</th></tr></thead><tbody><tr><td><code>adc_signed</code></td><td>18-bit</td><td>ADC data converted from unsigned 8-bit to signed, zero-extended</td></tr><tr><td><code>cos_out</code> / <code>sin_out</code></td><td>16-bit signed</td><td>NCO quadrature outputs</td></tr><tr><td><code>mixed_i</code> / <code>mixed_q</code></td><td>34-bit signed</td><td>Mixer product ($18 \times 16 = 34$ bits)</td></tr></tbody></table>
+
+<p>The mixer includes saturation detection with a latched overflow counter (<code>saturation_count</code>) and real-time monitoring (<code>mixer_overflow_i</code>, <code>mixer_overflow_q</code>). A test mode (<code>force_saturation</code>) can inject full-scale values for verification.</p>
+
+<h3 id="4-4-cic-decimation">4.4 CIC Decimation<a class="ha" href="#4-4-cic-decimation" aria-hidden="true">¶</a></h3>
+
+<p class="kv-line"><span class="kv-key">Module:</span> <span class="kv-value"><code>cic_decimator_4x_enhanced</code> (two instances: I and Q channels)</span></p>
+<p class="kv-line"><span class="kv-key">Clock domain:</span> <span class="kv-value">400 MHz</span></p>
+
+<p>The CIC filter reduces the sample rate by $D_\text{CIC}$ (see <a href="../00_notation/parameter_table.md#signal-processing-fpga">Parameter Table</a>) with $N_\text{CIC}$ cascaded integrator-comb stages. The DC gain $G_\text{CIC}$ (defined in the <a href="../00_notation/symbol_table.md#software-signal-processing">Symbol Table</a>) is:</p>
+
+<p>$$</p>
+<p>G_\text{CIC} = D_\text{CIC}^{N_\text{CIC}} = 4^5 = 1024 = 2^{10} \tag{SW-3}</p>
+<p>$$</p>
+
+<p>This gain of $2^{10}$ is compensated by a right shift of 10 bits (<code>&gt;&gt;&gt; 10</code>) in the output path, which is the derivation of the magic number &quot;shift 10&quot; in the CIC implementation.</p>
+
+<table class="md-table"><thead><tr><th>Parameter</th><th>Value</th><th>Verilog Param</th></tr></thead><tbody><tr><td>Stages $N_\text{CIC}$</td><td>5</td><td><code>STAGES</code></td></tr><tr><td>Decimation factor $D_\text{CIC}$</td><td>4</td><td><code>DECIMATION</code></td></tr><tr><td>Input width</td><td>18-bit (from mixer <code>mixed_i[33:16]</code>)</td><td>--</td></tr><tr><td>Internal bit growth</td><td>36-bit</td><td>--</td></tr><tr><td>Output width</td><td>18-bit (after gain compensation)</td><td>--</td></tr><tr><td>Input rate</td><td>$f_s$ (400 MHz)</td><td>--</td></tr><tr><td>Output rate</td><td>$f_s / D_\text{CIC}$ (100 MHz)</td><td>--</td></tr></tbody></table>
+
+<p>The CIC includes saturation detection with latched overflow monitoring for diagnostics.</p>
+
+<h3 id="4-5-cdc-crossing-cic-to-fir">4.5 CDC Crossing: CIC to FIR<a class="ha" href="#4-5-cdc-crossing-cic-to-fir" aria-hidden="true">¶</a></h3>
+
+<p>After CIC decimation, the 18-bit I/Q data at 100 MHz equivalent rate (still clocked by the 400 MHz domain) crosses to the 100 MHz system clock domain via two 3-stage synchronizers (<code>CDC_FIR_i</code>, <code>CDC_FIR_q</code>), each with <code>WIDTH=18</code> and <code>STAGES=3</code>.</p>
+
+<h3 id="4-6-fir-compensation-filter">4.6 FIR Compensation Filter<a class="ha" href="#4-6-fir-compensation-filter" aria-hidden="true">¶</a></h3>
+
+<p class="kv-line"><span class="kv-key">Module:</span> <span class="kv-value"><code>fir_lowpass_parallel_enhanced</code> (two instances: I and Q channels)</span></p>
+<p class="kv-line"><span class="kv-key">Clock domain:</span> <span class="kv-value">100 MHz</span></p>
+
+<p>The FIR filter compensates for CIC passband droop (the $\text{sinc}^{N_\text{CIC}}$ magnitude response of the CIC filter). Dual I/Q channels are processed independently by separate filter instances (<code>fir_i_inst</code>, <code>fir_q_inst</code>).</p>
+
+<table class="md-table"><thead><tr><th>Parameter</th><th>Value</th></tr></thead><tbody><tr><td>Input</td><td>18-bit signed (from CDC)</td></tr><tr><td>Output</td><td>18-bit signed (<code>fir_i_out</code>, <code>fir_q_out</code>)</td></tr><tr><td>Clock</td><td>100 MHz system clock</td></tr><tr><td>Ready signal</td><td><code>fir_i_ready</code>, <code>fir_q_ready</code></td></tr><tr><td>Overflow detection</td><td><code>filter_overflow</code> output</td></tr></tbody></table>
+
+<p>The output stage latches the FIR results on the negative edge of the 100 MHz clock to produce the final baseband I/Q outputs (<code>baseband_i[17:0]</code>, <code>baseband_q[17:0]</code>).</p>
+
+<hr>
+
+<h2 id="5-stage-3-ddc-output-interface">5. Stage 3: DDC Output Interface<a class="ha" href="#5-stage-3-ddc-output-interface" aria-hidden="true">¶</a></h2>
+
+<p class="kv-line"><span class="kv-key">Module:</span> <span class="kv-value"><code>ddc_input_interface</code></span></p>
+<p class="kv-line"><span class="kv-key">Clock domain:</span> <span class="kv-value">100 MHz</span></p>
+
+<p>The DDC output interface scales and aligns the 18-bit I/Q outputs from the DDC to 16-bit signed format for downstream processing:</p>
+
+<table class="md-table"><thead><tr><th>Signal</th><th>Width</th><th>Description</th></tr></thead><tbody><tr><td>Input <code>ddc_i</code> / <code>ddc_q</code></td><td>18-bit signed</td><td>DDC baseband output</td></tr><tr><td>Input <code>valid_i</code> / <code>valid_q</code></td><td>1-bit</td><td>Per-channel valid flags</td></tr><tr><td>Output <code>adc_i</code> / <code>adc_q</code></td><td>16-bit signed</td><td>Scaled and aligned I/Q</td></tr><tr><td>Output <code>adc_valid</code></td><td>1-bit</td><td>Synchronized valid flag</td></tr><tr><td>Output <code>data_sync_error</code></td><td>1-bit</td><td>Asserted if I/Q valid flags are misaligned</td></tr></tbody></table>
+
+<p>The <code>data_sync_error</code> output provides a diagnostic flag that asserts when the I and Q valid signals are not synchronized, indicating a potential timing problem in the upstream DDC.</p>
+
+<hr>
+
+<h2 id="6-stage-4-reference-chirp-and-latency-buffer">6. Stage 4: Reference Chirp and Latency Buffer<a class="ha" href="#6-stage-4-reference-chirp-and-latency-buffer" aria-hidden="true">¶</a></h2>
+
+<p class="kv-line"><span class="kv-key">Modules:</span> <span class="kv-value"><code>chirp_memory_loader_param</code>, <code>latency_buffer_2159</code></span></p>
+<p class="kv-line"><span class="kv-key">Clock domain:</span> <span class="kv-value">100 MHz</span></p>
+
+<p>Before matched filtering, the reference chirp waveform must be loaded from memory and time-aligned with the signal data arriving from the FFT pipeline.</p>
+
+<h3 id="6-1-chirp-memory-loader">6.1 Chirp Memory Loader<a class="ha" href="#6-1-chirp-memory-loader" aria-hidden="true">¶</a></h3>
+
+<p>The <code>chirp_memory_loader_param</code> module provides the stored reference chirp coefficients (16-bit I/Q) from block RAM. It supports both long and short chirp waveforms and accepts a segment select input for multi-segment overlap-save processing:</p>
+
+<table class="md-table"><thead><tr><th>Port</th><th>Width</th><th>Description</th></tr></thead><tbody><tr><td><code>segment_select</code></td><td>2-bit</td><td>Selects which of the 4 segments to load</td></tr><tr><td><code>mem_request</code></td><td>1-bit</td><td>Triggers a memory read</td></tr><tr><td><code>use_long_chirp</code></td><td>1-bit</td><td>Selects between long (3000 sample) and short (50 sample) reference</td></tr><tr><td><code>sample_addr</code></td><td>10-bit</td><td>Address within the current segment (0--1023)</td></tr><tr><td><code>ref_i</code> / <code>ref_q</code></td><td>16-bit</td><td>Reference chirp I/Q output</td></tr><tr><td><code>mem_ready</code></td><td>1-bit</td><td>Indicates data is available</td></tr></tbody></table>
+
+<h3 id="6-2-latency-buffer">6.2 Latency Buffer<a class="ha" href="#6-2-latency-buffer" aria-hidden="true">¶</a></h3>
+
+<p><strong>Derivation of the 3187-cycle latency buffer:</strong></p>
+
+<p>The <code>latency_buffer_2159</code> module (named for its original design but parameterized with <code>LATENCY=3187</code>) delays the reference chirp data to align it with the signal data emerging from the forward FFT. The delay compensates for the combined latency of the FFT pipeline stages in the matched filter processing chain:</p>
+
+<table class="md-table"><thead><tr><th>Parameter</th><th>Value</th><th>Verilog Param</th></tr></thead><tbody><tr><td>Data width</td><td>32-bit (16-bit I + 16-bit Q packed)</td><td><code>DATA_WIDTH=32</code></td></tr><tr><td>Delay</td><td>3187 clock cycles</td><td><code>LATENCY=3187</code></td></tr><tr><td>Input</td><td><code>{ref_i, ref_q}</code> from chirp memory</td><td>--</td></tr><tr><td>Output</td><td><code>{delayed_ref_i, delayed_ref_q}</code></td><td>--</td></tr></tbody></table>
+
+<p>The 3187-cycle delay at 100 MHz corresponds to $31.87~\mu\text{s}$ and accounts for the forward FFT, spectral multiplication, and inverse FFT pipeline latency in the <code>matched_filter_processing_chain</code> sub-module. For end-to-end pipeline latency analysis, see <a href="../02_hardware/07_timing_budget.md"><code>02_hardware/07_timing_budget.md</code></a>.</p>
+
+<hr>
+
+<h2 id="7-stage-5-matched-filter-pulse-compression">7. Stage 5: Matched Filter (Pulse Compression)<a class="ha" href="#7-stage-5-matched-filter-pulse-compression" aria-hidden="true">¶</a></h2>
+
+<p class="kv-line"><span class="kv-key">Module:</span> <span class="kv-value"><code>matched_filter_multi_segment</code></span></p>
+<p class="kv-line"><span class="kv-key">Clock domain:</span> <span class="kv-value">100 MHz</span></p>
+
+<p>The matched filter performs frequency-domain pulse compression using the overlap-save method. The signal is correlated with the stored reference chirp to produce a range profile with pulse compression gain proportional to the time-bandwidth product (see Eq. (LFM-7) in <a href="../01_physics/02_lfm_waveform.md"><code>01_physics/02_lfm_waveform.md</code></a> for pulse compression theory).</p>
+
+<h3 id="7-1-overlap-save-segmentation">7.1 Overlap-Save Segmentation<a class="ha" href="#7-1-overlap-save-segmentation" aria-hidden="true">¶</a></h3>
+
+<p>For long chirps, the $N_\text{FFT}$-point FFT buffer (see <a href="../00_notation/parameter_table.md#signal-processing-fpga">Parameter Table</a>) cannot hold all samples in a single transform. The overlap-save method divides the input into $N_\text{seg}$ segments (defined in the <a href="../00_notation/symbol_table.md#software-signal-processing">Symbol Table</a>):</p>
+
+<table class="md-table"><thead><tr><th>Parameter</th><th>Symbol</th><th>Long Chirp</th><th>Short Chirp</th><th>Verilog Param</th></tr></thead><tbody><tr><td>Total input samples</td><td>--</td><td>3000</td><td>50</td><td><code>LONG_CHIRP_SAMPLES</code>, <code>SHORT_CHIRP_SAMPLES</code></td></tr><tr><td>FFT/buffer size</td><td>$N_\text{FFT}$</td><td>1024</td><td>1024</td><td><code>BUFFER_SIZE</code></td></tr><tr><td>Overlap length</td><td>$L_\text{overlap}$</td><td>128</td><td>--</td><td><code>OVERLAP_SAMPLES</code></td></tr><tr><td>Segment advance</td><td>$L_\text{adv}$</td><td>896</td><td>--</td><td><code>SEGMENT_ADVANCE = BUFFER_SIZE - OVERLAP_SAMPLES</code></td></tr><tr><td>Number of segments</td><td>$N_\text{seg}$</td><td>4</td><td>1</td><td><code>LONG_SEGMENTS</code>, <code>SHORT_SEGMENTS</code></td></tr></tbody></table>
+
+<p>The segment count for long chirps is derived from:</p>
+
+<p>$$</p>
+<p>N_\text{seg} = \left\lceil \frac{3000 - L_\text{overlap}}{L_\text{adv}} \right\rceil = \left\lceil \frac{3000 - 128}{896} \right\rceil = \left\lceil 3.205 \right\rceil = 4 \tag{SW-4}</p>
+<p>$$</p>
+
+<p>For short chirps, the 50 input samples are zero-padded to fill the full 1024-point buffer and processed as a single segment.</p>
+
+<h3 id="7-2-state-machine">7.2 State Machine<a class="ha" href="#7-2-state-machine" aria-hidden="true">¶</a></h3>
+
+<p>The matched filter operates through an 8-state FSM:</p>
+
+<table class="md-table"><thead><tr><th>State</th><th>Name</th><th>Description</th></tr></thead><tbody><tr><td>0</td><td><code>ST_IDLE</code></td><td>Awaits <code>chirp_start_pulse</code> from STM32 <code>mc_new_chirp</code> toggle; sets <code>total_segments</code> based on <code>use_long_chirp</code></td></tr><tr><td>1</td><td><code>ST_COLLECT_DATA</code></td><td>Collects DDC samples into the input buffer; for long chirps, transitions when $L_\text{adv}$ new samples collected; for short chirps, transitions after 50 samples</td></tr><tr><td>2</td><td><code>ST_ZERO_PAD</code></td><td>Short chirp only: fills remaining buffer positions (50--1023) with zeros</td></tr><tr><td>3</td><td><code>ST_WAIT_REF</code></td><td>Requests reference chirp segment via <code>segment_request</code> and <code>mem_request</code>; waits for <code>mem_ready</code></td></tr><tr><td>4</td><td><code>ST_PROCESSING</code></td><td>Feeds buffered samples and reference data to <code>matched_filter_processing_chain</code> (forward FFT, spectral multiply, inverse FFT)</td></tr><tr><td>5</td><td><code>ST_WAIT_FFT</code></td><td>Waits for <code>matched_filter_processing_chain</code> to complete (latency determined by FFT pipeline)</td></tr><tr><td>6</td><td><code>ST_OUTPUT</code></td><td>Emits range profile I/Q (<code>pc_i</code>, <code>pc_q</code>, <code>pc_valid</code>); checks if more segments needed</td></tr><tr><td>7</td><td><code>ST_NEXT_SEGMENT</code></td><td>Overlap-save: copies last $L_\text{overlap}$ samples to buffer start, resets write pointer to $L_\text{overlap}$; advances <code>current_segment</code> counter</td></tr></tbody></table>
+
+<h3 id="7-3-processing-chain">7.3 Processing Chain<a class="ha" href="#7-3-processing-chain" aria-hidden="true">¶</a></h3>
+
+<p>The <code>matched_filter_processing_chain</code> sub-module performs the core frequency-domain operations:</p>
+
+<ul><li><strong>Forward FFT</strong> -- $N_\text{FFT}$-point FFT of the buffered input segment</li><li><strong>Spectral Multiplication</strong> -- element-wise complex multiply with the FFT of the reference chirp</li><li><strong>Inverse FFT</strong> -- $N_\text{FFT}$-point inverse FFT to produce the time-domain range profile</li></ul>
+
+<p>The processing chain receives 16-bit I/Q input (<code>adc_data_i</code>, <code>adc_data_q</code>) and the reference chirp (<code>long_chirp_real/imag</code>, <code>short_chirp_real/imag</code>), and outputs the range profile (<code>range_profile_i[15:0]</code>, <code>range_profile_q[15:0]</code>) with a valid flag. The matched filtering implements the cross-correlation in the frequency domain (see Eq. (FMCW-1) in <a href="../01_physics/01_fmcw_theory.md"><code>01_physics/01_fmcw_theory.md</code></a> for the beat frequency interpretation of range).</p>
+
+<h3 id="7-4-input-data-formatting">7.4 Input Data Formatting<a class="ha" href="#7-4-input-data-formatting" aria-hidden="true">¶</a></h3>
+
+<p>The DDC output (16-bit from <code>ddc_input_interface</code>) is sign-extended to 18 bits before entering the matched filter:</p>
+
+<pre><code class="language-verilog">.ddc_i({{2{adc_i_scaled[15]}}, adc_i_scaled}),  // 16-bit -&gt; 18-bit sign extension
+.ddc_q({{2{adc_q_scaled[15]}}, adc_q_scaled}),</code></pre>
+
+<p>Within the buffer, samples are truncated with rounding from 18-bit to 16-bit: <code>ddc_i[17:2] + ddc_i[1]</code>.</p>
+
+<hr>
+
+<h2 id="8-stage-6-range-bin-decimation">8. Stage 6: Range Bin Decimation<a class="ha" href="#8-stage-6-range-bin-decimation" aria-hidden="true">¶</a></h2>
+
+<p class="kv-line"><span class="kv-key">Module:</span> <span class="kv-value"><code>range_bin_decimator</code></span></p>
+<p class="kv-line"><span class="kv-key">Clock domain:</span> <span class="kv-value">100 MHz</span></p>
+
+<p>The range bin decimator reduces the number of range bins from $N_\text{FFT}$ to $N_\text{rb}$ (defined in the <a href="../00_notation/symbol_table.md#software-signal-processing">Symbol Table</a>) to limit data volume before Doppler processing:</p>
+
+<p>$$</p>
+<p>D_\text{rb} = \frac{N_\text{FFT}}{N_\text{rb}} = \frac{1024}{64} = 16 \tag{SW-5}</p>
+<p>$$</p>
+
+<table class="md-table"><thead><tr><th>Parameter</th><th>Symbol</th><th>Value</th><th>Verilog Param</th></tr></thead><tbody><tr><td>Input bins</td><td>$N_\text{FFT}$</td><td>1024</td><td><code>INPUT_BINS</code></td></tr><tr><td>Output bins</td><td>$N_\text{rb}$</td><td>64</td><td><code>OUTPUT_BINS</code></td></tr><tr><td>Decimation factor</td><td>$D_\text{rb}$</td><td>16</td><td><code>DECIMATION_FACTOR</code></td></tr><tr><td>Decimation mode</td><td>--</td><td>Peak detection (<code>2&#x27;b01</code>)</td><td><code>decimation_mode</code></td></tr><tr><td>Start bin</td><td>--</td><td>0</td><td><code>start_bin</code></td></tr></tbody></table>
+
+<p>In peak detection mode (<code>decimation_mode = 2&#x27;b01</code>), the decimator selects the bin with the largest magnitude within each group of $D_\text{rb}$ consecutive bins, preserving target peaks while reducing data rate by a factor of 16.</p>
+
+<table class="md-table"><thead><tr><th>Signal</th><th>Width</th><th>Description</th></tr></thead><tbody><tr><td>Input <code>range_i_in</code> / <code>range_q_in</code></td><td>16-bit signed</td><td>Range profile from matched filter</td></tr><tr><td>Input <code>range_valid_in</code></td><td>1-bit</td><td>Valid flag</td></tr><tr><td>Output <code>range_i_out</code> / <code>range_q_out</code></td><td>16-bit signed</td><td>Decimated range bins</td></tr><tr><td>Output <code>range_valid_out</code></td><td>1-bit</td><td>Valid flag</td></tr><tr><td>Output <code>range_bin_index</code></td><td>6-bit</td><td>Decimated range bin index (0--63)</td></tr></tbody></table>
+
+<hr>
+
+<h2 id="9-stage-7-doppler-processing">9. Stage 7: Doppler Processing<a class="ha" href="#9-stage-7-doppler-processing" aria-hidden="true">¶</a></h2>
+
+<p class="kv-line"><span class="kv-key">Module:</span> <span class="kv-value"><code>doppler_processor_optimized</code></span></p>
+<p class="kv-line"><span class="kv-key">Clock domain:</span> <span class="kv-value">100 MHz</span></p>
+
+<p>The Doppler processor computes a $N_\text{Doppler}$-point FFT across $M$ chirps for each of $N_\text{rb}$ range bins to measure target velocity. This implements the slow-time Doppler processing described in Eq. (FMCW-4) of <a href="../01_physics/01_fmcw_theory.md"><code>01_physics/01_fmcw_theory.md</code></a>.</p>
+
+<h3 id="9-1-memory-organization">9.1 Memory Organization<a class="ha" href="#9-1-memory-organization" aria-hidden="true">¶</a></h3>
+
+<p>The Doppler processor accumulates range bin data from $M$ chirps in block RAM before processing:</p>
+
+<table class="md-table"><thead><tr><th>Parameter</th><th>Symbol</th><th>Value</th><th>Verilog Param</th></tr></thead><tbody><tr><td>Doppler FFT size</td><td>$N_\text{Doppler}$</td><td>32</td><td><code>DOPPLER_FFT_SIZE</code></td></tr><tr><td>Range bins</td><td>$N_\text{rb}$</td><td>64</td><td><code>RANGE_BINS</code></td></tr><tr><td>Chirps per frame</td><td>$M$</td><td>32</td><td><code>CHIRPS_PER_FRAME</code></td></tr><tr><td>Memory depth</td><td>$N_\text{rb} \times M$</td><td>2048 entries</td><td><code>MEM_DEPTH</code></td></tr><tr><td>Data width</td><td>--</td><td>16-bit per channel</td><td><code>DATA_WIDTH</code></td></tr></tbody></table>
+
+<p>Memory uses chirp-major addressing:</p>
+
+<p>$$</p>
+<p>\text{addr} = \text{chirp\_index} \times N_\text{rb} + \text{range\_bin} \tag{SW-6}</p>
+<p>$$</p>
+
+<p>The <code>(<em> ram_style = &quot;block&quot; </em>)</code> attribute directs Vivado to implement the I/Q memory arrays in FPGA Block RAM (see $N_\text{BRAM}$ in the <a href="../00_notation/symbol_table.md#hardware-and-power">Symbol Table</a>).</p>
+
+<h3 id="9-2-hamming-window">9.2 Hamming Window<a class="ha" href="#9-2-hamming-window" aria-hidden="true">¶</a></h3>
+
+<p>Before the Doppler FFT, each slow-time sample is multiplied by a Hamming window $w[n]$ (defined in the <a href="../00_notation/symbol_table.md#signal-processing">Symbol Table</a>) in Q15 fixed-point format. The 32 pre-calculated coefficients are stored as 16-bit unsigned values:</p>
+
+<table class="md-table"><thead><tr><th>Index</th><th>Value (hex)</th><th>Index</th><th>Value (hex)</th></tr></thead><tbody><tr><td>0</td><td><code>0x0800</code></td><td>16</td><td><code>0x7FFF</code> (peak)</td></tr><tr><td>1</td><td><code>0x0862</code></td><td>17</td><td><code>0x781D</code></td></tr><tr><td>2</td><td><code>0x09CB</code></td><td>18</td><td><code>0x69C4</code></td></tr><tr><td>...</td><td>(symmetric)</td><td>...</td><td>...</td></tr><tr><td>15</td><td><code>0x781D</code></td><td>31</td><td><code>0x0862</code></td></tr></tbody></table>
+
+<p>The windowed samples are computed with Q15 multiplication and rounding:</p>
+
+<pre><code class="language-verilog">mult_i = $signed(doppler_i_mem[addr]) * $signed(window_coeff[index]);
+fft_input_i = (mult_i + (1 &lt;&lt; 14)) &gt;&gt;&gt; 15;  // Round to nearest</code></pre>
+
+<h3 id="9-3-doppler-fft">9.3 Doppler FFT<a class="ha" href="#9-3-doppler-fft" aria-hidden="true">¶</a></h3>
+
+<p>The Doppler FFT uses the Xilinx <code>xfft_32</code> IP core (32-point forward FFT, AXI-Stream interface):</p>
+
+<table class="md-table"><thead><tr><th>Port</th><th>Direction</th><th>Description</th></tr></thead><tbody><tr><td><code>s_axis_config_tdata</code></td><td>Input</td><td><code>8&#x27;h01</code> (forward FFT configuration)</td></tr><tr><td><code>s_axis_data_tdata</code></td><td>Input</td><td><code>{fft_input_q, fft_input_i}</code> -- 32-bit packed I/Q</td></tr><tr><td><code>s_axis_data_tlast</code></td><td>Input</td><td>Asserted on last sample of each 32-point transform</td></tr><tr><td><code>m_axis_data_tdata</code></td><td>Output</td><td><code>{fft_output_q, fft_output_i}</code> -- 32-bit packed I/Q</td></tr><tr><td><code>m_axis_data_tvalid</code></td><td>Output</td><td>FFT output valid</td></tr><tr><td><code>m_axis_data_tlast</code></td><td>Output</td><td>Last output sample</td></tr></tbody></table>
+
+<h3 id="9-4-state-machine">9.4 State Machine<a class="ha" href="#9-4-state-machine" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>State</th><th>Name</th><th>Description</th></tr></thead><tbody><tr><td><code>S_IDLE</code></td><td>Wait for frame</td><td>Detects <code>new_chirp_frame</code> rising edge; resets write indices</td></tr><tr><td><code>S_ACCUMULATE</code></td><td>Store chirp data</td><td>Writes 32-bit packed I/Q to block RAM at <code>mem_write_addr</code>; increments chirp index after $N_\text{rb}$ bins received; transitions to <code>S_LOAD_FFT</code> when $M$ chirps accumulated</td></tr><tr><td><code>S_LOAD_FFT</code></td><td>Feed FFT</td><td>Reads $N_\text{Doppler}$ samples for current range bin, applies Hamming window, streams to <code>xfft_32</code></td></tr><tr><td><code>S_FFT_WAIT</code></td><td>Await results</td><td>Collects FFT output; packs as <code>{Q[15:0], I[15:0]}</code> in <code>doppler_output[31:0]</code></td></tr><tr><td><code>S_OUTPUT</code></td><td>Next range bin</td><td>Advances <code>read_range_bin</code>; loops to <code>S_LOAD_FFT</code> until all $N_\text{rb}$ bins processed</td></tr></tbody></table>
+
+<h3 id="9-5-output-format">9.5 Output Format<a class="ha" href="#9-5-output-format" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Signal</th><th>Width</th><th>Description</th></tr></thead><tbody><tr><td><code>doppler_output</code></td><td>32-bit</td><td>Packed <code>{Q[15:0], I[15:0]}</code></td></tr><tr><td><code>doppler_valid</code></td><td>1-bit</td><td>Output valid flag</td></tr><tr><td><code>doppler_bin</code></td><td>5-bit</td><td>Doppler bin index (0--31)</td></tr><tr><td><code>range_bin</code></td><td>6-bit</td><td>Range bin index (0--63)</td></tr><tr><td><code>processing_active</code></td><td>1-bit</td><td>Asserted during FFT computation</td></tr><tr><td><code>frame_complete</code></td><td>1-bit</td><td>Asserted when all range bins processed</td></tr></tbody></table>
+
+<h3 id="9-6-frame-synchronization">9.6 Frame Synchronization<a class="ha" href="#9-6-frame-synchronization" aria-hidden="true">¶</a></h3>
+
+<p>In <code>radar_receiver_final.v</code>, frame synchronization detects transitions in <code>chirp_counter</code> to generate <code>new_chirp_frame</code> pulses. The current implementation uses Method B: frame start at <code>chirp_counter == 0</code> or <code>chirp_counter == 32</code>, supporting 32-chirp frames within a 64-chirp sequence.</p>
+
+<hr>
+
+<h2 id="10-stage-8-threshold-detection">10. Stage 8: Threshold Detection<a class="ha" href="#10-stage-8-threshold-detection" aria-hidden="true">¶</a></h2>
+
+<p class="kv-line"><span class="kv-key">Module:</span> <span class="kv-value">Inline logic in <code>radar_system_top.v</code></span></p>
+<p class="kv-line"><span class="kv-key">Clock domain:</span> <span class="kv-value">100 MHz</span></p>
+
+<blockquote><strong>CRITICAL: This is a placeholder threshold detector, NOT a true CFAR implementation.</strong> The variable names in the Verilog source (<code>rx_cfar_detection</code>, <code>cfar_valid</code>, <code>cfar_counter</code>) use CFAR terminology, but the actual implementation is a fixed magnitude threshold. A true CFAR algorithm (CA-CFAR, OS-CFAR, etc.) is documented as a future enhancement -- see Phase 5 (SWRES-01) and detection theory in <a href="../01_physics/02_lfm_waveform.md"><code>01_physics/02_lfm_waveform.md</code></a>.</blockquote>
+
+<h3 id="10-1-implementation">10.1 Implementation<a class="ha" href="#10-1-implementation" aria-hidden="true">¶</a></h3>
+
+<p>The detection logic operates on the Doppler output from <code>radar_receiver_final</code>:</p>
+
+<pre><code>Doppler output format: {rx_doppler_imag[15:0], rx_doppler_real[15:0]}</code></pre>
+
+<p>The detector computes an approximate magnitude using the L1 norm (Manhattan distance) and compares against a fixed threshold:</p>
+
+<p>$$</p>
+<p>I| +| Q| &gt; 10{,}000 \tag{SW-7}</p>
+<p>$$</p>
+
+<p>where $I$ and $Q$ are the 16-bit signed Doppler output components (<code>rx_doppler_real</code>, <code>rx_doppler_imag</code>). The absolute values are computed by conditional negation:</p>
+
+<pre><code class="language-verilog">wire [16:0] mag = (rx_doppler_real[15] ? -rx_doppler_real : rx_doppler_real) +
+                  (rx_doppler_imag[15] ? -rx_doppler_imag : rx_doppler_imag);
+
+if (mag &gt; 17&#x27;d10000) begin
+    rx_cfar_detection &lt;= 1&#x27;b1;  // Detection flag (misleading name)
+    rx_cfar_valid &lt;= 1&#x27;b1;
+end</code></pre>
+
+<h3 id="10-2-limitations">10.2 Limitations<a class="ha" href="#10-2-limitations" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Aspect</th><th>Current Implementation</th><th>True CFAR</th></tr></thead><tbody><tr><td>Threshold</td><td>Fixed at 10,000</td><td>Adaptive, computed from noise estimate</td></tr><tr><td>False alarm rate</td><td>Uncontrolled, varies with noise level</td><td>Constant $P_{fa}$ (see <a href="../00_notation/symbol_table.md#detection-and-signal">Symbol Table</a>)</td></tr><tr><td>Reference cells</td><td>None</td><td>$N_\text{ref}$ cells surrounding CUT</td></tr><tr><td>Guard cells</td><td>None</td><td>$N_\text{guard}$ cells to prevent target leakage</td></tr><tr><td>Algorithm</td><td>L1 magnitude comparison</td><td>Cell-averaging or order-statistic (see Eq. (DET-1) through (DET-24) in <a href="../01_physics/02_lfm_waveform.md"><code>01_physics/02_lfm_waveform.md</code></a>)</td></tr></tbody></table>
+
+<h3 id="10-3-output-signals">10.3 Output Signals<a class="ha" href="#10-3-output-signals" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Signal</th><th>Width</th><th>Description</th></tr></thead><tbody><tr><td><code>rx_cfar_detection</code></td><td>1-bit</td><td>Detection flag (asserted when threshold exceeded)</td></tr><tr><td><code>rx_cfar_valid</code></td><td>1-bit</td><td>Pulsed valid signal</td></tr><tr><td><code>cfar_counter</code></td><td>8-bit</td><td>Running count of detections (diagnostic)</td></tr></tbody></table>
+
+<hr>
+
+<h2 id="11-stage-9-usb-output">11. Stage 9: USB Output<a class="ha" href="#11-stage-9-usb-output" aria-hidden="true">¶</a></h2>
+
+<p class="kv-line"><span class="kv-key">Module:</span> <span class="kv-value"><code>usb_data_interface</code></span></p>
+<p class="kv-line"><span class="kv-key">Clock domain:</span> <span class="kv-value">FT601 100 MHz (asynchronous to system clock)</span></p>
+
+<p>The USB interface transmits range profiles, Doppler spectra, and detection flags to the host PC via the FT601 USB 3.0 controller in Slave FIFO mode. The FT601 clock <code>ft601_clk_in</code> at 100 MHz is generated by the FT601&#x27;s own oscillator and is asynchronous to the system 100 MHz clock.</p>
+
+<p>For full USB protocol documentation including packet format, state machine, and host-side interface, see <code>04_usb_protocol.md</code> (SWDOC-04).</p>
+
+<h3 id="11-1-data-packing">11.1 Data Packing<a class="ha" href="#11-1-data-packing" aria-hidden="true">¶</a></h3>
+
+<p>The system top module packs the pipeline outputs for USB transmission:</p>
+
+<table class="md-table"><thead><tr><th>USB Signal</th><th>Source</th><th>Description</th></tr></thead><tbody><tr><td><code>usb_range_profile</code></td><td><code>rx_doppler_output</code></td><td>32-bit range data (currently uses Doppler output as placeholder)</td></tr><tr><td><code>usb_doppler_real</code></td><td><code>rx_doppler_output[15:0]</code></td><td>16-bit Doppler I component</td></tr><tr><td><code>usb_doppler_imag</code></td><td><code>rx_doppler_output[31:16]</code></td><td>16-bit Doppler Q component</td></tr><tr><td><code>usb_cfar_detection</code></td><td><code>rx_cfar_detection</code></td><td>1-bit detection flag</td></tr></tbody></table>
+
+<h3 id="11-2-ft601-interface-signals">11.2 FT601 Interface Signals<a class="ha" href="#11-2-ft601-interface-signals" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Signal</th><th>Direction</th><th>Description</th></tr></thead><tbody><tr><td><code>ft601_data[31:0]</code></td><td>Bidirectional</td><td>32-bit data bus with tri-state control</td></tr><tr><td><code>ft601_be[1:0]</code></td><td>Output</td><td>Byte enable</td></tr><tr><td><code>ft601_wr_n</code></td><td>Output</td><td>Write strobe (active low)</td></tr><tr><td><code>ft601_rd_n</code></td><td>Output</td><td>Read strobe (active low)</td></tr><tr><td><code>ft601_oe_n</code></td><td>Output</td><td>Output enable (active low)</td></tr><tr><td><code>ft601_txe</code></td><td>Input</td><td>Transmit FIFO empty (flow control)</td></tr><tr><td><code>ft601_rxf</code></td><td>Input</td><td>Receive FIFO full (flow control)</td></tr><tr><td><code>ft601_siwu_n</code></td><td>Output</td><td>Send immediate / wakeup</td></tr></tbody></table>
+
+<hr>
+
+<h2 id="12-stm32-to-fpga-control-interface">12. STM32-to-FPGA Control Interface<a class="ha" href="#12-stm32-to-fpga-control-interface" aria-hidden="true">¶</a></h2>
+
+<p>The STM32 microcontroller controls the FPGA pipeline timing through GPIO toggle signals. Each signal uses edge detection (rising edge of toggle) in the FPGA to generate single-cycle pulses.</p>
+
+<h3 id="12-1-control-signals">12.1 Control Signals<a class="ha" href="#12-1-control-signals" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Signal</th><th>GPIO Pin</th><th>Direction</th><th>Function</th></tr></thead><tbody><tr><td><code>stm32_new_chirp</code></td><td>PD8</td><td>STM32 -&gt; FPGA</td><td>Toggle on each new chirp transmission; triggers matched filter FSM (<code>chirp_start_pulse</code>)</td></tr><tr><td><code>stm32_new_elevation</code></td><td>PD9</td><td>STM32 -&gt; FPGA</td><td>Toggle on elevation beam position change; resets Doppler accumulation for new beam</td></tr><tr><td><code>stm32_new_azimuth</code></td><td>PD10</td><td>STM32 -&gt; FPGA</td><td>Toggle on azimuth position change; signals new scan column</td></tr><tr><td><code>stm32_mixers_enable</code></td><td>PD11</td><td>STM32 -&gt; FPGA</td><td>Enables/disables RF mixer path in DDC; controls NCO <code>phase_valid</code></td></tr><tr><td>FPGA reset</td><td>PD12</td><td>STM32 -&gt; FPGA</td><td>Active-low reset; firmware toggles during initialization sequence</td></tr></tbody></table>
+
+<h3 id="12-2-pipeline-state-transitions">12.2 Pipeline State Transitions<a class="ha" href="#12-2-pipeline-state-transitions" aria-hidden="true">¶</a></h3>
+
+<p>The control signals drive the pipeline through the radar scan sequence:</p>
+
+<ul><li><strong>Chirp start</strong> (<code>stm32_new_chirp</code> toggle): The matched filter FSM transitions from <code>ST_IDLE</code> to <code>ST_COLLECT_DATA</code>, beginning sample collection for the current chirp</li><li><strong>Chirp completion</strong>: After $M$ chirps per beam position, the Doppler processor has accumulated a full frame and begins FFT processing across all $N_\text{rb}$ range bins</li><li><strong>Elevation change</strong> (<code>stm32_new_elevation</code> toggle): Signals that the beam has moved to a new elevation position; the pipeline prepares for a new set of $M$ chirps</li><li><strong>Azimuth change</strong> (<code>stm32_new_azimuth</code> toggle): Signals stepper motor has moved to the next azimuth position; begins a new elevation scan at the new azimuth</li></ul>
+
+<p>For the complete chirp sequence timing and scan schedule, see <a href="../02_hardware/07_timing_budget.md#chirp-sequence-timing"><code>02_hardware/07_timing_budget.md</code></a>.</p>
+
+<hr>
+
+<h2 id="references">References<a class="ha" href="#references" aria-hidden="true">¶</a></h2>
+
+<ul><li><a href="../00_notation/symbol_table.md">Symbol Table</a> -- Section 5 (Signal Processing) and Section 6 (Software Signal Processing)</li><li><a href="../00_notation/parameter_table.md">Parameter Table</a> -- Signal Processing (FPGA) section for all numerical values</li><li><a href="../00_notation/conventions.md">Conventions</a> -- Equation numbering (SW-N prefix) and formatting rules</li><li><a href="../01_physics/01_fmcw_theory.md">FMCW Theory</a> -- Beat frequency (Eq. FMCW-1), Doppler shift (Eq. FMCW-4), range equation</li><li><a href="../01_physics/02_lfm_waveform.md">LFM Waveform Model</a> -- Pulse compression gain, matched filter theory, CFAR detection</li><li><a href="../02_hardware/05_fpga_board.md">FPGA Board</a> -- XC7A100T resources, clock tree, CDC architecture</li><li><a href="../02_hardware/07_timing_budget.md">Timing Budget</a> -- Pipeline latency analysis, chirp sequence timing</li></ul>
+
+</div>
+  </div><!-- main-content -->
+</div><!-- site-shell -->
+<script>
+mermaid.initialize({ startOnLoad: true, theme: 'dark', securityLevel: 'loose' });
+</script>
+</body>
+
+</html>

@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>03_python_gui — aros Vault</title>
+<style>
+
+:root {
+  --color-blue:    #007ACC;
+  --color-green:   #2DA44E;
+  --color-yellow:  #D29922;
+  --color-purple:  #8B5CF6;
+  --color-orange:  #F59E0B;
+  --color-red:     #E5534B;
+  --color-cyan:    #0BC5EA;
+  --color-accent:  #7C3AED;
+  --text-normal:   #DCDDDE;
+  --text-muted:    #8E8EA0;
+  --background-primary:         #1E1E2E;
+  --background-secondary:       #181825;
+  --background-modifier-border: #313244;
+  --color-base-30:              #45475A;
+}
+body {
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.6;
+  margin: 0;
+}
+
+</style>
+<!-- Mermaid -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<!-- MathJax -->
+<script>window.MathJax={tex:{inlineMath:[['$','$'],['\\(','\\)']],displayMath:[['$$','$$'],['\\[','\\]']]},options:{skipHtmlTags:['script','noscript','style','textarea','pre']}};</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+<!-- Site CSS -->
+<link rel="stylesheet" href="../../site.css">
+</head>
+<body class="markdown-reading-view">
+<div class="site-shell">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <a href="../../00-Index.html" class="site-title">radarv2 / AERIS-10</a>
+      <div class="site-subtitle">aros Radar Documentation</div>
+    </div>
+    <ul class="nav-list">
+      <li class="nav-section">Core Docs</li>
+      <li><a href="../../09-Concepts-Primer.html">Radar Primer</a></li>
+      <li><a href="../../00-Index.html">Index</a></li>
+      <li><a href="../../01-System-Overview.html">System Overview</a></li>
+      <li><a href="../../02-Physics-and-Waveform.html">Physics &amp; Waveform</a></li>
+      <li><a href="../../03-Beamforming-and-Scan.html">Beamforming &amp; Scan</a></li>
+      <li><a href="../../04-Signal-Processing-Pipeline.html">Signal Processing</a></li>
+      <li><a href="../../05-Node-Architecture.html">Node Architecture</a></li>
+      <li><a href="../../06-Message-Catalog.html">Message Catalog</a></li>
+      <li><a href="../../07-Detection-and-Tracking.html">Detection &amp; Tracking</a></li>
+      <li><a href="../../08-Scenarios-and-Targets.html">Scenarios &amp; Targets</a></li>
+      <li class="nav-section">Advanced</li>
+      <li><a href="../../10-Radar-Model-Library.html">Radar Model Library</a></li>
+      <li><a href="../../11-Multi-Radar-Fusion.html">Multi-Radar Fusion</a></li>
+      <li><a href="../../12-3D-Scene.html">3-D Scene</a></li>
+      <li><a href="../../13-Reference-Tables.html">Reference Tables</a></li>
+      <li><a href="../../FUTURE-DEVELOPMENT.html">Future Development</a></li>
+      <li class="nav-section">Upstream Theory</li>
+      <li><a href="../../upstream/README.html">Upstream README</a></li>
+      <li><a href="../../upstream/00_notation/conventions.html">Notation</a></li>
+      <li><a href="../../upstream/01_physics/01_fmcw_theory.html">FMCW Theory</a></li>
+      <li><a href="../../upstream/01_physics/02_lfm_waveform_model.html">LFM Waveform</a></li>
+      <li><a href="../../upstream/01_physics/03_beamforming_theory.html">Beamforming Theory</a></li>
+      <li><a href="../../upstream/01_physics/04_detection_theory.html">Detection Theory</a></li>
+      <li><a href="../../upstream/01_physics/05_noise_analysis.html">Noise Analysis</a></li>
+      <li><a href="../../upstream/01_physics/06_calibration_theory.html">Calibration</a></li>
+      <li><a href="../../upstream/02_hardware/01_system_overview.html">HW Overview</a></li>
+      <li><a href="../../upstream/04_research/01_cfar_variants.html">CFAR Variants</a></li>
+    </ul>
+    <div class="sidebar-footer">
+      <a href="https://github.com/brkay54/radarv2-docs" target="_blank">GitHub</a>
+    </div>
+  </nav>
+  <div class="main-content">
+
+<div class="markdown-preview-section">
+<h1 id="python-gui-v6-architecture">Python GUI V6 Architecture<a class="ha" href="#python-gui-v6-architecture" aria-hidden="true">¶</a></h1>
+
+<p class="kv-line"><span class="kv-key">Purpose:</span> <span class="kv-value">Document the AERIS-10 Python GUI V6 (<code>GUI_V6.py</code>) architecture, including all dataclasses, USB communication, signal processing design (clustering and tracking), and display rendering. Explicitly identifies which components are complete implementations and which are stubs.</span></p>
+
+<p class="kv-line"><span class="kv-key">Scope:</span> <span class="kv-value">This document covers <code>GUI_V6.py</code> only. GUI versions V1 through V5 are explicitly excluded from documentation per project requirements.</span></p>
+
+<p class="kv-line"><span class="kv-key">Prerequisites:</span> <span class="kv-value">Familiarity with:</span></p>
+<ul><li><a href="../00_notation/symbol_table.md">Symbol Table</a> -- all symbols used herein</li><li><a href="../00_notation/parameter_table.md">Parameter Table</a> -- numerical values for both variants</li><li><a href="../00_notation/conventions.md">Conventions</a> -- equation formatting rules</li><li><a href="04_usb_protocol.md">USB Protocol</a> -- FT601 packet format and STM32 CDC protocol</li></ul>
+
+<hr>
+
+<h2 id="1-architecture-overview">1. Architecture Overview<a class="ha" href="#1-architecture-overview" aria-hidden="true">¶</a></h2>
+
+<p>GUI V6 is a Python tkinter application that provides real-time radar data visualization and system control for the AERIS-10 radar. The application connects to two USB interfaces -- FT601 (radar data from FPGA) and STM32 CDC (GPS/telemetry and commands) -- and displays range-Doppler data, target information, and map overlays.</p>
+
+<h3 id="1-1-data-flow">1.1 Data Flow<a class="ha" href="#1-1-data-flow" aria-hidden="true">¶</a></h3>
+
+<pre><code>FT601 USB 3.0                     STM32 USB CDC
+     |                                  |
+     v                                  v
+FT601Interface                  STM32USBInterface
+     |                                  |
+     v                                  |
+USBPacketParser [STUB]                  |
+     |                                  |
+     v                                  |
+RadarPacketParser [STUB]                |
+     |                                  |
+     v                                  v
+RadarProcessor [STUB]             GPSData (parsed)
+     |                                  |
+     +----------------------------------+
+     |
+     v
+RadarGUI (tkinter + matplotlib display)
+     |
+     v
+MapGenerator [STUB]</code></pre>
+
+<p>Data flows from the FT601 USB 3.0 interface through a chain of parsing and processing classes before reaching the GUI display. <strong>The parsing and processing chain is currently stub implementations</strong> (<code>pass</code> bodies), meaning radar data is read from USB but not processed end-to-end. The FT601Interface class itself is fully implemented and functional.</p>
+
+<h3 id="1-2-dependencies">1.2 Dependencies<a class="ha" href="#1-2-dependencies" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Library</th><th>Version</th><th>Purpose</th></tr></thead><tbody><tr><td><code>tkinter</code></td><td>stdlib</td><td>Main GUI framework</td></tr><tr><td><code>matplotlib</code></td><td>&gt;= 3.0</td><td>Embedded plot rendering (range-Doppler display)</td></tr><tr><td><code>numpy</code></td><td>&gt;= 1.20</td><td>Numerical computation</td></tr><tr><td><code>scipy</code></td><td>&gt;= 1.7</td><td>Signal processing utilities</td></tr><tr><td><code>scikit-learn</code></td><td>&gt;= 1.0</td><td>DBSCAN clustering (imported but unused -- stub)</td></tr><tr><td><code>filterpy</code></td><td>&gt;= 1.4</td><td>Kalman filter (imported but unused -- stub)</td></tr><tr><td><code>pyftdi</code></td><td>&gt;= 0.54</td><td>FT601 USB 3.0 communication (primary)</td></tr><tr><td><code>pyusb</code></td><td>&gt;= 1.2</td><td>Direct USB access (fallback)</td></tr><tr><td><code>crcmod</code></td><td>&gt;= 1.7</td><td>CRC computation</td></tr></tbody></table>
+
+<hr>
+
+<h2 id="2-implementation-status">2. Implementation Status<a class="ha" href="#2-implementation-status" aria-hidden="true">¶</a></h2>
+
+<blockquote><strong>CRITICAL:</strong> The following table clearly marks each class as complete or stub. Engineers must consult this table before assuming any component is functional.</blockquote>
+
+<table class="md-table"><thead><tr><th>Class</th><th>Status</th><th>Lines</th><th>Description</th></tr></thead><tbody><tr><td><code>RadarTarget</code></td><td><strong>Complete</strong></td><td>Dataclass</td><td>Detected target data structure with all physical fields</td></tr><tr><td><code>RadarSettings</code></td><td><strong>Complete</strong></td><td>Dataclass</td><td>System configuration parameters matching STM32 <code>RadarSettings.h</code></td></tr><tr><td><code>GPSData</code></td><td><strong>Complete</strong></td><td>Dataclass</td><td>GPS/IMU sensor data from STM32</td></tr><tr><td><code>FT601Interface</code></td><td><strong>Complete</strong></td><td>~250</td><td>FT601 USB 3.0 communication with pyftdi and direct USB fallback</td></tr><tr><td><code>RadarGUI</code></td><td><strong>Complete</strong></td><td>~200</td><td>tkinter main window with matplotlib, device selection, start/stop</td></tr><tr><td><code>RadarProcessor</code></td><td><strong>Stub</strong></td><td><code>pass</code></td><td>Intended: DBSCAN clustering + Kalman tracking</td></tr><tr><td><code>USBPacketParser</code></td><td><strong>Stub</strong></td><td><code>pass</code></td><td>Intended: Parse raw USB bytes into structured packets</td></tr><tr><td><code>RadarPacketParser</code></td><td><strong>Stub</strong></td><td><code>pass</code></td><td>Intended: Parse radar-specific packet fields</td></tr><tr><td><code>MapGenerator</code></td><td><strong>Stub</strong></td><td><code>pass</code></td><td>Intended: Google Maps overlay for target display</td></tr><tr><td><code>STM32USBInterface</code></td><td><strong>Not defined</strong></td><td>--</td><td>Referenced in <code>RadarGUI.__init__()</code> but class definition is not in <code>GUI_V6.py</code></td></tr></tbody></table>
+
+<p class="kv-line"><span class="kv-key">Implication:</span> <span class="kv-value">The GUI can connect to the FT601 and STM32 USB devices and display its interface, but the end-to-end data processing pipeline from USB packet to displayed target is not functional due to stub classes in the parsing/processing chain.</span></p>
+
+<hr>
+
+<h2 id="3-radartarget-dataclass">3. RadarTarget Dataclass<a class="ha" href="#3-radartarget-dataclass" aria-hidden="true">¶</a></h2>
+
+<p>The <code>RadarTarget</code> dataclass represents a single detected radar target with all fields needed for display and tracking.</p>
+
+<pre><code class="language-python">@dataclass
+class RadarTarget:
+    id: int
+    range: float
+    velocity: float
+    azimuth: int
+    elevation: int
+    latitude: float = 0.0
+    longitude: float = 0.0
+    snr: float = 0.0
+    timestamp: float = 0.0
+    track_id: int = -1</code></pre>
+
+<h3 id="3-1-field-definitions">3.1 Field Definitions<a class="ha" href="#3-1-field-definitions" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Field</th><th>Type</th><th>Units</th><th>Standard Symbol</th><th>Description</th></tr></thead><tbody><tr><td><code>id</code></td><td><code>int</code></td><td>--</td><td>--</td><td>Unique target identifier within current scan</td></tr><tr><td><code>range</code></td><td><code>float</code></td><td>m</td><td>$R$</td><td>Slant range from radar to target (see <a href="../00_notation/symbol_table.md#range-and-velocity">Symbol Table</a>)</td></tr><tr><td><code>velocity</code></td><td><code>float</code></td><td>m/s</td><td>$v$</td><td>Radial velocity (positive = approaching)</td></tr><tr><td><code>azimuth</code></td><td><code>int</code></td><td>deg</td><td>$\theta$</td><td>Azimuth angle from radar boresight (beam steering angle, see <a href="../00_notation/symbol_table.md#antenna-and-beamforming">Symbol Table</a>)</td></tr><tr><td><code>elevation</code></td><td><code>int</code></td><td>deg</td><td>--</td><td>Elevation beam position index</td></tr><tr><td><code>latitude</code></td><td><code>float</code></td><td>decimal deg</td><td>--</td><td>Target GPS latitude after coordinate transform</td></tr><tr><td><code>longitude</code></td><td><code>float</code></td><td>decimal deg</td><td>--</td><td>Target GPS longitude after coordinate transform</td></tr><tr><td><code>snr</code></td><td><code>float</code></td><td>dB</td><td>$\text{SNR}$</td><td>Signal-to-noise ratio at detection</td></tr><tr><td><code>timestamp</code></td><td><code>float</code></td><td>s</td><td>--</td><td>Detection timestamp (epoch seconds)</td></tr><tr><td><code>track_id</code></td><td><code>int</code></td><td>--</td><td>--</td><td>Track association ID from Kalman tracker (-1 = untracked)</td></tr></tbody></table>
+
+<p>The coordinate fields (<code>latitude</code>, <code>longitude</code>) are populated by the coordinate transform that converts radar-relative spherical coordinates $(R, \theta, \text{elevation})$ to GPS-absolute coordinates. See <a href="../02_hardware/09_gps_imu_transforms.md">GPS/IMU Coordinate Transforms</a> for the transform mathematics.</p>
+
+<hr>
+
+<h2 id="4-radarsettings-dataclass">4. RadarSettings Dataclass<a class="ha" href="#4-radarsettings-dataclass" aria-hidden="true">¶</a></h2>
+
+<p>The <code>RadarSettings</code> dataclass holds all configurable radar system parameters. These mirror the STM32 <code>RadarSettings</code> class (in <code>RadarSettings.h</code>) and are sent to the STM32 via USB CDC when the operator starts the radar.</p>
+
+<pre><code class="language-python">@dataclass
+class RadarSettings:
+    system_frequency: float = 10e9
+    chirp_duration_1: float = 30e-6
+    chirp_duration_2: float = 0.5e-6
+    chirps_per_position: int = 32
+    freq_min: float = 10e6
+    freq_max: float = 30e6
+    prf1: float = 1000
+    prf2: float = 2000
+    max_distance: float = 50000
+    map_size: float = 50000</code></pre>
+
+<h3 id="4-1-field-definitions">4.1 Field Definitions<a class="ha" href="#4-1-field-definitions" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Standard Symbol</th><th>Description</th></tr></thead><tbody><tr><td><code>system_frequency</code></td><td><code>float</code></td><td><code>10e9</code></td><td>$f_c$</td><td>Center frequency (Hz). <strong>Note:</strong> Default is <code>10e9</code> (10.0 GHz); canonical value is $f_c = 10.5~\text{GHz}$ per <a href="../00_notation/parameter_table.md#waveform-and-timing">Parameter Table</a>. This discrepancy is documented as a known issue.</td></tr><tr><td><code>chirp_duration_1</code></td><td><code>float</code></td><td><code>30e-6</code></td><td>$T_{c,1}$</td><td>Long chirp duration (s)</td></tr><tr><td><code>chirp_duration_2</code></td><td><code>float</code></td><td><code>0.5e-6</code></td><td>$T_{c,2}$</td><td>Short chirp duration (s)</td></tr><tr><td><code>chirps_per_position</code></td><td><code>int</code></td><td><code>32</code></td><td>$M$</td><td>Number of chirps per CPI per beam position</td></tr><tr><td><code>freq_min</code></td><td><code>float</code></td><td><code>10e6</code></td><td>--</td><td>Minimum frequency for sweep range (Hz)</td></tr><tr><td><code>freq_max</code></td><td><code>float</code></td><td><code>30e6</code></td><td>--</td><td>Maximum frequency for sweep range (Hz)</td></tr><tr><td><code>prf1</code></td><td><code>float</code></td><td><code>1000</code></td><td>--</td><td>Display update rate for long chirp mode (Hz). <strong>Not</strong> the chirp-level PRF $f_{r,1}$; see <a href="../00_notation/parameter_table.md#system-level-derivedtbd">Parameter Table</a> for clarification.</td></tr><tr><td><code>prf2</code></td><td><code>float</code></td><td><code>2000</code></td><td>--</td><td>Display update rate for short chirp mode (Hz). Same caveat as <code>prf1</code>.</td></tr><tr><td><code>max_distance</code></td><td><code>float</code></td><td><code>50000</code></td><td>$R_\text{max}$</td><td>Maximum display range (m). This is a display limit, not the physical maximum detection range.</td></tr><tr><td><code>map_size</code></td><td><code>float</code></td><td><code>50000</code></td><td>--</td><td>Map display extent (m)</td></tr></tbody></table>
+
+<blockquote><strong>Known issue:</strong> The <code>system_frequency</code> default of <code>10e9</code> does not match the canonical center frequency $f_c = 10.5~\text{GHz}$ established in the parameter table. The firmware wavelength constant (<code>wavelength = 0.02857</code> m) corresponds to 10.5 GHz. This GUI default should be corrected to <code>10.5e9</code>.</blockquote>
+
+<hr>
+
+<h2 id="5-gpsdata-dataclass">5. GPSData Dataclass<a class="ha" href="#5-gpsdata-dataclass" aria-hidden="true">¶</a></h2>
+
+<p>The <code>GPSData</code> dataclass holds position and attitude data received from the STM32 GPS/IMU subsystem.</p>
+
+<pre><code class="language-python">@dataclass
+class GPSData:
+    latitude: float
+    longitude: float
+    altitude: float
+    pitch: float
+    timestamp: float</code></pre>
+
+<table class="md-table"><thead><tr><th>Field</th><th>Type</th><th>Units</th><th>Description</th></tr></thead><tbody><tr><td><code>latitude</code></td><td><code>float</code></td><td>decimal degrees</td><td>Platform latitude from GPS receiver</td></tr><tr><td><code>longitude</code></td><td><code>float</code></td><td>decimal degrees</td><td>Platform longitude from GPS receiver</td></tr><tr><td><code>altitude</code></td><td><code>float</code></td><td>m</td><td>Platform altitude (barometric or GPS)</td></tr><tr><td><code>pitch</code></td><td><code>float</code></td><td>degrees</td><td>Platform pitch angle from IMU complementary filter</td></tr><tr><td><code>timestamp</code></td><td><code>float</code></td><td>s</td><td>Time of GPS fix (epoch seconds)</td></tr></tbody></table>
+
+<p>These fields correspond to the <code>GPS_Data_t</code> structure on the STM32 side (see <a href="04_usb_protocol.md#41-gps-binary-packet-format">USB Protocol -- GPS Binary Packet</a>). The <code>pitch</code> field is used for elevation correction when converting radar-relative target coordinates to world coordinates. See <a href="../02_hardware/09_gps_imu_transforms.md">GPS/IMU Coordinate Transforms</a> for the complementary filter and coordinate transform chain.</p>
+
+<hr>
+
+<h2 id="6-ft601interface-class">6. FT601Interface Class<a class="ha" href="#6-ft601interface-class" aria-hidden="true">¶</a></h2>
+
+<p>The <code>FT601Interface</code> class provides USB 3.0 communication with the FT601 bridge IC for radar data reception. This is a <strong>complete implementation</strong> with two access methods.</p>
+
+<h3 id="6-1-configuration">6.1 Configuration<a class="ha" href="#6-1-configuration" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Parameter</th><th>Value</th><th>Description</th></tr></thead><tbody><tr><td><code>channel</code></td><td><code>0</code></td><td>Default FT601 channel</td></tr><tr><td><code>fifo_mode</code></td><td><code>True</code></td><td>Synchronous FIFO operation</td></tr><tr><td><code>buffer_size</code></td><td><code>512</code></td><td>Optimal read/write buffer size (bytes)</td></tr></tbody></table>
+
+<h3 id="6-2-device-enumeration">6.2 Device Enumeration<a class="ha" href="#6-2-device-enumeration" aria-hidden="true">¶</a></h3>
+
+<p>The <code>list_devices()</code> method scans USB for FT601 devices:</p>
+
+<ul><li><strong>VID/PID pairs:</strong> <code>0x0403:0x6030</code> (FT601), <code>0x0403:0x6031</code> (FT601Q)</li><li>Returns a list of device dictionaries with <code>description</code>, <code>vendor_id</code>, <code>product_id</code>, <code>url</code>, <code>serial</code></li><li>Falls back to mock device list if USB enumeration fails (for development/testing)</li></ul>
+
+<h3 id="6-3-connection-methods">6.3 Connection Methods<a class="ha" href="#6-3-connection-methods" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Method</th><th>Library</th><th>Description</th></tr></thead><tbody><tr><td><code>open_device(device_url)</code></td><td><code>pyftdi</code></td><td>Primary method. Opens via FTDI URL, configures Synchronous FIFO mode (<code>BitMode.SYNCFF</code>), sets 100 MHz clock, 2 ms latency timer.</td></tr><tr><td><code>open_device_direct(device_info)</code></td><td><code>pyusb</code></td><td>Fallback method. Opens via direct USB, finds bulk endpoints EP1/EP2 IN and OUT. Used when <code>pyftdi</code> is unavailable or fails.</td></tr></tbody></table>
+
+<p>The GUI tries <code>open_device_direct()</code> first, falling back to <code>open_device()</code> if direct USB access fails.</p>
+
+<h3 id="6-4-data-transfer">6.4 Data Transfer<a class="ha" href="#6-4-data-transfer" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Method</th><th>Description</th></tr></thead><tbody><tr><td><code>read_data(bytes_to_read=None)</code></td><td>Read from FT601. Aligns to 32-bit boundary. Default: 512 bytes (pyftdi) or 512 bytes (direct USB with 100 ms timeout).</td></tr><tr><td><code>write_data(data)</code></td><td>Write to FT601. Pads to 32-bit alignment. Sends in 512-byte chunks for direct USB.</td></tr><tr><td><code>configure_burst_mode(enable)</code></td><td>Enable/disable burst mode. When enabled, sets chunk size to 4096 bytes for higher throughput.</td></tr></tbody></table>
+
+<h3 id="6-5-connection-lifecycle">6.5 Connection Lifecycle<a class="ha" href="#6-5-connection-lifecycle" aria-hidden="true">¶</a></h3>
+
+<pre><code>list_devices() -&gt; open_device() or open_device_direct() -&gt; read_data() / write_data() -&gt; close()</code></pre>
+
+<p>The <code>close()</code> method releases the FTDI handle or disposes USB resources. The <code>is_open</code> flag tracks connection state.</p>
+
+<p>For the FT601 packet format that this class reads, see <a href="04_usb_protocol.md#3-fpga-to-host-packet-format">USB Protocol -- FPGA-to-Host Packet Format</a>.</p>
+
+<hr>
+
+<h2 id="7-radarprocessor-designed-interface-stub">7. RadarProcessor (Designed Interface -- Stub)<a class="ha" href="#7-radarprocessor-designed-interface-stub" aria-hidden="true">¶</a></h2>
+
+<blockquote><strong>Status: STUB.</strong> The <code>RadarProcessor</code> class body is <code>pass</code>. The following documents the <strong>designed intent</strong> from the import list and class name, not a working implementation.</blockquote>
+
+<p>The <code>RadarProcessor</code> is intended to perform two operations on detected targets:</p>
+
+<h3 id="7-1-dbscan-clustering">7.1 DBSCAN Clustering<a class="ha" href="#7-1-dbscan-clustering" aria-hidden="true">¶</a></h3>
+
+<p>The GUI imports <code>sklearn.cluster.DBSCAN</code> for spatial clustering of radar detections.</p>
+
+<p class="kv-line"><span class="kv-key">Intended purpose:</span> <span class="kv-value">Group individual CFAR detections into target clusters. Multiple adjacent range-Doppler cells may trigger on a single physical target; DBSCAN groups these into unified target reports.</span></p>
+
+<p><strong>DBSCAN parameters (design-level):</strong></p>
+
+<p>$$</p>
+<p>\text{cluster} = \text{DBSCAN}(\varepsilon, m_\text{min}, d(\mathbf{x}_i, \mathbf{x}_j)) \tag{SW-2}</p>
+<p>$$</p>
+
+<table class="md-table"><thead><tr><th>Parameter</th><th>Symbol</th><th>Description</th></tr></thead><tbody><tr><td><code>eps</code></td><td>$\varepsilon$</td><td>Spatial neighborhood radius -- maximum distance between two points to be considered neighbors</td></tr><tr><td><code>min_samples</code></td><td>$m_\text{min}$</td><td>Minimum number of detections to form a cluster (reject isolated false alarms)</td></tr><tr><td>Distance metric</td><td>$d(\mathbf{x}_i, \mathbf{x}_j)$</td><td>Euclidean distance in range-velocity space, potentially with range/velocity scaling</td></tr></tbody></table>
+
+<p>For the underlying detection theory that produces the CFAR detections clustered by DBSCAN, see <a href="../01_physics/04_detection_theory.md">Detection Theory</a>.</p>
+
+<h3 id="7-2-kalman-filter-tracking">7.2 Kalman Filter Tracking<a class="ha" href="#7-2-kalman-filter-tracking" aria-hidden="true">¶</a></h3>
+
+<p>The GUI imports <code>filterpy.kalman.KalmanFilter</code> for target tracking across consecutive scans.</p>
+
+<p><strong>Intended state model:</strong></p>
+
+<p>$$</p>
+<p>\mathbf{x}_k = \begin{bmatrix} x \\ y \\ v_x \\ v_y \end{bmatrix}, \quad</p>
+<p>\mathbf{z}_k = \begin{bmatrix} x_\text{meas} \\ y_\text{meas} \end{bmatrix} \tag{SW-3}</p>
+<p>$$</p>
+
+<table class="md-table"><thead><tr><th>Component</th><th>Description</th></tr></thead><tbody><tr><td>State vector $\mathbf{x}_k$</td><td>2D position $(x, y)$ and velocity $(v_x, v_y)$ in Cartesian</td></tr><tr><td>Measurement vector $\mathbf{z}_k$</td><td>Measured position from DBSCAN cluster centroid</td></tr><tr><td>Process noise</td><td>Models target acceleration uncertainty</td></tr><tr><td>Measurement noise</td><td>Models radar range/angle measurement error</td></tr></tbody></table>
+
+<p>The Kalman filter would assign <code>track_id</code> values to <code>RadarTarget</code> instances, enabling track continuity across scans. A <code>track_id</code> of -1 indicates an untracked detection.</p>
+
+<blockquote><strong>Note:</strong> Since <code>RadarProcessor</code> is a stub, no DBSCAN clustering or Kalman tracking is performed. All imported signal processing libraries (<code>sklearn</code>, <code>filterpy</code>) are loaded but unused at runtime.</blockquote>
+
+<hr>
+
+<h2 id="8-radargui-class">8. RadarGUI Class<a class="ha" href="#8-radargui-class" aria-hidden="true">¶</a></h2>
+
+<p>The <code>RadarGUI</code> class is the main application window, built on tkinter with embedded matplotlib plots. This is a <strong>complete implementation</strong>.</p>
+
+<h3 id="8-1-window-configuration">8.1 Window Configuration<a class="ha" href="#8-1-window-configuration" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Property</th><th>Value</th></tr></thead><tbody><tr><td>Title</td><td>&quot;Advanced Radar System GUI - FT601 USB 3.0&quot;</td></tr><tr><td>Geometry</td><td>1400 x 900 pixels</td></tr><tr><td>Theme</td><td>Custom dark theme (<code>clam</code> ttk base)</td></tr></tbody></table>
+
+<h3 id="8-2-dark-theme">8.2 Dark Theme<a class="ha" href="#8-2-dark-theme" aria-hidden="true">¶</a></h3>
+
+<p>The GUI uses a consistent dark color scheme:</p>
+
+<table class="md-table"><thead><tr><th>Element</th><th>Color</th></tr></thead><tbody><tr><td>Background</td><td><code>#2b2b2b</code></td></tr><tr><td>Foreground text</td><td><code>#e0e0e0</code></td></tr><tr><td>Accent</td><td><code>#3c3f41</code></td></tr><tr><td>Highlight</td><td><code>#4e5254</code></td></tr><tr><td>Button</td><td><code>#3c3f41</code> (hover: <code>#4e5254</code>)</td></tr></tbody></table>
+
+<h3 id="8-3-main-tab-controls">8.3 Main Tab Controls<a class="ha" href="#8-3-main-tab-controls" aria-hidden="true">¶</a></h3>
+
+<p>The main tab provides:</p>
+
+<ul><li><strong>STM32 USB Device</strong> dropdown: Select the virtual COM port for STM32 CDC communication</li><li><strong>FT601 USB 3.0 Device</strong> dropdown: Select the FT601 radar data device</li><li><strong>Burst Mode</strong> checkbox: Enable FT601 burst mode for higher throughput (default: on)</li><li><strong>Refresh Devices</strong> button: Re-enumerate available USB devices</li><li><strong>Start Radar</strong> / <strong>Stop Radar</strong> buttons: Begin or halt radar operation</li><li><strong>GPS display</strong>: Shows current latitude, longitude, altitude</li><li><strong>Pitch display</strong>: Shows current platform pitch angle</li><li><strong>Status bar</strong>: Shows connection state and operational mode</li></ul>
+
+<h3 id="8-4-start-stop-sequence">8.4 Start/Stop Sequence<a class="ha" href="#8-4-start-stop-sequence" aria-hidden="true">¶</a></h3>
+
+<p><strong>Start sequence (<code>start_radar()</code>):</strong></p>
+<ul><li>Open STM32 USB device from dropdown selection</li><li>Open FT601 device (try direct USB first, fallback to pyftdi)</li><li>Configure burst mode if checkbox is enabled</li><li>Send start flag to STM32 via <code>stm32_usb_interface.send_start_flag()</code></li><li>Apply settings via <code>apply_settings()</code></li><li>Set <code>running = True</code>, update button states</li></ul>
+
+<p><strong>Stop sequence (<code>stop_radar()</code>):</strong></p>
+<ul><li>Set <code>running = False</code></li><li>Close STM32 and FT601 interfaces</li><li>Update button states and status label</li></ul>
+
+<h3 id="8-5-radar-data-processing-loop">8.5 Radar Data Processing Loop<a class="ha" href="#8-5-radar-data-processing-loop" aria-hidden="true">¶</a></h3>
+
+<p>The <code>process_radar_data()</code> method runs in a background thread:</p>
+
+<ul><li>Read data from FT601 in 4096-byte chunks</li><li>Append to byte buffer</li><li>Attempt to parse packets from buffer (minimum 8 bytes)</li><li>On successful parse: call <code>process_radar_packet()</code>, increment <code>received_packets</code></li><li>On parse failure: shift buffer by 1 byte to resynchronize</li><li>Sleep 100 ms when no data available or not running</li></ul>
+
+<h3 id="8-6-thread-architecture">8.6 Thread Architecture<a class="ha" href="#8-6-thread-architecture" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Thread</th><th>Purpose</th><th>Control</th></tr></thead><tbody><tr><td><code>radar_thread</code></td><td>FT601 data reading and packet parsing</td><td><code>self.running</code> flag</td></tr><tr><td><code>gps_thread</code></td><td>STM32 GPS/telemetry polling</td><td><code>self.running</code> flag</td></tr><tr><td>Main thread</td><td>tkinter event loop, GUI updates</td><td><code>root.mainloop()</code></td></tr></tbody></table>
+
+<p>Data is passed between threads via <code>queue.Queue</code> instances (<code>radar_data_queue</code>, <code>gps_data_queue</code>).</p>
+
+<hr>
+
+<h2 id="9-usbpacketparser-and-radarpacketparser-stubs">9. USBPacketParser and RadarPacketParser (Stubs)<a class="ha" href="#9-usbpacketparser-and-radarpacketparser-stubs" aria-hidden="true">¶</a></h2>
+
+<blockquote><strong>Status: STUB.</strong> Both classes have <code>pass</code> bodies.</blockquote>
+
+<table class="md-table"><thead><tr><th>Class</th><th>Intended Purpose</th></tr></thead><tbody><tr><td><code>USBPacketParser</code></td><td>Parse raw USB byte stream into structured packet objects, handling byte alignment and header/footer detection</td></tr><tr><td><code>RadarPacketParser</code></td><td>Extract radar-specific fields (range profile, Doppler I/Q, detection flag) from structured packets</td></tr></tbody></table>
+
+<p>These classes are intended to implement the packet parsing logic described in <a href="04_usb_protocol.md#3-fpga-to-host-packet-format">USB Protocol -- FPGA-to-Host Packet Format</a>. The <code>process_radar_data()</code> method in <code>RadarGUI</code> calls <code>self.radar_packet_parser.parse_packet()</code>, which currently returns <code>None</code> (stub), causing the processing loop to continuously shift the buffer without extracting data.</p>
+
+<hr>
+
+<h2 id="10-mapgenerator-designed-interface-stub">10. MapGenerator (Designed Interface -- Stub)<a class="ha" href="#10-mapgenerator-designed-interface-stub" aria-hidden="true">¶</a></h2>
+
+<blockquote><strong>Status: STUB.</strong> The <code>MapGenerator</code> class body is <code>pass</code>.</blockquote>
+
+<p><strong>Intended interface:</strong></p>
+
+<table class="md-table"><thead><tr><th>Method</th><th>Description</th></tr></thead><tbody><tr><td><code>generate_map(targets, gps_origin)</code></td><td>Generate a Google Maps overlay with target markers positioned relative to the radar&#x27;s GPS coordinates</td></tr></tbody></table>
+
+<p>The GUI holds a <code>google_maps_api_key</code> field (default: <code>&quot;YOUR_GOOGLE_MAPS_API_KEY&quot;</code>) and a <code>map_file_path</code> for temporary HTML file storage. The intended implementation would use the Google Maps Static API or JavaScript API to render targets on a geographic map, using the coordinate transform from <a href="../02_hardware/09_gps_imu_transforms.md">GPS/IMU Coordinate Transforms</a> to convert radar-relative positions to latitude/longitude.</p>
+
+<hr>
+
+<h2 id="11-data-flow-summary">11. Data Flow Summary<a class="ha" href="#11-data-flow-summary" aria-hidden="true">¶</a></h2>
+
+<p>The end-to-end data path from USB reception to GUI display, with stub breaks noted:</p>
+
+<table class="md-table"><thead><tr><th>Stage</th><th>Component</th><th>Status</th><th>Input</th><th>Output</th></tr></thead><tbody><tr><td>1</td><td><code>FT601Interface.read_data()</code></td><td>Complete</td><td>USB 3.0 bulk endpoint</td><td>Raw bytes</td></tr><tr><td>2</td><td><code>RadarPacketParser.parse_packet()</code></td><td><strong>STUB</strong></td><td>Raw bytes</td><td>None (should return parsed packet)</td></tr><tr><td>3</td><td><code>USBPacketParser</code></td><td><strong>STUB</strong></td><td>--</td><td>--</td></tr><tr><td>4</td><td><code>RadarProcessor</code> (DBSCAN + Kalman)</td><td><strong>STUB</strong></td><td>Parsed detections</td><td>Should return <code>RadarTarget</code> list</td></tr><tr><td>5</td><td><code>RadarGUI</code> display update</td><td>Complete</td><td><code>RadarTarget</code> list</td><td>matplotlib plots</td></tr><tr><td>6</td><td><code>MapGenerator.generate_map()</code></td><td><strong>STUB</strong></td><td><code>RadarTarget</code> list + GPS</td><td>Should return HTML map</td></tr></tbody></table>
+
+<p class="kv-line"><span class="kv-key">Chain break:</span> <span class="kv-value">The pipeline breaks at Stage 2. Raw USB data is read successfully by the FT601Interface, but <code>RadarPacketParser.parse_packet()</code> returns <code>None</code>, preventing any data from reaching the display or map rendering stages.</span></p>
+
+<p>To make the GUI fully operational, a developer would need to implement:</p>
+<ul><li><code>RadarPacketParser</code> -- parse <code>0xAA</code>-framed packets per <a href="04_usb_protocol.md#3-fpga-to-host-packet-format">USB Protocol</a></li><li><code>USBPacketParser</code> -- handle byte stream synchronization</li><li><code>RadarProcessor</code> -- DBSCAN clustering and Kalman tracking</li><li><code>MapGenerator</code> -- Google Maps rendering (optional for basic operation)</li></ul>
+
+<hr>
+
+<h2 id="12-references">12. References<a class="ha" href="#12-references" aria-hidden="true">¶</a></h2>
+
+<ul><li><a href="../00_notation/symbol_table.md">Symbol Table</a> -- standard symbol definitions ($R$, $v$, $\theta$, $\text{SNR}$, $f_c$, $T_{c,1}$, $T_{c,2}$, $M$, $R_\text{max}$)</li><li><a href="../00_notation/parameter_table.md">Parameter Table</a> -- canonical system parameter values</li><li><a href="04_usb_protocol.md">USB Protocol</a> -- FT601 packet format and STM32 CDC protocol</li><li><a href="../02_hardware/09_gps_imu_transforms.md">GPS/IMU Coordinate Transforms</a> -- radar-to-world coordinate transform for target positioning</li><li><a href="../01_physics/04_detection_theory.md">Detection Theory</a> -- CFAR detection producing inputs to DBSCAN clustering</li><li><a href="../02_hardware/04_antenna_beamforming.md">Antenna &amp; Beamforming</a> -- beam steering angle to azimuth mapping</li><li>scikit-learn DBSCAN documentation -- clustering algorithm reference</li><li>FilterPy documentation -- Kalman filter implementation reference</li></ul>
+
+</div>
+  </div><!-- main-content -->
+</div><!-- site-shell -->
+<script>
+mermaid.initialize({ startOnLoad: true, theme: 'dark', securityLevel: 'loose' });
+</script>
+</body>
+
+</html>

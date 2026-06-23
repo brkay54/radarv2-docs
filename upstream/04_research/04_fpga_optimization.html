@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>04_fpga_optimization — aros Vault</title>
+<style>
+
+:root {
+  --color-blue:    #007ACC;
+  --color-green:   #2DA44E;
+  --color-yellow:  #D29922;
+  --color-purple:  #8B5CF6;
+  --color-orange:  #F59E0B;
+  --color-red:     #E5534B;
+  --color-cyan:    #0BC5EA;
+  --color-accent:  #7C3AED;
+  --text-normal:   #DCDDDE;
+  --text-muted:    #8E8EA0;
+  --background-primary:         #1E1E2E;
+  --background-secondary:       #181825;
+  --background-modifier-border: #313244;
+  --color-base-30:              #45475A;
+}
+body {
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.6;
+  margin: 0;
+}
+
+</style>
+<!-- Mermaid -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<!-- MathJax -->
+<script>window.MathJax={tex:{inlineMath:[['$','$'],['\\(','\\)']],displayMath:[['$$','$$'],['\\[','\\]']]},options:{skipHtmlTags:['script','noscript','style','textarea','pre']}};</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+<!-- Site CSS -->
+<link rel="stylesheet" href="../../site.css">
+</head>
+<body class="markdown-reading-view">
+<div class="site-shell">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <a href="../../00-Index.html" class="site-title">radarv2 / AERIS-10</a>
+      <div class="site-subtitle">aros Radar Documentation</div>
+    </div>
+    <ul class="nav-list">
+      <li class="nav-section">Core Docs</li>
+      <li><a href="../../09-Concepts-Primer.html">Radar Primer</a></li>
+      <li><a href="../../00-Index.html">Index</a></li>
+      <li><a href="../../01-System-Overview.html">System Overview</a></li>
+      <li><a href="../../02-Physics-and-Waveform.html">Physics &amp; Waveform</a></li>
+      <li><a href="../../03-Beamforming-and-Scan.html">Beamforming &amp; Scan</a></li>
+      <li><a href="../../04-Signal-Processing-Pipeline.html">Signal Processing</a></li>
+      <li><a href="../../05-Node-Architecture.html">Node Architecture</a></li>
+      <li><a href="../../06-Message-Catalog.html">Message Catalog</a></li>
+      <li><a href="../../07-Detection-and-Tracking.html">Detection &amp; Tracking</a></li>
+      <li><a href="../../08-Scenarios-and-Targets.html">Scenarios &amp; Targets</a></li>
+      <li class="nav-section">Advanced</li>
+      <li><a href="../../10-Radar-Model-Library.html">Radar Model Library</a></li>
+      <li><a href="../../11-Multi-Radar-Fusion.html">Multi-Radar Fusion</a></li>
+      <li><a href="../../12-3D-Scene.html">3-D Scene</a></li>
+      <li><a href="../../13-Reference-Tables.html">Reference Tables</a></li>
+      <li><a href="../../FUTURE-DEVELOPMENT.html">Future Development</a></li>
+      <li class="nav-section">Upstream Theory</li>
+      <li><a href="../../upstream/README.html">Upstream README</a></li>
+      <li><a href="../../upstream/00_notation/conventions.html">Notation</a></li>
+      <li><a href="../../upstream/01_physics/01_fmcw_theory.html">FMCW Theory</a></li>
+      <li><a href="../../upstream/01_physics/02_lfm_waveform_model.html">LFM Waveform</a></li>
+      <li><a href="../../upstream/01_physics/03_beamforming_theory.html">Beamforming Theory</a></li>
+      <li><a href="../../upstream/01_physics/04_detection_theory.html">Detection Theory</a></li>
+      <li><a href="../../upstream/01_physics/05_noise_analysis.html">Noise Analysis</a></li>
+      <li><a href="../../upstream/01_physics/06_calibration_theory.html">Calibration</a></li>
+      <li><a href="../../upstream/02_hardware/01_system_overview.html">HW Overview</a></li>
+      <li><a href="../../upstream/04_research/01_cfar_variants.html">CFAR Variants</a></li>
+    </ul>
+    <div class="sidebar-footer">
+      <a href="https://github.com/brkay54/radarv2-docs" target="_blank">GitHub</a>
+    </div>
+  </nav>
+  <div class="main-content">
+
+<div class="markdown-preview-section">
+<h1 id="fpga-pipeline-optimization-research">FPGA Pipeline Optimization Research<a class="ha" href="#fpga-pipeline-optimization-research" aria-hidden="true">¶</a></h1>
+
+<p class="kv-line"><span class="kv-key">Purpose:</span> <span class="kv-value">Survey optimization techniques for the AERIS-10 FPGA signal processing pipeline, evaluating HLS, loop unrolling, multi-bank memory, and pipeline parallelism against Artix-7 XC7A100T resource constraints.</span></p>
+
+<p class="kv-line"><span class="kv-key">Prerequisites:</span> <span class="kv-value">Familiarity with:</span></p>
+<ul><li><a href="../00_notation/symbol_table.md">Symbol Table</a> -- all symbols used herein</li><li><a href="../00_notation/parameter_table.md">Parameter Table</a> -- numerical values for both variants</li><li><a href="../00_notation/conventions.md">Conventions</a> -- equation formatting rules</li><li><a href="../02_hardware/05_fpga_board.md">FPGA Board</a> -- XC7A100T resources, clock domains, module inventory</li><li><a href="../03_software/01_fpga_pipeline.md">FPGA Pipeline</a> -- signal processing pipeline architecture</li></ul>
+
+<hr>
+
+<h2 id="1-current-state">1. Current State<a class="ha" href="#1-current-state" aria-hidden="true">¶</a></h2>
+
+<p>The AERIS-10 FPGA signal processing pipeline is implemented on the Xilinx Artix-7 XC7A100T and processes digitized IF samples through ten stages, from ADC acquisition at 400 MHz through Doppler processing and USB output at 100 MHz. The complete pipeline architecture is documented in <a href="../03_software/01_fpga_pipeline.md"><code>03_software/01_fpga_pipeline.md</code></a>.</p>
+
+<h3 id="1-1-pipeline-architecture-summary">1.1 Pipeline Architecture Summary<a class="ha" href="#1-1-pipeline-architecture-summary" aria-hidden="true">¶</a></h3>
+
+<p>The pipeline consists of the following major processing stages (see Table 1.1 in <a href="../03_software/01_fpga_pipeline.md#11-signal-flow-summary"><code>03_software/01_fpga_pipeline.md</code></a>):</p>
+
+<table class="md-table"><thead><tr><th>Stage</th><th>Function</th><th>Key Module</th><th>Clock</th></tr></thead><tbody><tr><td>1</td><td>ADC Acquisition</td><td><code>lvds_to_cmos_400m</code> + <code>ad9484_lvds_to_cmos_400m</code></td><td>400 MHz</td></tr><tr><td>2</td><td>Clock Domain Crossing</td><td><code>cdc_adc_to_processing</code></td><td>400 -&gt; 100 MHz</td></tr><tr><td>3</td><td>Digital Down-Conversion</td><td><code>ddc_400m_enhanced</code></td><td>400/100 MHz</td></tr><tr><td>4</td><td>DDC Output Interface</td><td><code>ddc_input_interface</code></td><td>100 MHz</td></tr><tr><td>5</td><td>Reference Chirp Loading</td><td><code>chirp_memory_loader_param</code> + <code>latency_buffer_2159</code></td><td>100 MHz</td></tr><tr><td>6</td><td>Matched Filter</td><td><code>matched_filter_multi_segment</code></td><td>100 MHz</td></tr><tr><td>7</td><td>Range Bin Decimation</td><td><code>range_bin_decimator</code></td><td>100 MHz</td></tr><tr><td>8</td><td>Doppler Processing</td><td><code>doppler_processor_optimized</code></td><td>100 MHz</td></tr><tr><td>9</td><td>Threshold Detection</td><td><code>radar_system_top.v</code> (inline)</td><td>100 MHz</td></tr><tr><td>10</td><td>USB Output</td><td><code>usb_data_interface</code></td><td>FT601 100 MHz</td></tr></tbody></table>
+
+<p>The pipeline operates across three primary clock domains (400 MHz ADC, 100 MHz system, 100 MHz FT601) with clock domain crossings handled by 3-stage synchronizers (see Section 4 of <a href="../02_hardware/05_fpga_board.md#4-cdc-synchronizers"><code>02_hardware/05_fpga_board.md</code></a> for Eq. (HW-FPGA-4)).</p>
+
+<h3 id="1-2-module-inventory">1.2 Module Inventory<a class="ha" href="#1-2-module-inventory" aria-hidden="true">¶</a></h3>
+
+<p>The FPGA contains 25+ Verilog modules organized by function (see Section 5 of <a href="../02_hardware/05_fpga_board.md#5-fpga-module-inventory"><code>02_hardware/05_fpga_board.md</code></a>). Key processing modules include:</p>
+
+<ul><li>Two 1024-point FFT cores (<code>fft_1024_forward_enhanced</code>, <code>fft_1024_inverse_enhanced</code>) using radix-2 DIT architecture</li><li>Multi-segment matched filter (<code>matched_filter_multi_segment</code>) with overlap-save segmentation (Eq. (SW-4) in <a href="../03_software/01_fpga_pipeline.md"><code>03_software/01_fpga_pipeline.md</code></a>)</li><li>32-point Doppler FFT via Xilinx <code>xfft_32</code> IP core with Hamming windowing</li><li>5-stage CIC decimator ($D_\text{CIC} = 4$, gain $G_\text{CIC} = 2^{10}$, Eq. (SW-3))</li><li>32-tap FIR compensation filter for CIC droop correction</li></ul>
+
+<h3 id="1-3-current-resource-utilization">1.3 Current Resource Utilization<a class="ha" href="#1-3-current-resource-utilization" aria-hidden="true">¶</a></h3>
+
+<p>Theoretical per-module estimates from Section 2.2 of <a href="../02_hardware/05_fpga_board.md#22-resource-utilization"><code>02_hardware/05_fpga_board.md</code></a>:</p>
+
+<table class="md-table"><thead><tr><th>Resource</th><th>Estimated Used</th><th>Available ($N_\text{LUT}$, $N_\text{DSP}$, $N_\text{BRAM}$)</th><th>Utilization</th><th>Headroom</th></tr></thead><tbody><tr><td>LUTs</td><td>~16,500</td><td>63,400</td><td>~26%</td><td>~46,900</td></tr><tr><td>DSP48E1</td><td>~88</td><td>240</td><td>~37%</td><td>~152</td></tr><tr><td>BRAM (36 Kb)</td><td>~101</td><td>135</td><td>~75%</td><td>~34</td></tr><tr><td>Flip-Flops</td><td>--</td><td>126,800</td><td>--</td><td>--</td></tr></tbody></table>
+
+<blockquote><strong>Important:</strong> These are theoretical estimates based on Verilog module parameters, pending Vivado implementation reports. Actual utilization may differ due to synthesis optimizations, routing congestion, and Vivado tool decisions. All optimization proposals in this document use these theoretical estimates as the baseline and should be re-evaluated when Vivado reports become available.</blockquote>
+
+<h3 id="1-4-key-performance-characteristics">1.4 Key Performance Characteristics<a class="ha" href="#1-4-key-performance-characteristics" aria-hidden="true">¶</a></h3>
+
+<ul><li><strong>FFT architecture:</strong> 1024-point radix-2 decimation-in-time (DIT), consuming ~4,000 LUTs + 16 DSPs + 20 BRAMs per instance (two instances: forward and inverse)</li><li><strong>Doppler FFT:</strong> 32-point via Xilinx IP core, processing 64 range bins with Hamming window</li><li><strong>Matched filter latency:</strong> 3187-cycle latency buffer at 100 MHz ($31.87~\mu\text{s}$) to align reference chirp with FFT pipeline output (see Section 6.2 of <a href="../03_software/01_fpga_pipeline.md"><code>03_software/01_fpga_pipeline.md</code></a>)</li><li><strong>Memory access pattern:</strong> Single-port BRAM used for Doppler processor data storage ($N_\text{rb} \times M = 64 \times 32 = 2048$ entries, chirp-major addressing per Eq. (SW-6))</li></ul>
+
+<hr>
+
+<h2 id="2-literature-survey">2. Literature Survey<a class="ha" href="#2-literature-survey" aria-hidden="true">¶</a></h2>
+
+<h3 id="2-1-vitis-hls-vs-hand-coded-verilog">2.1 Vitis HLS vs. Hand-Coded Verilog<a class="ha" href="#2-1-vitis-hls-vs-hand-coded-verilog" aria-hidden="true">¶</a></h3>
+
+<p>High-Level Synthesis (HLS) tools, specifically Xilinx Vitis HLS (formerly Vivado HLS, rebranded in 2020), enable C/C++ algorithm descriptions to be compiled directly to RTL. This offers significant development velocity improvements at the cost of resource efficiency.</p>
+
+<p><strong>Performance comparison:</strong></p>
+
+<table class="md-table"><thead><tr><th>Metric</th><th>Hand-Coded Verilog</th><th>Vitis HLS</th><th>Notes</th></tr></thead><tbody><tr><td>Development time</td><td>1x (baseline)</td><td>~0.25x (4x faster)</td><td>HLS eliminates manual FSM, datapath, and control logic design</td></tr><tr><td>LUT utilization</td><td>1x (baseline)</td><td>1.15--1.30x (15--30% overhead)</td><td>HLS generates conservative control logic and pipeline registers</td></tr><tr><td>DSP utilization</td><td>1x (baseline)</td><td>1.0--1.10x (0--10% overhead)</td><td>DSP inference is generally efficient in HLS</td></tr><tr><td>BRAM utilization</td><td>1x (baseline)</td><td>1.05--1.20x (5--20% overhead)</td><td>HLS may infer additional buffering</td></tr><tr><td>Clock frequency achievable</td><td>Up to device limit</td><td>Typically 10--20% lower</td><td>HLS may not optimize critical paths as aggressively</td></tr></tbody></table>
+
+<p class="kv-line"><span class="kv-key">Quality of Results (QoR) comparison methodology:</span> <span class="kv-value">QoR comparison should be performed by implementing the same algorithm (e.g., a 32-tap FIR filter) in both hand-coded Verilog and Vitis HLS, then comparing post-synthesis resource utilization and maximum clock frequency from Vivado implementation reports.</span></p>
+
+<p><strong>Applicability to AERIS-10 pipeline:</strong></p>
+
+<table class="md-table"><thead><tr><th>Module</th><th>HLS Suitability</th><th>Rationale</th></tr></thead><tbody><tr><td>FFT cores (1024-pt)</td><td>LOW</td><td>Performance-critical; hand-coded radix-2 DIT already optimized for DSP/BRAM balance</td></tr><tr><td>Matched filter</td><td>LOW</td><td>Complex multi-segment FSM with overlap-save; hand-coded provides tighter control</td></tr><tr><td>Doppler processor</td><td>LOW</td><td>Tight integration with Xilinx <code>xfft_32</code> IP; HLS provides no advantage</td></tr><tr><td>USB interface</td><td>MEDIUM</td><td>Less timing-critical; HLS could simplify packet formatting logic</td></tr><tr><td>Control logic / FSMs</td><td>MEDIUM-HIGH</td><td>Edge detectors, chirp controllers, mode selection -- HLS reduces development time with minimal penalty</td></tr><tr><td>CIC decimator</td><td>LOW</td><td>Simple cascaded structure; hand-coded is already compact (~200 LUTs)</td></tr></tbody></table>
+
+<p class="kv-line"><span class="kv-key">Resource-constrained Artix-7 consideration:</span> <span class="kv-value">On the XC7A100T, the 15--30% LUT overhead of HLS is tolerable for non-critical modules (given ~46,900 LUTs of headroom) but could be problematic if applied to performance-critical modules like the FFT, where hand-coded Verilog provides tighter resource control. HLS is best suited for modules where development velocity matters more than resource efficiency.</span></p>
+
+<h3 id="2-2-loop-unrolling-for-fft-and-matched-filter">2.2 Loop Unrolling for FFT and Matched Filter<a class="ha" href="#2-2-loop-unrolling-for-fft-and-matched-filter" aria-hidden="true">¶</a></h3>
+
+<p>The current 1024-point FFT uses a radix-2 DIT architecture, which requires $\log_2(N_\text{FFT}) = 10$ butterfly stages, each containing $N_\text{FFT}/2 = 512$ butterfly operations.</p>
+
+<p><strong>Radix-4 FFT optimization:</strong></p>
+
+<p>A radix-4 FFT reduces the number of stages from $\log_2(N) = 10$ to $\log_4(N) = 5$ stages, each containing $N/4 = 256$ radix-4 butterfly operations. The radix-4 butterfly performs the equivalent of two radix-2 stages in a single iteration.</p>
+
+<table class="md-table"><thead><tr><th>Architecture</th><th>Stages</th><th>Butterflies/Stage</th><th>Complex Multiplies</th><th>Clock Cycles (est.)</th><th>DSP Usage (est.)</th></tr></thead><tbody><tr><td>Radix-2 (current)</td><td>10</td><td>512</td><td>5,120</td><td>~5,120</td><td>16</td></tr><tr><td>Radix-4</td><td>5</td><td>256</td><td>2,560</td><td>~2,560</td><td>~32</td></tr><tr><td>Split-radix</td><td>5</td><td>256</td><td>~2,180</td><td>~2,180</td><td>~28</td></tr></tbody></table>
+
+<p class="kv-line"><span class="kv-key">Throughput improvement:</span> <span class="kv-value">Radix-4 reduces clock cycles by approximately 2x compared to radix-2 for the same $N_\text{FFT}$. This directly reduces the matched filter processing chain latency (currently 3187 cycles at 100 MHz) by shortening the forward FFT and inverse FFT contributions.</span></p>
+
+<p class="kv-line"><span class="kv-key">DSP cost:</span> <span class="kv-value">Radix-4 butterflies require approximately 2x the DSPs of radix-2 butterflies due to the larger butterfly unit. For a single 1024-point FFT:</span></p>
+
+<ul><li>Radix-2 (current): ~16 DSPs per FFT instance</li><li>Radix-4: ~32 DSPs per FFT instance</li></ul>
+
+<p>With two FFT instances (forward + inverse), the upgrade from radix-2 to radix-4 would increase DSP usage from ~32 to ~64, consuming an additional ~32 DSPs from the ~152 available -- feasible within current headroom.</p>
+
+<p class="kv-line"><span class="kv-key">Split-radix alternative:</span> <span class="kv-value">Split-radix FFT achieves a further ~15% reduction in complex multiplications versus radix-4, with DSP usage between radix-2 and radix-4. However, split-radix has irregular butterfly patterns that increase control logic complexity and LUT usage.</span></p>
+
+<h3 id="2-3-multi-bank-memory-architecture">2.3 Multi-Bank Memory Architecture<a class="ha" href="#2-3-multi-bank-memory-architecture" aria-hidden="true">¶</a></h3>
+
+<p>The current Doppler processor (<code>doppler_processor_optimized</code>) uses single-port BRAM with chirp-major addressing (Eq. (SW-6) in <a href="../03_software/01_fpga_pipeline.md"><code>03_software/01_fpga_pipeline.md</code></a>):</p>
+
+<p>$$</p>
+<p>\text{addr} = \text{chirp\_index} \times N_\text{rb} + \text{range\_bin}</p>
+<p>$$</p>
+
+<p>This limits memory bandwidth: the processor can only read OR write in a given clock cycle, not both simultaneously. During the <code>S_ACCUMULATE</code> state, incoming chirp data must be written before the previous frame&#x27;s data can be read for FFT processing.</p>
+
+<p><strong>Dual-port BRAM optimization:</strong></p>
+
+<p>Artix-7 BRAMs are natively dual-port (each 36 Kb BRAM has two independent read/write ports). The current design uses only single-port mode. Switching to dual-port mode allows simultaneous read and write operations with no additional BRAM resource cost:</p>
+
+<table class="md-table"><thead><tr><th>Mode</th><th>Read Bandwidth</th><th>Write Bandwidth</th><th>Concurrent R/W</th><th>Additional BRAMs</th></tr></thead><tbody><tr><td>Single-port (current)</td><td>100 MHz x 32-bit</td><td>100 MHz x 32-bit</td><td>No</td><td>0 (baseline)</td></tr><tr><td>Dual-port (proposed)</td><td>100 MHz x 32-bit</td><td>100 MHz x 32-bit</td><td>Yes</td><td>0</td></tr></tbody></table>
+
+<p class="kv-line"><span class="kv-key">Performance benefit:</span> <span class="kv-value">Dual-port operation enables ping-pong buffering -- one port writes incoming chirp data from the current frame while the other port reads the previous frame&#x27;s data for Doppler FFT processing. This eliminates the sequential write-then-read constraint and can reduce Doppler processing time by up to 50% for the accumulation phase.</span></p>
+
+<p><strong>Bank interleaving for FFT butterfly operations:</strong></p>
+
+<p>For the 1024-point FFT, butterfly operations require reading two data points with specific address patterns (bit-reversed for DIT, sequential for DIF). With single-port BRAM, each butterfly requires two sequential read cycles. Bank interleaving across 2 or 4 BRAM banks allows both butterfly inputs to be read in a single cycle:</p>
+
+<table class="md-table"><thead><tr><th>Banks</th><th>Reads per Butterfly</th><th>Speedup</th><th>Additional BRAMs</th></tr></thead><tbody><tr><td>1 (current)</td><td>2 cycles</td><td>1x</td><td>0</td></tr><tr><td>2 banks</td><td>1 cycle</td><td>~2x</td><td>+20 per FFT instance</td></tr><tr><td>4 banks</td><td>1 cycle (prefetch)</td><td>~2x</td><td>+40 per FFT instance</td></tr></tbody></table>
+
+<blockquote><strong>BRAM constraint warning:</strong> The current estimated BRAM utilization is ~75% (101/135). Adding 2-bank interleaving for both FFT instances would require ~40 additional BRAMs, pushing total utilization to ~104% -- <strong>infeasible</strong>. Single-FFT 2-bank interleaving (+20 BRAMs) would push utilization to ~90%, which is at the upper limit of practical FPGA design. Bank interleaving is BRAM-constrained on this device.</blockquote>
+
+<h3 id="2-4-pipeline-parallelism">2.4 Pipeline Parallelism<a class="ha" href="#2-4-pipeline-parallelism" aria-hidden="true">¶</a></h3>
+
+<p>The current pipeline processes range bins serially -- one range bin at a time through the matched filter and Doppler processor chain. Pipeline parallelism duplicates processing paths to handle multiple range bins concurrently.</p>
+
+<p><strong>2x parallelism:</strong></p>
+
+<table class="md-table"><thead><tr><th>Resource</th><th>Single Path (current)</th><th>2x Parallel</th><th>Delta</th></tr></thead><tbody><tr><td>LUTs</td><td>~16,500 (total)</td><td>~22,500</td><td>+6,000</td></tr><tr><td>DSPs</td><td>~88</td><td>~120</td><td>+32</td></tr><tr><td>BRAMs</td><td>~101</td><td>~131</td><td>+30</td></tr></tbody></table>
+
+<p>A 2x parallel path duplicates the matched filter and Doppler processor cores, achieving 2x throughput at the cost of approximately doubling the resource usage of these modules. The ADC front-end, DDC, and USB interface remain single-instance.</p>
+
+<p><strong>4x parallelism:</strong></p>
+
+<table class="md-table"><thead><tr><th>Resource</th><th>Single Path (current)</th><th>4x Parallel</th><th>Delta</th></tr></thead><tbody><tr><td>LUTs</td><td>~16,500 (total)</td><td>~34,500</td><td>+18,000</td></tr><tr><td>DSPs</td><td>~88</td><td>~184</td><td>+96</td></tr><tr><td>BRAMs</td><td>~101</td><td>~191</td><td>+90 (exceeds 135)</td></tr></tbody></table>
+
+<blockquote><strong>Infeasibility:</strong> 4x parallelism requires ~191 BRAMs, exceeding the 135 available on the XC7A100T by 41%. Even 2x parallelism pushes BRAM utilization to ~97%, which is impractical for reliable implementation (routing congestion typically limits practical BRAM usage to ~85--90%).</blockquote>
+
+<p><strong>Area-time tradeoff summary:</strong></p>
+
+<table class="md-table"><thead><tr><th>Parallelism</th><th>Throughput Gain</th><th>LUT %</th><th>DSP %</th><th>BRAM %</th><th>Verdict</th></tr></thead><tbody><tr><td>1x (current)</td><td>1.0x</td><td>26%</td><td>37%</td><td>75%</td><td>Baseline</td></tr><tr><td>2x</td><td>2.0x</td><td>35%</td><td>50%</td><td>97%</td><td>MARGINAL (BRAM-constrained)</td></tr><tr><td>4x</td><td>4.0x</td><td>54%</td><td>77%</td><td>141%</td><td>INFEASIBLE</td></tr></tbody></table>
+
+<hr>
+
+<h2 id="3-gap-analysis">3. Gap Analysis<a class="ha" href="#3-gap-analysis" aria-hidden="true">¶</a></h2>
+
+<p>The current FPGA pipeline is functionally correct but not optimized for throughput or resource efficiency. The following gaps exist between the current implementation and achievable performance:</p>
+
+<h3 id="3-1-memory-bandwidth-limitation">3.1 Memory Bandwidth Limitation<a class="ha" href="#3-1-memory-bandwidth-limitation" aria-hidden="true">¶</a></h3>
+
+<p class="kv-line"><span class="kv-key">Gap:</span> <span class="kv-value">Single-port BRAM usage in the Doppler processor prevents simultaneous read/write operations, serializing data accumulation and FFT processing. The Artix-7 BRAM architecture natively supports dual-port operation, meaning this bandwidth limitation is a design choice, not a hardware constraint.</span></p>
+
+<p class="kv-line"><span class="kv-key">Impact:</span> <span class="kv-value">Doppler processing throughput is approximately 50% lower than achievable with dual-port BRAM, extending the time between frame outputs.</span></p>
+
+<h3 id="3-2-fft-clock-cycle-efficiency">3.2 FFT Clock Cycle Efficiency<a class="ha" href="#3-2-fft-clock-cycle-efficiency" aria-hidden="true">¶</a></h3>
+
+<p class="kv-line"><span class="kv-key">Gap:</span> <span class="kv-value">The radix-2 DIT architecture uses approximately 2x the clock cycles of a radix-4 implementation for the same $N_\text{FFT} = 1024$. Given sufficient DSP headroom (~152 DSPs available), a radix-4 or split-radix FFT is feasible.</span></p>
+
+<p class="kv-line"><span class="kv-key">Impact:</span> <span class="kv-value">The matched filter processing chain latency (currently contributing to the 3187-cycle buffer at 100 MHz) could be reduced, improving pipeline throughput and potentially allowing more chirps per frame or faster scan rates.</span></p>
+
+<h3 id="3-3-no-hls-evaluation">3.3 No HLS Evaluation<a class="ha" href="#3-3-no-hls-evaluation" aria-hidden="true">¶</a></h3>
+
+<p class="kv-line"><span class="kv-key">Gap:</span> <span class="kv-value">All modules are hand-coded in Verilog. No evaluation has been performed to determine which modules would benefit from HLS-based development for maintenance velocity, even at the cost of modest resource overhead.</span></p>
+
+<p class="kv-line"><span class="kv-key">Impact:</span> <span class="kv-value">Future modifications to non-critical modules (control logic, USB interface, chirp controller) require Verilog expertise. HLS could lower the barrier for algorithm iteration on these modules.</span></p>
+
+<h3 id="3-4-serial-range-bin-processing">3.4 Serial Range Bin Processing<a class="ha" href="#3-4-serial-range-bin-processing" aria-hidden="true">¶</a></h3>
+
+<p class="kv-line"><span class="kv-key">Gap:</span> <span class="kv-value">Range bins are processed one at a time through the Doppler FFT. While full pipeline parallelism is BRAM-constrained (Section 2.4), partial optimizations such as pipelined FFT output buffering could improve throughput without duplicating entire processing paths.</span></p>
+
+<p class="kv-line"><span class="kv-key">Impact:</span> <span class="kv-value">Frame processing time scales linearly with $N_\text{rb} = 64$ range bins. Optimizations to the per-bin processing latency have a 64x multiplied effect on total frame time.</span></p>
+
+<hr>
+
+<h2 id="4-feasibility-assessment">4. Feasibility Assessment<a class="ha" href="#4-feasibility-assessment" aria-hidden="true">¶</a></h2>
+
+<blockquote><strong>Note:</strong> All resource estimates below are based on theoretical utilization from Phase 3, pending Vivado implementation reports. Actual feasibility may differ. A conservative 30% overhead margin is recommended when evaluating proposals against resource limits.</blockquote>
+
+<h3 id="4-1-dual-port-bram-for-doppler-processor">4.1 Dual-Port BRAM for Doppler Processor<a class="ha" href="#4-1-dual-port-bram-for-doppler-processor" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Property</th><th>Value</th></tr></thead><tbody><tr><td>Optimization type</td><td>Memory access pattern change</td></tr><tr><td>Algorithm complexity</td><td>No change</td></tr><tr><td>Additional LUTs</td><td>~100--300 (dual-port address generation logic)</td></tr><tr><td>Additional DSPs</td><td>0</td></tr><tr><td>Additional BRAMs</td><td>0 (existing BRAMs reconfigured to dual-port mode)</td></tr><tr><td>Current LUT utilization after</td><td>~26% (negligible change)</td></tr><tr><td>Current DSP utilization after</td><td>~37% (no change)</td></tr><tr><td>Current BRAM utilization after</td><td>~75% (no change)</td></tr><tr><td>Estimated throughput improvement</td><td>Up to 1.5x for Doppler processing phase</td></tr><tr><td>Pipeline integration</td><td>Modifies <code>doppler_processor_optimized</code> BRAM instantiation and FSM</td></tr><tr><td>Risk</td><td>LOW -- dual-port is native BRAM capability; no additional resources required</td></tr><tr><td>Verdict</td><td><strong>FEASIBLE</strong> -- no additional resources, immediate throughput gain</td></tr></tbody></table>
+
+<h3 id="4-2-radix-4-fft-replacing-radix-2">4.2 Radix-4 FFT (Replacing Radix-2)<a class="ha" href="#4-2-radix-4-fft-replacing-radix-2" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Property</th><th>Value</th></tr></thead><tbody><tr><td>Optimization type</td><td>Algorithm change (loop unrolling)</td></tr><tr><td>Algorithm complexity</td><td>$O(N \log_4 N)$ vs. current $O(N \log_2 N)$ -- same asymptotic, fewer iterations</td></tr><tr><td>Additional LUTs</td><td>~2,000--4,000 per FFT instance (larger butterfly unit)</td></tr><tr><td>Additional DSPs</td><td>~16 per FFT instance (~32 total for forward + inverse)</td></tr><tr><td>Additional BRAMs</td><td>0--2 per instance (twiddle factor ROM may be slightly larger)</td></tr><tr><td>Current LUT utilization after</td><td>~32--39%</td></tr><tr><td>Current DSP utilization after</td><td>~50%</td></tr><tr><td>Current BRAM utilization after</td><td>~75--76%</td></tr><tr><td>Estimated throughput improvement</td><td>~2x reduction in FFT clock cycles</td></tr><tr><td>Pipeline integration</td><td>Replaces <code>fft_1024_forward_enhanced</code> and <code>fft_1024_inverse_enhanced</code></td></tr><tr><td>Risk</td><td>MEDIUM -- requires redesign of FFT core and verification of twiddle factor precision</td></tr><tr><td>Verdict</td><td><strong>FEASIBLE</strong> -- trades DSP for speed within available headroom</td></tr></tbody></table>
+
+<h3 id="4-3-multi-bank-bram-interleaving-for-fft">4.3 Multi-Bank BRAM Interleaving for FFT<a class="ha" href="#4-3-multi-bank-bram-interleaving-for-fft" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Property</th><th>Value</th></tr></thead><tbody><tr><td>Optimization type</td><td>Memory architecture change</td></tr><tr><td>Algorithm complexity</td><td>No change</td></tr><tr><td>Additional LUTs</td><td>~500--1,000 per FFT instance (bank select logic)</td></tr><tr><td>Additional DSPs</td><td>0</td></tr><tr><td>Additional BRAMs</td><td>~20 per FFT instance (~40 total for forward + inverse)</td></tr><tr><td>Current LUT utilization after</td><td>~28%</td></tr><tr><td>Current DSP utilization after</td><td>~37%</td></tr><tr><td>Current BRAM utilization after</td><td><strong>~105% (EXCEEDS CAPACITY)</strong></td></tr><tr><td>Estimated throughput improvement</td><td>~2x reduction in memory access cycles per butterfly</td></tr><tr><td>Pipeline integration</td><td>Restructures FFT memory subsystem</td></tr><tr><td>Risk</td><td>HIGH -- exceeds BRAM capacity for both FFT instances</td></tr><tr><td>Verdict</td><td><strong>INFEASIBLE</strong> for both FFT instances; <strong>MARGINAL</strong> for single FFT instance (~90% BRAM)</td></tr></tbody></table>
+
+<h3 id="4-4-hls-for-non-critical-modules">4.4 HLS for Non-Critical Modules<a class="ha" href="#4-4-hls-for-non-critical-modules" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Property</th><th>Value</th></tr></thead><tbody><tr><td>Optimization type</td><td>Development methodology change</td></tr><tr><td>Algorithm complexity</td><td>No change (same functionality)</td></tr><tr><td>Additional LUTs</td><td>~150--500 per module (15--30% overhead on ~1,000--1,500 LUT modules)</td></tr><tr><td>Additional DSPs</td><td>0</td></tr><tr><td>Additional BRAMs</td><td>0--2 (HLS-inferred buffering)</td></tr><tr><td>Current LUT utilization after</td><td>~27%</td></tr><tr><td>Current DSP utilization after</td><td>~37%</td></tr><tr><td>Current BRAM utilization after</td><td>~75--76%</td></tr><tr><td>Estimated throughput improvement</td><td>None (development velocity improvement, not runtime)</td></tr><tr><td>Pipeline integration</td><td>Replaces individual modules with HLS-generated equivalents</td></tr><tr><td>Candidate modules</td><td><code>usb_data_interface</code>, <code>plfm_chirp_controller_enhanced</code>, <code>edge_detector_enhanced</code>, <code>level_shifter_interface</code></td></tr><tr><td>Risk</td><td>LOW -- non-critical modules; HLS overhead is within resource budget</td></tr><tr><td>Verdict</td><td><strong>FEASIBLE</strong> -- improves development velocity with minimal resource impact</td></tr></tbody></table>
+
+<h3 id="4-5-2x-pipeline-parallelism">4.5 2x Pipeline Parallelism<a class="ha" href="#4-5-2x-pipeline-parallelism" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Property</th><th>Value</th></tr></thead><tbody><tr><td>Optimization type</td><td>Structural duplication</td></tr><tr><td>Algorithm complexity</td><td>No change (same algorithm, duplicated hardware)</td></tr><tr><td>Additional LUTs</td><td>~6,000</td></tr><tr><td>Additional DSPs</td><td>~32</td></tr><tr><td>Additional BRAMs</td><td>~30</td></tr><tr><td>Current LUT utilization after</td><td>~35%</td></tr><tr><td>Current DSP utilization after</td><td>~50%</td></tr><tr><td>Current BRAM utilization after</td><td><strong>~97%</strong></td></tr><tr><td>Estimated throughput improvement</td><td>2.0x</td></tr><tr><td>Pipeline integration</td><td>Duplicates matched filter and Doppler processor paths with input demux and output mux</td></tr><tr><td>Risk</td><td>HIGH -- BRAM utilization at 97% leaves no margin for routing; practical FPGA designs limit BRAM usage to ~85--90%</td></tr><tr><td>Verdict</td><td><strong>MARGINAL</strong> -- theoretically fits but BRAM utilization too high for reliable implementation</td></tr></tbody></table>
+
+<h3 id="4-6-summary-table">4.6 Summary Table<a class="ha" href="#4-6-summary-table" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Optimization</th><th>LUT Impact</th><th>DSP Impact</th><th>BRAM Impact</th><th>Throughput Gain</th><th>Verdict</th></tr></thead><tbody><tr><td>Dual-port BRAM (Doppler)</td><td>+0.5%</td><td>0%</td><td>0%</td><td>1.5x Doppler</td><td><strong>FEASIBLE</strong></td></tr><tr><td>Radix-4 FFT</td><td>+6--13%</td><td>+13%</td><td>+1%</td><td>2x FFT</td><td><strong>FEASIBLE</strong></td></tr><tr><td>Multi-bank BRAM (FFT)</td><td>+2%</td><td>0%</td><td>+30%</td><td>2x memory</td><td><strong>INFEASIBLE</strong> (both)</td></tr><tr><td>HLS (non-critical)</td><td>+1%</td><td>0%</td><td>+1%</td><td>Dev velocity</td><td><strong>FEASIBLE</strong></td></tr><tr><td>2x parallelism</td><td>+9%</td><td>+13%</td><td>+22%</td><td>2x throughput</td><td><strong>MARGINAL</strong></td></tr></tbody></table>
+
+<hr>
+
+<h2 id="5-recommendations">5. Recommendations<a class="ha" href="#5-recommendations" aria-hidden="true">¶</a></h2>
+
+<h3 id="priority-1-dual-port-bram-for-doppler-processor">Priority 1: Dual-Port BRAM for Doppler Processor<a class="ha" href="#priority-1-dual-port-bram-for-doppler-processor" aria-hidden="true">¶</a></h3>
+
+<ul><li><strong>Expected improvement:</strong> Up to 1.5x Doppler processing throughput via simultaneous read/write</li><li><strong>Resource cost:</strong> Negligible (~100--300 additional LUTs; no additional DSPs or BRAMs)</li><li><strong>Risk:</strong> LOW -- leverages native Artix-7 BRAM dual-port capability</li><li><strong>Rationale:</strong> This is the highest-value optimization because it requires no additional resources. The current single-port BRAM usage in <code>doppler_processor_optimized</code> artificially limits memory bandwidth when the hardware natively supports dual-port access. Ping-pong buffering enables concurrent data accumulation and FFT processing.</li><li><strong>Investigation steps:</strong></li><li>Verify Doppler processor BRAM instantiation parameters in <code>doppler_processor.v</code></li><li>Prototype dual-port BRAM instantiation with separate read/write address generators</li><li>Modify the Doppler FSM to enable concurrent <code>S_ACCUMULATE</code> (write port) and <code>S_LOAD_FFT</code> (read port) operation</li><li>Validate with Vivado simulation and measure actual throughput improvement</li></ul>
+
+<h3 id="priority-2-radix-4-fft-1024-point">Priority 2: Radix-4 FFT (1024-Point)<a class="ha" href="#priority-2-radix-4-fft-1024-point" aria-hidden="true">¶</a></h3>
+
+<ul><li><strong>Expected improvement:</strong> ~2x reduction in FFT clock cycles, reducing matched filter pipeline latency</li><li><strong>Resource cost:</strong> ~32 additional DSPs (from ~88 to ~120), ~4,000 additional LUTs</li><li><strong>Risk:</strong> MEDIUM -- requires full FFT core redesign and twiddle factor ROM recalculation</li><li><strong>Rationale:</strong> DSP headroom (~152 available) supports this optimization. The 2x speedup in the FFT directly reduces the matched filter processing chain latency (currently requiring a 3187-cycle latency buffer). This is a classical area-time tradeoff that the current DSP budget can accommodate.</li><li><strong>Investigation steps:</strong></li><li>Evaluate Xilinx FFT IP core (<code>xfft_v9_1</code>) in radix-4 mode vs. current custom radix-2</li><li>Generate twiddle factor ROM for 1024-point radix-4 FFT and verify BRAM usage</li><li>Synthesize standalone radix-4 FFT module in Vivado to obtain actual resource utilization</li><li>Compare QoR (LUTs, DSPs, BRAMs, max frequency) between hand-coded radix-4 and Xilinx IP</li></ul>
+
+<h3 id="priority-3-vitis-hls-for-non-critical-modules">Priority 3: Vitis HLS for Non-Critical Modules<a class="ha" href="#priority-3-vitis-hls-for-non-critical-modules" aria-hidden="true">¶</a></h3>
+
+<ul><li><strong>Expected improvement:</strong> ~4x faster development iteration for control and interface modules</li><li><strong>Resource cost:</strong> ~150--500 additional LUTs per module (15--30% overhead)</li><li><strong>Risk:</strong> LOW -- applies only to non-timing-critical modules with ample resource headroom</li><li><strong>Rationale:</strong> Modules such as <code>usb_data_interface</code>, <code>plfm_chirp_controller_enhanced</code>, and <code>level_shifter_interface</code> are control-oriented and not on the critical processing path. HLS conversion of these modules would improve development velocity for future modifications without impacting pipeline throughput.</li><li><strong>Investigation steps:</strong></li><li>Select one candidate module (recommended: <code>plfm_chirp_controller_enhanced</code>) for HLS proof-of-concept</li><li>Implement the equivalent algorithm in C++ with Vitis HLS pragmas</li><li>Compare post-synthesis resource utilization and maximum clock frequency against hand-coded version</li><li>Document QoR comparison to establish HLS overhead baseline for this project</li></ul>
+
+<h3 id="not-recommended-at-this-time">Not Recommended at This Time<a class="ha" href="#not-recommended-at-this-time" aria-hidden="true">¶</a></h3>
+
+<p class="kv-line"><span class="kv-key">Multi-bank BRAM interleaving for FFT:</span> <span class="kv-value">Exceeds BRAM capacity when applied to both FFT instances. Even for a single instance, the resulting ~90% BRAM utilization provides insufficient routing margin.</span></p>
+
+<p class="kv-line"><span class="kv-key">2x or 4x pipeline parallelism:</span> <span class="kv-value">BRAM-constrained. The ~30 additional BRAMs required for 2x parallelism would push utilization to ~97%, which is impractical. 4x parallelism exceeds BRAM capacity entirely.</span></p>
+
+<hr>
+
+<h2 id="references">References<a class="ha" href="#references" aria-hidden="true">¶</a></h2>
+
+<h3 id="project-documentation">Project Documentation<a class="ha" href="#project-documentation" aria-hidden="true">¶</a></h3>
+<ul><li><a href="../00_notation/symbol_table.md">Symbol Table</a> -- Section 5 (Signal Processing) and Section 6 (Software Signal Processing)</li><li><a href="../00_notation/parameter_table.md">Parameter Table</a> -- Signal Processing (FPGA) section</li><li><a href="../00_notation/conventions.md">Conventions</a> -- equation numbering and formatting rules</li><li><a href="../02_hardware/05_fpga_board.md">FPGA Board</a> -- XC7A100T resource capacity (Section 2), clock domains (Section 3), module inventory (Section 5)</li><li><a href="../03_software/01_fpga_pipeline.md">FPGA Pipeline</a> -- 10-stage pipeline architecture, FFT parameters, Doppler processor design</li></ul>
+
+<h3 id="external-references">External References<a class="ha" href="#external-references" aria-hidden="true">¶</a></h3>
+<ul><li>Xilinx, <em>7 Series FPGAs Memory Resources User Guide</em> (UG473) -- BRAM dual-port configuration</li><li>Xilinx, <em>7 Series DSP48E1 Slice User Guide</em> (UG479) -- DSP48E1 architecture for FFT butterfly operations</li><li>Xilinx, <em>Artix-7 FPGAs Data Sheet: DC and AC Switching Characteristics</em> (DS181)</li><li>Xilinx, <em>Vitis High-Level Synthesis User Guide</em> (UG1399) -- HLS design methodology and QoR optimization</li><li>Xilinx, <em>Fast Fourier Transform LogiCORE IP Product Guide</em> (PG109) -- <code>xfft_v9_1</code> IP core configuration (radix-2, radix-4, pipelined streaming)</li><li>Proakis, J.G. and Manolakis, D.G., <em>Digital Signal Processing: Principles, Algorithms, and Applications</em>, 4th ed., Pearson, 2006 -- Radix-4 and split-radix FFT algorithms (Ch. 8)</li><li>Duhamel, P. and Vetterli, M., &quot;Fast Fourier Transforms: A Tutorial Review and a State of the Art,&quot; <em>Signal Processing</em>, vol. 19, no. 4, pp. 259--299, 1990</li></ul>
+
+</div>
+  </div><!-- main-content -->
+</div><!-- site-shell -->
+<script>
+mermaid.initialize({ startOnLoad: true, theme: 'dark', securityLevel: 'loose' });
+</script>
+</body>
+
+</html>

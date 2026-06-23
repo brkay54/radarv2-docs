@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>06_calibration_theory — aros Vault</title>
+<style>
+
+:root {
+  --color-blue:    #007ACC;
+  --color-green:   #2DA44E;
+  --color-yellow:  #D29922;
+  --color-purple:  #8B5CF6;
+  --color-orange:  #F59E0B;
+  --color-red:     #E5534B;
+  --color-cyan:    #0BC5EA;
+  --color-accent:  #7C3AED;
+  --text-normal:   #DCDDDE;
+  --text-muted:    #8E8EA0;
+  --background-primary:         #1E1E2E;
+  --background-secondary:       #181825;
+  --background-modifier-border: #313244;
+  --color-base-30:              #45475A;
+}
+body {
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.6;
+  margin: 0;
+}
+
+</style>
+<!-- Mermaid -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<!-- MathJax -->
+<script>window.MathJax={tex:{inlineMath:[['$','$'],['\\(','\\)']],displayMath:[['$$','$$'],['\\[','\\]']]},options:{skipHtmlTags:['script','noscript','style','textarea','pre']}};</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+<!-- Site CSS -->
+<link rel="stylesheet" href="../../site.css">
+</head>
+<body class="markdown-reading-view">
+<div class="site-shell">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <a href="../../00-Index.html" class="site-title">radarv2 / AERIS-10</a>
+      <div class="site-subtitle">aros Radar Documentation</div>
+    </div>
+    <ul class="nav-list">
+      <li class="nav-section">Core Docs</li>
+      <li><a href="../../09-Concepts-Primer.html">Radar Primer</a></li>
+      <li><a href="../../00-Index.html">Index</a></li>
+      <li><a href="../../01-System-Overview.html">System Overview</a></li>
+      <li><a href="../../02-Physics-and-Waveform.html">Physics &amp; Waveform</a></li>
+      <li><a href="../../03-Beamforming-and-Scan.html">Beamforming &amp; Scan</a></li>
+      <li><a href="../../04-Signal-Processing-Pipeline.html">Signal Processing</a></li>
+      <li><a href="../../05-Node-Architecture.html">Node Architecture</a></li>
+      <li><a href="../../06-Message-Catalog.html">Message Catalog</a></li>
+      <li><a href="../../07-Detection-and-Tracking.html">Detection &amp; Tracking</a></li>
+      <li><a href="../../08-Scenarios-and-Targets.html">Scenarios &amp; Targets</a></li>
+      <li class="nav-section">Advanced</li>
+      <li><a href="../../10-Radar-Model-Library.html">Radar Model Library</a></li>
+      <li><a href="../../11-Multi-Radar-Fusion.html">Multi-Radar Fusion</a></li>
+      <li><a href="../../12-3D-Scene.html">3-D Scene</a></li>
+      <li><a href="../../13-Reference-Tables.html">Reference Tables</a></li>
+      <li><a href="../../FUTURE-DEVELOPMENT.html">Future Development</a></li>
+      <li class="nav-section">Upstream Theory</li>
+      <li><a href="../../upstream/README.html">Upstream README</a></li>
+      <li><a href="../../upstream/00_notation/conventions.html">Notation</a></li>
+      <li><a href="../../upstream/01_physics/01_fmcw_theory.html">FMCW Theory</a></li>
+      <li><a href="../../upstream/01_physics/02_lfm_waveform_model.html">LFM Waveform</a></li>
+      <li><a href="../../upstream/01_physics/03_beamforming_theory.html">Beamforming Theory</a></li>
+      <li><a href="../../upstream/01_physics/04_detection_theory.html">Detection Theory</a></li>
+      <li><a href="../../upstream/01_physics/05_noise_analysis.html">Noise Analysis</a></li>
+      <li><a href="../../upstream/01_physics/06_calibration_theory.html">Calibration</a></li>
+      <li><a href="../../upstream/02_hardware/01_system_overview.html">HW Overview</a></li>
+      <li><a href="../../upstream/04_research/01_cfar_variants.html">CFAR Variants</a></li>
+    </ul>
+    <div class="sidebar-footer">
+      <a href="https://github.com/brkay54/radarv2-docs" target="_blank">GitHub</a>
+    </div>
+  </nav>
+  <div class="main-content">
+
+<div class="markdown-preview-section">
+<h1 id="calibration-theory">Calibration Theory<a class="ha" href="#calibration-theory" aria-hidden="true">¶</a></h1>
+
+<p class="kv-line"><span class="kv-key">Purpose:</span> <span class="kv-value">Model phase and amplitude errors in phased array elements, analyze the impact of ADAR1000 phase/amplitude quantization on beam pattern fidelity, and derive the measurement-based calibration correction procedure with residual error bounds.</span></p>
+
+<p class="kv-line"><span class="kv-key">Prerequisites:</span> <span class="kv-value">Familiarity with:</span></p>
+<ul><li><a href="../00_notation/symbol_table.md">Symbol Table</a> -- all symbols used herein</li><li><a href="../00_notation/parameter_table.md">Parameter Table</a> -- numerical values for both variants</li><li><a href="../00_notation/conventions.md">Conventions</a> -- equation formatting rules</li><li><a href="03_beamforming_theory.md">Beamforming Theory</a> -- array factor and phase model</li></ul>
+
+<hr>
+
+<h2 id="1-per-element-error-model">1. Per-Element Error Model<a class="ha" href="#1-per-element-error-model" aria-hidden="true">¶</a></h2>
+
+<p>In an ideal phased array, element $n$ contributes to the array factor with nominal amplitude weight $a_n$ (defined in the <a href="../00_notation/symbol_table.md#antenna-and-beamforming">Symbol Table</a>) and the intended phase $n\psi$. In a real system, each element exhibits a phase error $\delta\phi_n$ (defined in the <a href="../00_notation/symbol_table.md#antenna-and-beamforming">Symbol Table</a>) and an amplitude error $\delta a_n$ (defined in the <a href="../00_notation/symbol_table.md#antenna-and-beamforming">Symbol Table</a>). The actual complex response of element $n$ is:</p>
+
+<p>$$</p>
+<p>h_n = (a_n + \delta a_n) \, e^{j\delta\phi_n} \tag{CAL-1}</p>
+<p>$$</p>
+
+<p>instead of the ideal response $a_n$. The error sources include:</p>
+
+<ul><li><strong>Manufacturing tolerances:</strong> variations in element geometry, feed network path lengths, and component values.</li><li><strong>Component aging:</strong> drift in phase shifter and attenuator characteristics over time.</li><li><strong>Temperature drift:</strong> thermal expansion altering element spacing and feed network electrical lengths.</li><li><strong>Feed network imbalances:</strong> unequal power splitting and phase delays in the corporate feed.</li></ul>
+
+<p>Each source contributes independently to $\delta\phi_n$ and $\delta a_n$. The total error at each element is the superposition of all sources.</p>
+
+<hr>
+
+<h2 id="2-array-pattern-with-errors">2. Array Pattern with Errors<a class="ha" href="#2-array-pattern-with-errors" aria-hidden="true">¶</a></h2>
+
+<p>Substituting the per-element error model of Eq. (CAL-1) into the array factor of Eq. (BF-3) from <a href="03_beamforming_theory.md">Beamforming Theory</a>, the array factor with errors is:</p>
+
+<p>$$</p>
+<p>AF_\text{err}(\theta) = \sum_{n=0}^{N-1} (a_n + \delta a_n) \, e^{j(n\psi + \delta\phi_n)} \tag{CAL-2}</p>
+<p>$$</p>
+
+<p>This can be decomposed into the ideal array factor plus a perturbation term. Expanding:</p>
+
+<p>$$</p>
+<p>\begin{aligned}</p>
+<p>AF_\text{err}(\theta) &amp;= \sum_{n=0}^{N-1} a_n \, e^{jn\psi} \cdot e^{j\delta\phi_n} + \sum_{n=0}^{N-1} \delta a_n \, e^{j(n\psi + \delta\phi_n)}</p>
+<p>\end{aligned}</p>
+<p>$$</p>
+
+<p>For small errors ($|\delta\phi_n| \ll 1$ and $|\delta a_n / a_n| \ll 1$), using $e^{j\delta\phi_n} \approx 1 + j\delta\phi_n$:</p>
+
+<p>$$</p>
+<p>\begin{aligned}</p>
+<p>AF_\text{err}(\theta) &amp;\approx \underbrace{\sum_{n=0}^{N-1} a_n \, e^{jn\psi}}_{AF_\text{ideal}(\theta)} + \underbrace{\sum_{n=0}^{N-1} (j a_n \delta\phi_n + \delta a_n) \, e^{jn\psi}}_{\Delta AF(\theta)}</p>
+<p>\end{aligned}</p>
+<p>\tag{CAL-3}</p>
+<p>$$</p>
+
+<p>The perturbation $\Delta AF(\theta)$ represents the difference between the actual and ideal patterns. It is a weighted sum over the array with error-dependent coefficients, and its angular structure determines how the errors distort the beam pattern.</p>
+
+<hr>
+
+<h2 id="3-rms-sidelobe-level-with-random-errors">3. RMS Sidelobe Level with Random Errors<a class="ha" href="#3-rms-sidelobe-level-with-random-errors" aria-hidden="true">¶</a></h2>
+
+<p>When the errors $\delta\phi_n$ and $\delta a_n$ are modeled as zero-mean random variables (appropriate for manufacturing tolerances and aging effects), the average sidelobe power can be derived statistically. Following the Mailloux formulation, the expected value of the sidelobe power relative to the main beam is:</p>
+
+<p>$$</p>
+<p>\overline{\text{SLL}} \approx \frac{1}{N} \sum_{n=0}^{N-1} \left(\left|\frac{\delta a_n}{a_n}\right|^2 + |\delta\phi_n|^2\right) \tag{CAL-4}</p>
+<p>$$</p>
+
+<p>For uniform weights ($a_n = 1$) and identically distributed errors with RMS amplitude error $\sigma_a$ and RMS phase error $\sigma_\phi$ (in radians):</p>
+
+<p>$$</p>
+<p>\overline{\text{SLL}} \approx \sigma_a^2 + \sigma_\phi^2 \tag{CAL-5}</p>
+<p>$$</p>
+
+<p>Physical interpretation: random errors raise the average sidelobe floor to a level determined by the sum of the amplitude and phase error variances. This floor is independent of the taper and acts as a lower bound on achievable sidelobe performance. For example, to maintain an average sidelobe floor below $-30$ dB ($\overline{\text{SLL}} &lt; 10^{-3}$), the combined error variance must satisfy $\sigma_a^2 + \sigma_\phi^2 &lt; 10^{-3}$, requiring RMS errors below approximately $\sigma_\phi &lt; 1.8°$ and $\sigma_a &lt; 0.032$ ($3.2\%$).</p>
+
+<hr>
+
+<h2 id="4-adar1000-phase-quantization">4. ADAR1000 Phase Quantization<a class="ha" href="#4-adar1000-phase-quantization" aria-hidden="true">¶</a></h2>
+
+<p>The ADAR1000 beamformer IC provides discrete phase control with 128 states over a full $360°$ range (7-bit resolution). The phase step size is:</p>
+
+<p>$$</p>
+<p>\Delta\phi_\text{step} = \frac{360°}{128} = 2.8125° \tag{CAL-6}</p>
+<p>$$</p>
+
+<p>The maximum phase quantization error for any desired phase setting is half the step size:</p>
+
+<p>$$</p>
+<p>\delta\phi_\text{quant}| \le \frac{\Delta\phi_\text{step}}{2} = 1.40625° \approx 0.0245~\text{rad} \tag{CAL-7}</p>
+<p>$$</p>
+
+<p><strong>This error is deterministic, not random.</strong> For a given set of desired phase shifts (determined by the steering angle $\theta_0$), each element&#x27;s quantization error is a fixed, predictable value -- the difference between the desired continuous phase and the nearest available discrete state. The error pattern repeats exactly every time the beam is steered to the same angle.</p>
+
+<h3 id="beam-pointing-error">Beam Pointing Error<a class="ha" href="#beam-pointing-error" aria-hidden="true">¶</a></h3>
+
+<p>The quantization errors produce a systematic bias in the beam pointing direction. The beam pointing error due to phase quantization is bounded by:</p>
+
+<p>$$</p>
+<p>\Delta\theta_\text{quant}| \le \frac{\Delta\phi_\text{step}}{2kd\cos\theta_0} = \frac{\Delta\phi_\text{step}}{2 \cdot (2\pi d/\lambda) \cdot \cos\theta_0} \tag{CAL-8}</p>
+<p>$$</p>
+
+<p>This bound follows from the sensitivity of the steering equation Eq. (BF-4) in <a href="03_beamforming_theory.md">Beamforming Theory</a> to phase perturbations. The pointing error increases with scan angle ($1/\cos\theta_0$) because the same phase error maps to a larger angular error when the beam is steered away from broadside.</p>
+
+<h3 id="peak-sidelobe-degradation">Peak Sidelobe Degradation<a class="ha" href="#peak-sidelobe-degradation" aria-hidden="true">¶</a></h3>
+
+<p>Because the quantization error pattern is deterministic and periodic (with period related to the phase step size and steering angle), it creates specific spurious sidelobes at predictable angular locations rather than raising the average sidelobe floor uniformly as random errors do (Eq. (CAL-5)). The peak quantization sidelobe level for $N$ elements with maximum quantization error $\delta\phi_\text{max}$ is approximately:</p>
+
+<p>$$</p>
+<p>\text{SLL}_\text{quant} \approx \frac{1}{N} \left(\frac{N \delta\phi_\text{max}}{2}\right)^{\!2} = \frac{N \delta\phi_\text{max}^2}{4} \tag{CAL-9}</p>
+<p>$$</p>
+
+<p>For $N = 16$ and $\delta\phi_\text{max} = 0.0245$ rad, this evaluates to approximately $-29$ dB. The 7-bit phase resolution is therefore sufficient for sidelobe requirements up to approximately $-25$ to $-30$ dB, but the deterministic quantization lobes must be analyzed for each specific steering angle to ensure they do not coincide with critical angular sectors.</p>
+
+<hr>
+
+<h2 id="5-adar1000-amplitude-quantization">5. ADAR1000 Amplitude Quantization<a class="ha" href="#5-adar1000-amplitude-quantization" aria-hidden="true">¶</a></h2>
+
+<p>The ADAR1000 provides independent gain control per element through a variable attenuator. The attenuator offers discrete amplitude settings that limit how precisely amplitude tapers (Taylor, Chebyshev) can be realized.</p>
+
+<p>The amplitude quantization error for element $n$ is:</p>
+
+<p>$$</p>
+<p>\delta a_{\text{quant},n} = a_{n,\text{actual}} - a_{n,\text{desired}} \tag{CAL-10}</p>
+<p>$$</p>
+
+<p>where $a_{n,\text{actual}}$ is the nearest available discrete gain setting to the desired weight $a_{n,\text{desired}}$.</p>
+
+<p>The impact on taper accuracy is most significant for tapering functions with large dynamic range (ratio of maximum to minimum weight). The Chebyshev taper, which requires precise edge-element weights, is more sensitive to amplitude quantization than the Taylor taper, which has smoother weight variation across the aperture. The achievable sidelobe level is bounded by the amplitude quantization floor in the same manner as Eq. (CAL-5), with $\sigma_a$ replaced by the RMS amplitude quantization error.</p>
+
+<hr>
+
+<h2 id="6-mutual-coupling-effects">6. Mutual Coupling Effects<a class="ha" href="#6-mutual-coupling-effects" aria-hidden="true">¶</a></h2>
+
+<p>Mutual coupling between array elements modifies the effective excitation of each element. When element $n$ is driven, it induces currents on neighboring elements through electromagnetic coupling. This effect is captured by the coupling matrix $\mathbf{C}$, an $N \times N$ matrix where entry $C_{mn}$ represents the coupling coefficient from element $n$ to element $m$.</p>
+
+<p>The actual element excitation vector $\mathbf{v}_\text{actual}$ differs from the intended excitation $\mathbf{w}$ due to coupling:</p>
+
+<p>$$</p>
+<p>\mathbf{v}_\text{actual} = \mathbf{C} \, \mathbf{w} \tag{CAL-11}</p>
+<p>$$</p>
+
+<p>To achieve the desired excitation (and hence the desired beam pattern from Eq. (BF-3) in <a href="03_beamforming_theory.md">Beamforming Theory</a>), the applied weights must pre-compensate for coupling:</p>
+
+<p>$$</p>
+<p>\mathbf{w}_\text{applied} = \mathbf{C}^{-1} \mathbf{w}_\text{desired} \tag{CAL-12}</p>
+<p>$$</p>
+
+<p>This inversion requires knowledge of $\mathbf{C}$, which can be obtained from electromagnetic simulation, direct S-parameter measurement, or estimated through the calibration procedure described in the next section.</p>
+
+<p>The active element pattern for element $n$ in the array environment is:</p>
+
+<p>$$</p>
+<p>F_{e,n}^\text{active}(\theta) = \sum_{m=0}^{N-1} C_{mn} \, F_e(\theta) \, e^{jmkd\sin\theta}</p>
+<p>$$</p>
+
+<p>where $F_e(\theta)$ is the isolated element pattern. For interior elements of a large array, the coupling environment is approximately uniform, and the active element pattern is nearly identical across elements. Edge elements experience asymmetric coupling and require individual characterization.</p>
+
+<hr>
+
+<h2 id="7-calibration-correction-procedure">7. Calibration Correction Procedure<a class="ha" href="#7-calibration-correction-procedure" aria-hidden="true">¶</a></h2>
+
+<p>Measurement-based calibration determines the per-element complex error and computes a correction vector to restore ideal array performance. The procedure consists of four steps.</p>
+
+<h3 id="step-1-measurement">Step 1: Measurement<a class="ha" href="#step-1-measurement" aria-hidden="true">¶</a></h3>
+
+<p>Inject a known signal and measure the complex response of each element. Methods include:</p>
+
+<ul><li><strong>Far-field source:</strong> place a reference transmitter at a known angle and measure each element&#x27;s output individually (by disabling all other elements or using element-level digitization).</li><li><strong>Mutual coupling self-calibration:</strong> exploit the known coupling between adjacent elements to extract relative phase and amplitude differences without an external source.</li></ul>
+
+<p>The measured complex response of element $n$ is:</p>
+
+<p>$$</p>
+<p>h_{n,\text{meas}} = (a_n + \delta a_n) \, e^{j\delta\phi_n} \cdot S_\text{ref} \tag{CAL-13}</p>
+<p>$$</p>
+
+<p>where $S_\text{ref}$ is the known reference signal (common to all elements and cancelled in the ratio below).</p>
+
+<h3 id="step-2-compute-correction-vector">Step 2: Compute Correction Vector<a class="ha" href="#step-2-compute-correction-vector" aria-hidden="true">¶</a></h3>
+
+<p>The correction for element $n$ is the ratio of the ideal response to the measured response:</p>
+
+<p>$$</p>
+<p>c_n = \frac{a_n}{h_{n,\text{meas}} / S_\text{ref}} = \frac{a_n}{(a_n + \delta a_n) \, e^{j\delta\phi_n}} \tag{CAL-14}</p>
+<p>$$</p>
+
+<p>This correction simultaneously compensates both amplitude and phase errors. Its magnitude corrects the amplitude ($|c_n| = a_n / (a_n + \delta a_n)$) and its phase corrects the phase error ($\angle c_n = -\delta\phi_n$).</p>
+
+<h3 id="step-3-apply-correction">Step 3: Apply Correction<a class="ha" href="#step-3-apply-correction" aria-hidden="true">¶</a></h3>
+
+<p>The correction is applied through the ADAR1000 phase and gain registers. For each element $n$:</p>
+
+<ul><li>Set the phase register to the desired steering phase plus the phase correction: $\phi_{n,\text{applied}} = n \cdot (-kd\sin\theta_0) + \angle c_n$.</li><li>Set the gain register to the desired amplitude weight scaled by the amplitude correction: $a_{n,\text{applied}} = a_{n,\text{desired}} \cdot |c_n|$.</li></ul>
+
+<h3 id="step-4-verify">Step 4: Verify<a class="ha" href="#step-4-verify" aria-hidden="true">¶</a></h3>
+
+<p>After applying corrections, measure the array pattern (or a set of diagnostic beam positions) and compare against the expected pattern from <a href="03_beamforming_theory.md">Beamforming Theory</a>. If residual errors exceed the specification, iterate the calibration measurement.</p>
+
+<hr>
+
+<h2 id="8-residual-error-analysis">8. Residual Error Analysis<a class="ha" href="#8-residual-error-analysis" aria-hidden="true">¶</a></h2>
+
+<p>Even with perfect calibration measurement (zero measurement noise), the discrete phase and amplitude steps of the ADAR1000 create a floor on achievable correction accuracy. The applied correction is quantized to the nearest available ADAR1000 state, leaving a residual error.</p>
+
+<h3 id="residual-phase-error">Residual Phase Error<a class="ha" href="#residual-phase-error" aria-hidden="true">¶</a></h3>
+
+<p>The correction phase $\angle c_n$ is quantized to the nearest ADAR1000 phase state. The residual phase error after calibration is bounded by half the phase step:</p>
+
+<p>$$</p>
+<p>\delta\phi_{n,\text{residual}}| \le \frac{\Delta\phi_\text{step}}{2} \tag{CAL-15}</p>
+<p>$$</p>
+
+<p>This is identical to Eq. (CAL-7) -- calibration cannot reduce the phase error below the quantization floor.</p>
+
+<h3 id="residual-amplitude-error">Residual Amplitude Error<a class="ha" href="#residual-amplitude-error" aria-hidden="true">¶</a></h3>
+
+<p>Similarly, the correction amplitude $|c_n|$ is quantized to the nearest attenuator setting, leaving a residual amplitude error bounded by half the amplitude step size.</p>
+
+<h3 id="post-calibration-sidelobe-floor">Post-Calibration Sidelobe Floor<a class="ha" href="#post-calibration-sidelobe-floor" aria-hidden="true">¶</a></h3>
+
+<p>The residual errors after calibration are deterministic (determined by the specific quantization of each element&#x27;s correction). The worst-case post-calibration sidelobe level combines the residual quantization errors from Eq. (CAL-9) with any measurement noise in the calibration data:</p>
+
+<p>$$</p>
+<p>\text{SLL}_\text{post-cal} \ge \text{SLL}_\text{quant} \tag{CAL-16}</p>
+<p>$$</p>
+
+<p>The quantization-limited sidelobe floor from Eq. (CAL-9) represents the fundamental performance limit of the ADAR1000 beamformer. No calibration procedure can achieve sidelobe levels below this floor without either:</p>
+<ul><li>Increasing the phase/amplitude resolution (different hardware),</li><li>Applying algorithmic compensation that accounts for the deterministic quantization pattern, or</li><li>Using element-level digital beamforming to bypass the analog quantization entirely.</li></ul>
+
+<hr>
+
+<h2 id="references">References<a class="ha" href="#references" aria-hidden="true">¶</a></h2>
+
+<ul><li><a href="../00_notation/symbol_table.md">Symbol Table</a> -- canonical symbol definitions</li><li><a href="../00_notation/parameter_table.md">Parameter Table</a> -- numerical values for both AERIS-10 variants</li><li><a href="../00_notation/conventions.md">Conventions</a> -- equation numbering and formatting rules</li><li><a href="03_beamforming_theory.md">Beamforming Theory</a> -- array factor Eq. (BF-3), steering Eq. (BF-4), and beam pattern equations</li><li>Mailloux, R.J., <em>Phased Array Antenna Handbook</em>, 3rd ed., Artech House, 2018 -- Error analysis (Ch. 7), quantization effects (Ch. 7.3), calibration procedures (Ch. 7.5)</li><li>Skolnik, M.I., <em>Introduction to Radar Systems</em>, 4th ed., McGraw-Hill, 2008 -- Phased array errors and calibration (Ch. 9)</li></ul>
+
+</div>
+  </div><!-- main-content -->
+</div><!-- site-shell -->
+<script>
+mermaid.initialize({ startOnLoad: true, theme: 'dark', securityLevel: 'loose' });
+</script>
+</body>
+
+</html>

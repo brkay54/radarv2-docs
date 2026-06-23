@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>radarv2 — Message Catalog — aros Vault</title>
+<style>
+
+:root {
+  --color-blue:    #007ACC;
+  --color-green:   #2DA44E;
+  --color-yellow:  #D29922;
+  --color-purple:  #8B5CF6;
+  --color-orange:  #F59E0B;
+  --color-red:     #E5534B;
+  --color-cyan:    #0BC5EA;
+  --color-accent:  #7C3AED;
+  --text-normal:   #DCDDDE;
+  --text-muted:    #8E8EA0;
+  --background-primary:         #1E1E2E;
+  --background-secondary:       #181825;
+  --background-modifier-border: #313244;
+  --color-base-30:              #45475A;
+}
+body {
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.6;
+  margin: 0;
+}
+
+</style>
+<!-- Mermaid -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<!-- MathJax -->
+<script>window.MathJax={tex:{inlineMath:[['$','$'],['\\(','\\)']],displayMath:[['$$','$$'],['\\[','\\]']]},options:{skipHtmlTags:['script','noscript','style','textarea','pre']}};</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+<!-- Site CSS -->
+<link rel="stylesheet" href="site.css">
+</head>
+<body class="markdown-reading-view">
+<div class="site-shell">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <a href="00-Index.html" class="site-title">radarv2 / AERIS-10</a>
+      <div class="site-subtitle">aros Radar Documentation</div>
+    </div>
+    <ul class="nav-list">
+      <li class="nav-section">Core Docs</li>
+      <li><a href="09-Concepts-Primer.html">Radar Primer</a></li>
+      <li><a href="00-Index.html">Index</a></li>
+      <li><a href="01-System-Overview.html">System Overview</a></li>
+      <li><a href="02-Physics-and-Waveform.html">Physics &amp; Waveform</a></li>
+      <li><a href="03-Beamforming-and-Scan.html">Beamforming &amp; Scan</a></li>
+      <li><a href="04-Signal-Processing-Pipeline.html">Signal Processing</a></li>
+      <li><a href="05-Node-Architecture.html">Node Architecture</a></li>
+      <li><a href="06-Message-Catalog.html">Message Catalog</a></li>
+      <li><a href="07-Detection-and-Tracking.html">Detection &amp; Tracking</a></li>
+      <li><a href="08-Scenarios-and-Targets.html">Scenarios &amp; Targets</a></li>
+      <li class="nav-section">Advanced</li>
+      <li><a href="10-Radar-Model-Library.html">Radar Model Library</a></li>
+      <li><a href="11-Multi-Radar-Fusion.html">Multi-Radar Fusion</a></li>
+      <li><a href="12-3D-Scene.html">3-D Scene</a></li>
+      <li><a href="13-Reference-Tables.html">Reference Tables</a></li>
+      <li><a href="FUTURE-DEVELOPMENT.html">Future Development</a></li>
+      <li class="nav-section">Upstream Theory</li>
+      <li><a href="upstream/README.html">Upstream README</a></li>
+      <li><a href="upstream/00_notation/conventions.html">Notation</a></li>
+      <li><a href="upstream/01_physics/01_fmcw_theory.html">FMCW Theory</a></li>
+      <li><a href="upstream/01_physics/02_lfm_waveform_model.html">LFM Waveform</a></li>
+      <li><a href="upstream/01_physics/03_beamforming_theory.html">Beamforming Theory</a></li>
+      <li><a href="upstream/01_physics/04_detection_theory.html">Detection Theory</a></li>
+      <li><a href="upstream/01_physics/05_noise_analysis.html">Noise Analysis</a></li>
+      <li><a href="upstream/01_physics/06_calibration_theory.html">Calibration</a></li>
+      <li><a href="upstream/02_hardware/01_system_overview.html">HW Overview</a></li>
+      <li><a href="upstream/04_research/01_cfar_variants.html">CFAR Variants</a></li>
+    </ul>
+    <div class="sidebar-footer">
+      <a href="https://github.com/brkay54/radarv2-docs" target="_blank">GitHub</a>
+    </div>
+  </nav>
+  <div class="main-content">
+
+<div class="markdown-preview-section">
+<h1 id="message-catalog">Message Catalog<a class="ha" href="#message-catalog" aria-hidden="true">¶</a></h1>
+
+<div class="callout" data-callout="abstract"><div class="callout-title">Scope</div><div class="callout-content"><p>Every radarv2 aros message type — fields, units, sizes, diagtree paths — and the</p>
+<p>upstream AERIS-10 wire structure each one models. All types live in the</p>
+<p><code>radarv2_msgs</code> package, domain <code>aeris</code>, and are codegen&#x27;d into the single</p>
+<p><code>aros::schemas</code> registry.</p></div></div>
+
+<div class="callout" data-callout="note"><div class="callout-title">Format reminder</div><div class="callout-content"><p>An aros <code>.msg</code> is YAML frontmatter (`kind/name/producer/plane/domain/pool_size/</p>
+<p>diagtree_path<code>) + an IDL body of </code>type name[count] @units=…  # comment`. Nested</p>
+<p>std types are embedded by value (<code>std_msgs/Header</code>) and listed by bare name in</p>
+<p>the package <code>glossary.md</code>. Fixed-capacity arrays pair <code>Type field[N]</code> with a</p>
+<p><code>uint32 count</code>. Scalar primitives: <code>int8/16/32/64</code>, <code>uint8/16/32/64</code>,</p>
+<p><code>float32/64</code>, <code>bool</code>.</p></div></div>
+
+<hr>
+
+<h2 id="1-catalog-at-a-glance">1. Catalog at a glance<a class="ha" href="#1-catalog-at-a-glance" aria-hidden="true">¶</a></h2>
+
+<table class="md-table"><thead><tr><th>Type</th><th>Kind</th><th>Producer</th><th>Plane</th><th>Models (AERIS-10)</th><th>Approx. size</th></tr></thead><tbody><tr><td><code>ScanCommand</code></td><td>container</td><td>scan_controller</td><td>control</td><td>STM32 scan FSM + beam command + <code>RadarSettings</code> waveform</td><td>~80 B</td></tr><tr><td><code>PlatformNav</code></td><td>container</td><td>nav_source</td><td>data</td><td>GPS binary packet (<code>GPSB</code>) + IMU attitude</td><td>~80 B</td></tr><tr><td><code>IqFrame</code></td><td>container</td><td>rx_synthesizer</td><td>data</td><td>DDC baseband I/Q (stages 1–4)</td><td>~1.1 KB</td></tr><tr><td><code>RangeProfile</code></td><td>container</td><td>pulse_compressor</td><td>data</td><td>Matched-filter range profile (stages 5–7)</td><td>~300 B</td></tr><tr><td><code>RangeDopplerMap</code></td><td>container</td><td>doppler_processor</td><td>data</td><td>Doppler-processed RD map (stage 8)</td><td>~8 KB</td></tr><tr><td><code>RadarDetection</code></td><td>element</td><td>—</td><td>—</td><td>One detected range-Doppler cell</td><td>~56 B</td></tr><tr><td><code>DetectionReport</code></td><td>container</td><td>cfar_detector</td><td>data</td><td>CFAR detection set (stage 9) + FT601 detection field</td><td>~1 KB</td></tr><tr><td><code>WorldTarget</code></td><td>element</td><td>—</td><td>—</td><td>One world-frame target (host transform)</td><td>~64 B</td></tr><tr><td><code>TargetReport</code></td><td>container</td><td>host_egress</td><td>data</td><td>Host world-frame picture (GUI <code>RadarTarget</code> set)</td><td>~1.1 KB</td></tr><tr><td><code>MapFeature</code></td><td>element</td><td>—</td><td>—</td><td>One road/coastline line segment</td><td>~20 B</td></tr><tr><td><code>MapLayer</code></td><td>container</td><td>map_provider</td><td>data</td><td>DTED terrain grid + vector features (FD-2 physical map)</td><td>~10 KB</td></tr></tbody></table>
+
+<p>Embedded std types: <code>std_msgs/Header</code> (which nests <code>std_msgs/Time</code>). The package</p>
+<p><code>glossary.md</code> lists all nine radarv2 types plus <code>Header</code>, <code>Time</code>.</p>
+
+<hr>
+
+<h2 id="2-type-definitions">2. Type definitions<a class="ha" href="#2-type-definitions" aria-hidden="true">¶</a></h2>
+
+<h3 id="scancommand">ScanCommand<a class="ha" href="#scancommand" aria-hidden="true">¶</a></h3>
+<blockquote>Models the STM32 scan FSM output + beam steering + the waveform fields of the host</blockquote>
+<blockquote><code>RadarSettings</code>. One per chirp; <code>frame_start</code> marks a dwell (CPI) boundary.</blockquote>
+<blockquote>diagtree: <code>/AERIS10/SCAN/scan_controller/scan_command</code></blockquote>
+
+<pre><code>std_msgs/Header  header
+uint32  scan_id                 # revolution counter
+uint32  dwell_id                # monotonic beam-dwell counter
+uint32  chirp_index             # 0..M-1 within the dwell
+uint16  az_position             # 0..49 azimuth step
+uint16  el_position             # 0..30 elevation beam position
+float32 beam_azimuth   @units=rad
+float32 beam_elevation @units=rad
+uint8   waveform_type           # 0 long chirp, 1 short chirp
+float32 bandwidth      @units=Hz   # chirp sweep B -&gt; range resolution
+float32 pulse_width    @units=s    # chirp duration T_c
+float32 prf            @units=Hz
+uint32  chirps_per_dwell        # M (CPI length)
+uint8   frame_start             # 1 on the first chirp of a dwell (Doppler reset)</code></pre>
+
+<h3 id="platformnav">PlatformNav<a class="ha" href="#platformnav" aria-hidden="true">¶</a></h3>
+<blockquote>Models the GPS binary packet (<code>&quot;GPSB&quot;</code> + lat/lon/alt/pitch) plus the IMU-derived</blockquote>
+<blockquote>attitude and the ENU pose used for the world transform.</blockquote>
+<blockquote>diagtree: <code>/AERIS10/NAV/nav_source/platform_nav</code></blockquote>
+
+<pre><code>std_msgs/Header  header
+float64 lat    @units=deg
+float64 lon    @units=deg
+float32 alt    @units=m
+float32 pitch  @units=rad
+float32 roll   @units=rad
+float32 yaw    @units=rad
+float32 pos_e  @units=m
+float32 pos_n  @units=m
+float32 pos_u  @units=m
+float32 vel_e  @units=m/s
+float32 vel_n  @units=m/s
+float32 vel_u  @units=m/s
+uint8   fix_valid</code></pre>
+
+<h3 id="iqframe">IqFrame<a class="ha" href="#iqframe" aria-hidden="true">¶</a></h3>
+<blockquote>Models the DDC baseband I/Q for one chirp (stages 1–4). 256 complex samples is a</blockquote>
+<blockquote>tractable stand-in for the decimated fast-time record.</blockquote>
+<blockquote>diagtree: <code>/AERIS10/RX/rx_synthesizer/iq_frame</code></blockquote>
+
+<pre><code>std_msgs/Header  header
+uint32  scan_id
+uint32  dwell_id
+uint32  chirp_index
+float32 beam_azimuth   @units=rad
+float32 beam_elevation @units=rad
+float32 mono_az                 # monopulse az error voltage (DF), dominant in-beam target
+uint8   waveform_type
+uint16  sample_count            # = 256
+int16   i[256]                  # in-phase fast-time samples
+int16   q[256]                  # quadrature fast-time samples</code></pre>
+
+<h3 id="rangeprofile">RangeProfile<a class="ha" href="#rangeprofile" aria-hidden="true">¶</a></h3>
+<blockquote>Models the matched-filter + range-decimation output (stages 5–7): 64 complex range</blockquote>
+<blockquote>bins for one chirp.</blockquote>
+<blockquote>diagtree: <code>/AERIS10/RX/pulse_compressor/range_profile</code></blockquote>
+
+<pre><code>std_msgs/Header  header
+uint32  scan_id
+uint32  dwell_id
+uint32  chirp_index
+float32 beam_azimuth   @units=rad
+float32 beam_elevation @units=rad
+float32 mono_az                 # monopulse az error voltage (DF), carried from IqFrame
+uint16  range_bin_count         # = 64
+float32 range_res      @units=m
+int16   i[64]                   # complex range bins (I)
+int16   q[64]                   # complex range bins (Q)</code></pre>
+
+<h3 id="rangedopplermap">RangeDopplerMap<a class="ha" href="#rangedopplermap" aria-hidden="true">¶</a></h3>
+<blockquote>Models the Doppler-processed map (stage 8): 64 range × 32 Doppler complex cells for</blockquote>
+<blockquote>one dwell. Row-major <code>index = range_bin * 32 + doppler_bin</code>.</blockquote>
+<blockquote>diagtree: <code>/AERIS10/RX/doppler_processor/range_doppler_map</code></blockquote>
+
+<pre><code>std_msgs/Header  header
+uint32  scan_id
+uint32  dwell_id
+float32 beam_azimuth   @units=rad
+float32 beam_elevation @units=rad
+float32 mono_az                 # monopulse az error voltage (DF), carried from RangeProfile
+uint16  range_bins              # = 64
+uint16  doppler_bins            # = 32
+float32 range_res      @units=m
+float32 velocity_res   @units=m/s
+int16   i[2048]                 # 64*32 cells, row-major (I)
+int16   q[2048]                 # 64*32 cells, row-major (Q)</code></pre>
+
+<h3 id="radardetection-element">RadarDetection (element)<a class="ha" href="#radardetection-element" aria-hidden="true">¶</a></h3>
+<blockquote>One detected range-Doppler cell after CA-CFAR. No <code>producer</code>/<code>plane</code> (element only).</blockquote>
+
+<pre><code>float32 range            @units=m
+float32 radial_velocity  @units=m/s
+float32 azimuth          @units=rad
+float32 elevation        @units=rad
+float32 snr              @units=dB
+float32 magnitude
+uint16  range_bin
+uint16  doppler_bin
+float32 pfa                      # design false-alarm probability
+float32 cfar_threshold           # adaptive threshold at this cell
+float32 noise_power              # local noise estimate</code></pre>
+
+<h3 id="detectionreport">DetectionReport<a class="ha" href="#detectionreport" aria-hidden="true">¶</a></h3>
+<blockquote>Models the CFAR detection set for one dwell (stage 9) and the FT601 detection field.</blockquote>
+<blockquote>diagtree: <code>/AERIS10/DET/cfar_detector/detections</code></blockquote>
+
+<pre><code>std_msgs/Header  header
+uint32  scan_id
+uint32  dwell_id
+float32 beam_azimuth   @units=rad
+float32 beam_elevation @units=rad
+uint32  count                    # valid leading entries (&lt;=16)
+RadarDetection detections[16]</code></pre>
+
+<h3 id="worldtarget-element">WorldTarget (element)<a class="ha" href="#worldtarget-element" aria-hidden="true">¶</a></h3>
+<blockquote>One world-frame target after the polar → body → ENU → geodetic transform.</blockquote>
+
+<pre><code>uint32  target_id
+float32 pos_e  @units=m
+float32 pos_n  @units=m
+float32 pos_u  @units=m
+float64 lat    @units=deg
+float64 lon    @units=deg
+float32 alt    @units=m
+float32 range            @units=m
+float32 radial_velocity  @units=m/s
+float32 azimuth          @units=rad
+float32 elevation        @units=rad
+float32 snr              @units=dB</code></pre>
+
+<h3 id="targetreport">TargetReport<a class="ha" href="#targetreport" aria-hidden="true">¶</a></h3>
+<blockquote>Models the host&#x27;s world-frame target picture (the GUI <code>RadarTarget</code> set). The</blockquote>
+<blockquote>pipeline output; terminal sink + Foxglove visualization.</blockquote>
+<blockquote>diagtree: <code>/AERIS10/HOST/host_egress/target_report</code></blockquote>
+
+<pre><code>std_msgs/Header  header
+uint32  scan_id
+uint32  dwell_id
+uint32  count                    # valid leading entries (&lt;=16)
+WorldTarget targets[16]</code></pre>
+
+<h3 id="mapfeature-element">MapFeature (element)<a class="ha" href="#mapfeature-element" aria-hidden="true">¶</a></h3>
+<blockquote>One vector map feature segment (road / coastline). No <code>producer</code>/<code>plane</code>.</blockquote>
+
+<pre><code>uint8   kind                     # 0 road, 1 coastline, 2 border, 3 other
+float32 e0  @units=m
+float32 n0  @units=m
+float32 e1  @units=m
+float32 n1  @units=m</code></pre>
+
+<h3 id="maplayer">MapLayer<a class="ha" href="#maplayer" aria-hidden="true">¶</a></h3>
+<blockquote>Models the loaded physical map (FD-2): a DTED terrain elevation grid plus a bounded</blockquote>
+<blockquote>set of road/coastline vector features. <strong>Re-published periodically</strong> by <code>MapProvider</code></blockquote>
+<blockquote>(once per scan revolution) — aros has <strong>no latched/transient-local transport</strong>, so a</blockquote>
+<blockquote>static map cannot be &quot;published once&quot; and still reach late or cross-host subscribers;</blockquote>
+<blockquote>this is the backlog item <strong>LATCH-01</strong>. Consumed by <code>RxSynthesizer</code> (clutter),</blockquote>
+<blockquote><code>CfarDetector</code> (terrain masking / LOS), and <code>HostEgress</code> (visualization overlay). The</blockquote>
+<blockquote>grid is row-major <code>index = row * grid_cols + col</code>.</blockquote>
+<blockquote>diagtree: <code>/AERIS10/MAP/map_provider/map_layer</code></blockquote>
+
+<pre><code>std_msgs/Header  header
+uint16  grid_rows                # = 64
+uint16  grid_cols                # = 64
+float64 origin_lat   @units=deg  # SW corner of the tile
+float64 origin_lon   @units=deg
+float32 cell_spacing @units=m    # grid posting
+float32 min_alt      @units=m
+float32 max_alt      @units=m
+int16   height[4096]             # 64*64 elevation samples (m, row-major)
+uint32  feature_count            # valid leading entries (&lt;=64)
+MapFeature features[64]</code></pre>
+
+<div class="callout" data-callout="note"><div class="callout-title">The asset-loading dependency</div><div class="callout-content"><p><code>MapProvider</code> reads its DTED tile and vector maps from files at <code>on_configure</code>.</p>
+<p>aros has <strong>no portable node asset-loading mechanism today</strong> — this is the backlog</p>
+<p>item <strong>ASSET-01</strong> (<code>aros/BACKLOG.md</code>). Until it lands, the loader is an interim</p>
+<p>Linux-only <code>std::ifstream</code> reader, isolated and clearly marked non-portable, the</p>
+<p>same way <code>replay</code> quarantines its file I/O.</p></div></div>
+
+<hr>
+
+<h2 id="3-mapping-to-aeris-10-wire-structures">3. Mapping to AERIS-10 wire structures<a class="ha" href="#3-mapping-to-aeris-10-wire-structures" aria-hidden="true">¶</a></h2>
+
+<p>radarv2&#x27;s messages are the aros-typed equivalents of the upstream&#x27;s hand-packed</p>
+<p>binary frames. The table records the correspondence so the model is auditable</p>
+<p>against the source.</p>
+
+<table class="md-table"><thead><tr><th>AERIS-10 wire structure</th><th>Direction</th><th>radarv2 message</th><th>Notes</th></tr></thead><tbody><tr><td>STM32→FPGA control toggles (<code>new_chirp</code>/<code>new_elevation</code>/<code>new_azimuth</code>)</td><td>control</td><td><code>ScanCommand</code> fields (<code>chirp_index</code>, <code>el_position</code>, <code>az_position</code>, <code>frame_start</code>)</td><td>Edge toggles → explicit indices + dwell-boundary flag</td></tr><tr><td>Host→STM32 <code>RadarSettings</code></td><td>command</td><td><code>ScanCommand</code> waveform fields (<code>bandwidth</code>, <code>pulse_width</code>, <code>prf</code>, <code>chirps_per_dwell</code>) + params</td><td>Settings that are static per run live in params; per-dwell waveform travels in the command</td></tr><tr><td>STM32→host GPS binary packet (<code>&quot;GPSB&quot;</code>, 30 B, big-endian)</td><td>telemetry</td><td><code>PlatformNav</code> (<code>lat/lon/alt/pitch</code> + attitude + ENU)</td><td>Checksum/endianness are transport concerns; the payload is the model</td></tr><tr><td>FT601 radar packet — range profile (4×32-bit)</td><td>data</td><td><code>RangeProfile</code> (64 complex bins)</td><td>Per-chirp range record</td></tr><tr><td>FT601 radar packet — Doppler I/Q (4×32-bit, <code>{real,imag}</code>)</td><td>data</td><td><code>RangeDopplerMap</code> cells (<code>int16 i/q</code>)</td><td>Aggregated into the per-dwell map</td></tr><tr><td>FT601 radar packet — detection flag (1 bit)</td><td>data</td><td><code>DetectionReport</code> / <code>RadarDetection</code></td><td>1-bit flag → structured detection with range/velocity/SNR</td></tr><tr><td>GUI <code>RadarTarget</code> (id/range/velocity/az/el/lat/lon/snr/track_id)</td><td>display</td><td><code>WorldTarget</code> / <code>TargetReport</code></td><td>World-frame picture for visualization</td></tr></tbody></table>
+
+<div class="callout" data-callout="note"><div class="callout-title">What does not travel on the wire</div><div class="callout-content"><p>As in core aros, the DiagTree path string is never serialized; routing uses the</p>
+<p><code>fnv1a_32</code> of the node path. The 24-byte <code>MsgHeader</code> (<code>msg_type_id</code>, reserved</p>
+<p><code>pool_index</code>/<code>generation</code>, <code>t_capture</code>, <code>seq</code>, <code>source_id</code>) is prepended by the</p>
+<p>framework, not declared in the <code>.msg</code> body.</p></div></div>
+
+<hr>
+
+<h2 id="4-size-and-pool-budget">4. Size and pool budget<a class="ha" href="#4-size-and-pool-budget" aria-hidden="true">¶</a></h2>
+
+<p>All container types stay well under the 64 KB message cap (which is a hard limit — the</p>
+<p>framework&#x27;s <code>payload_size</code> is <code>uint16_t</code>, so any POD &gt; 65535 B would silently</p>
+<p>truncate; codegen should hard-error above it). <code>MapLayer</code> (~10 KB: <code>int16 height[4096]</code></p>
+<p>= 8192 B + <code>MapFeature features[64]</code>) is the largest, then <code>RangeDopplerMap</code> (~8 KB:</p>
+<p><code>int16 i[2048]</code> + <code>int16 q[2048]</code> = 8192 B + header/scalars). Pool sizes (<code>pool_size</code></p>
+<p>in frontmatter) are set per the in-flight depth of each stage — small for the per-dwell</p>
+<p>containers, a few deep for the per-chirp <code>IqFrame</code>/<code>RangeProfile</code> so the RX chain can</p>
+<p>have several chirps in flight.</p>
+
+<p>Continue to <a href="07-Detection-and-Tracking.html" class="internal-link">07-Detection-and-Tracking</a>.</p>
+
+</div>
+  </div><!-- main-content -->
+</div><!-- site-shell -->
+<script>
+mermaid.initialize({ startOnLoad: true, theme: 'dark', securityLevel: 'loose' });
+</script>
+</body>
+
+</html>

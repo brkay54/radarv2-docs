@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>radarv2 — Beamforming and Scan Schedule — aros Vault</title>
+<style>
+
+:root {
+  --color-blue:    #007ACC;
+  --color-green:   #2DA44E;
+  --color-yellow:  #D29922;
+  --color-purple:  #8B5CF6;
+  --color-orange:  #F59E0B;
+  --color-red:     #E5534B;
+  --color-cyan:    #0BC5EA;
+  --color-accent:  #7C3AED;
+  --text-normal:   #DCDDDE;
+  --text-muted:    #8E8EA0;
+  --background-primary:         #1E1E2E;
+  --background-secondary:       #181825;
+  --background-modifier-border: #313244;
+  --color-base-30:              #45475A;
+}
+body {
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.6;
+  margin: 0;
+}
+
+</style>
+<!-- Mermaid -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<!-- MathJax -->
+<script>window.MathJax={tex:{inlineMath:[['$','$'],['\\(','\\)']],displayMath:[['$$','$$'],['\\[','\\]']]},options:{skipHtmlTags:['script','noscript','style','textarea','pre']}};</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+<!-- Site CSS -->
+<link rel="stylesheet" href="site.css">
+</head>
+<body class="markdown-reading-view">
+<div class="site-shell">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <a href="00-Index.html" class="site-title">radarv2 / AERIS-10</a>
+      <div class="site-subtitle">aros Radar Documentation</div>
+    </div>
+    <ul class="nav-list">
+      <li class="nav-section">Core Docs</li>
+      <li><a href="09-Concepts-Primer.html">Radar Primer</a></li>
+      <li><a href="00-Index.html">Index</a></li>
+      <li><a href="01-System-Overview.html">System Overview</a></li>
+      <li><a href="02-Physics-and-Waveform.html">Physics &amp; Waveform</a></li>
+      <li><a href="03-Beamforming-and-Scan.html">Beamforming &amp; Scan</a></li>
+      <li><a href="04-Signal-Processing-Pipeline.html">Signal Processing</a></li>
+      <li><a href="05-Node-Architecture.html">Node Architecture</a></li>
+      <li><a href="06-Message-Catalog.html">Message Catalog</a></li>
+      <li><a href="07-Detection-and-Tracking.html">Detection &amp; Tracking</a></li>
+      <li><a href="08-Scenarios-and-Targets.html">Scenarios &amp; Targets</a></li>
+      <li class="nav-section">Advanced</li>
+      <li><a href="10-Radar-Model-Library.html">Radar Model Library</a></li>
+      <li><a href="11-Multi-Radar-Fusion.html">Multi-Radar Fusion</a></li>
+      <li><a href="12-3D-Scene.html">3-D Scene</a></li>
+      <li><a href="13-Reference-Tables.html">Reference Tables</a></li>
+      <li><a href="FUTURE-DEVELOPMENT.html">Future Development</a></li>
+      <li class="nav-section">Upstream Theory</li>
+      <li><a href="upstream/README.html">Upstream README</a></li>
+      <li><a href="upstream/00_notation/conventions.html">Notation</a></li>
+      <li><a href="upstream/01_physics/01_fmcw_theory.html">FMCW Theory</a></li>
+      <li><a href="upstream/01_physics/02_lfm_waveform_model.html">LFM Waveform</a></li>
+      <li><a href="upstream/01_physics/03_beamforming_theory.html">Beamforming Theory</a></li>
+      <li><a href="upstream/01_physics/04_detection_theory.html">Detection Theory</a></li>
+      <li><a href="upstream/01_physics/05_noise_analysis.html">Noise Analysis</a></li>
+      <li><a href="upstream/01_physics/06_calibration_theory.html">Calibration</a></li>
+      <li><a href="upstream/02_hardware/01_system_overview.html">HW Overview</a></li>
+      <li><a href="upstream/04_research/01_cfar_variants.html">CFAR Variants</a></li>
+    </ul>
+    <div class="sidebar-footer">
+      <a href="https://github.com/brkay54/radarv2-docs" target="_blank">GitHub</a>
+    </div>
+  </nav>
+  <div class="main-content">
+
+<div class="markdown-preview-section">
+<h1 id="beamforming-and-scan-schedule">Beamforming and Scan Schedule<a class="ha" href="#beamforming-and-scan-schedule" aria-hidden="true">¶</a></h1>
+
+<div class="callout" data-callout="abstract"><div class="callout-title">Scope</div><div class="callout-content"><p>How AERIS-10 forms and steers its beam, and the chirp → elevation → azimuth scan</p>
+<p>hierarchy that <code>ScanController</code> reproduces — including the timing budget that</p>
+<p>sets the demo&#x27;s scan rate.</p></div></div>
+
+<hr>
+
+<h2 id="1-array-and-electronic-steering">1. Array and electronic steering<a class="ha" href="#1-array-and-electronic-steering" aria-hidden="true">¶</a></h2>
+
+<p>The array is a 16-element uniform linear array (ULA) with half-wavelength spacing</p>
+<p>$d = \lambda/2$. For a steering angle $\theta_0$, the required inter-element phase</p>
+<p>shift is</p>
+
+<p>$$\Delta\phi = -k d \sin\theta_0 = -\pi\sin\theta_0 \quad\Rightarrow\quad \Delta\phi_\text{deg} = 180\sin\theta_0,$$</p>
+
+<p>so the steering command inverts as $\theta_0 = \arcsin(\Delta\phi_\text{deg}/180)$.</p>
+<p>The array factor for uniform weighting is</p>
+
+<p>$$|AF(\theta)| = \left|\frac{\sin(N\psi/2)}{\sin(\psi/2)}\right|,\qquad \psi = kd\sin\theta + \Delta\phi.$$</p>
+
+<p>Key facts radarv2 carries as geometry (not as an RF model):</p>
+
+<ul><li><strong>Half-power beamwidth</strong> ≈ 6.3° broadside ($\theta_{3\text{dB}} \approx 0.886\lambda/(Nd\cos\theta_0)$).</li><li><strong>Steering range</strong> ±33°, kept inside the grating-lobe-free limit with ~30% margin.</li><li><strong>Phase quantization</strong>: ADAR1000 7-bit phase shifters, step 2.8125°, which sets a</li></ul>
+<p>  worst-case quantization sidelobe floor near −29 dB for $N = 16$.</p>
+
+<p>AERIS-10 precomputes a <code>phase_differences[31]</code> table — the inter-element Δφ for each</p>
+<p>of the 31 elevation beam positions, symmetric about index 15 (broadside, 0°). radarv2</p>
+<p>treats the <strong>±33° steering range as a chosen grating-safe cap</strong> (a parameter, not a</p>
+<p>quantity derived from a maximum phase) and computes the per-element phase <em>forward</em></p>
+<p>from the beam angle: $\Delta\phi_\text{deg} = 180\sin\theta_0$. So the table spans</p>
+<p>index 0 = $+98°$ (at $+33°$) to index 30 = $-98°$ (at $-33°$), ~2.2° per position.</p>
+
+<div class="callout" data-callout="warning"><div class="callout-title">Resolved steering inconsistency (was ±160°)</div><div class="callout-content"><p>The upstream&#x27;s <code>phase_differences</code> table lists index extremes of ±160°, but</p>
+<p>$\arcsin(160/180)=62.7°$ — which contradicts both the documented ±33° steering range</p>
+<p>and the array&#x27;s own $\Delta\phi_\text{deg}=180\sin\theta_0$ relation (which gives</p>
+<p>±98° at ±33°). radarv2 drops the ±160° figures as an upstream inconsistency and uses</p>
+<p>the forward relation: ±33° cap → ±98° edge phase, well within the 7-bit ADAR1000</p>
+<p>range. The steering range is the authoritative parameter; the phase follows from it.</p></div></div>
+
+<h3 id="grating-lobe-free-spacing-and-array-geometry">Grating-lobe-free spacing and array geometry<a class="ha" href="#grating-lobe-free-spacing-and-array-geometry" aria-hidden="true">¶</a></h3>
+
+<p>The ±33° cap is what lets the array keep <code>d = λ/2</code> with margin — the grating-lobe-free</p>
+<p>spacing limit <em>grows</em> as the scan range shrinks:</p>
+
+<table class="md-table"><thead><tr><th>Scan range θ_max</th><th><code>d/λ</code> limit = 1/(1+sin θ_max)</th><th>AERIS-10</th></tr></thead><tbody><tr><td>±90° (endfire)</td><td>0.500</td><td>—</td></tr><tr><td>±33° (ADAR1000)</td><td>0.649</td><td><code>d = 0.5λ</code> (≈30% margin)</td></tr><tr><td>broadside only</td><td>1.000</td><td>—</td></tr></tbody></table>
+
+<p>The two variants differ only in the elevation count of the planar array (the array</p>
+<p>factor separates into independent azimuth × elevation ULA factors):</p>
+
+<table class="md-table"><thead><tr><th>Variant</th><th>Geometry</th><th>N_az</th><th>N_el</th></tr></thead><tbody><tr><td>Nexus</td><td>8×16 patch</td><td>16</td><td>8</td></tr><tr><td>Extended</td><td>32×16 slotted WG</td><td>16</td><td>32</td></tr></tbody></table>
+
+<p>Sidelobe-control tapers (Taylor / Chebyshev) and their beam-broadening factors are in</p>
+<p><span class="wikilink-unresolved">appendix R2</span>.</p>
+
+<hr>
+
+<h2 id="2-scan-hierarchy">2. Scan hierarchy<a class="ha" href="#2-scan-hierarchy" aria-hidden="true">¶</a></h2>
+
+<p>A full scan is a nested loop: chirps build a dwell, dwells sweep elevation, elevation</p>
+<p>sweeps step azimuth, and azimuth steps complete a revolution.</p>
+
+<div class="mermaid">flowchart TD
+  CH[Chirp<br/>1 of M=32]:::chirp
+  DWELL[Beam dwell<br/>16 long + guard + 16 short]:::dwell
+  EL[Elevation sweep<br/>31 beam positions]:::el
+  AZ[Azimuth step<br/>stepper +4 steps = 7.2deg]:::az
+  REV[Full revolution<br/>50 azimuth positions]:::rev
+
+  CH -->|x32 per beam| DWELL
+  DWELL -->|x31 positions| EL
+  EL -->|then step| AZ
+  AZ -->|x50| REV
+
+  classDef chirp fill:#1d4ed8,color:#eff6ff,stroke:#1e40af
+  classDef dwell fill:#0e7490,color:#ecfeff,stroke:#155e75
+  classDef el fill:#4d7c0f,color:#f7fee7,stroke:#3f6212
+  classDef az fill:#a16207,color:#fefce8,stroke:#854d0e
+  classDef rev fill:#7c3aed,color:#f5f3ff,stroke:#6d28d9</div>
+
+<div class="callout" data-callout="info"><div class="callout-title">Legend — scan nesting</div><div class="callout-content"><p>Innermost (blue) <strong>chirp</strong> → (teal) <strong>dwell</strong> of 32 chirps at one beam position →</p>
+<p>(green) <strong>elevation sweep</strong> of 31 positions → (amber) <strong>azimuth step</strong> of 7.2° →</p>
+<p>(purple) <strong>full revolution</strong> of 50 positions. Each level multiplies the one below it.</p></div></div>
+
+<h3 id="per-dwell-chirp-burst">Per-dwell chirp burst<a class="ha" href="#per-dwell-chirp-burst" aria-hidden="true">¶</a></h3>
+
+<p>Each beam dwell fires <strong>M = 32</strong> chirps as two bursts separated by a guard interval:</p>
+
+<ul><li>16 <strong>long</strong> chirps at PRI₁ = 167 µs (toggling <code>new_chirp</code> each time).</li><li>Guard interval of 175.4 µs (lets the matched filter flush).</li><li>16 <strong>short</strong> chirps at PRI₂ = 175 µs.</li></ul>
+
+<p>In hardware this is driven by STM32 GPIO toggles that the FPGA edge-detects:</p>
+<p><code>new_chirp</code> (PD8) per chirp, <code>new_elevation</code> (PD9) per elevation position (resets</p>
+<p>the Doppler accumulator), <code>new_azimuth</code> (PD10) per azimuth step. In radarv2 these</p>
+<p>become fields of <code>ScanCommand</code>: <code>chirp_index</code>, <code>el_position</code>, <code>az_position</code>, and a</p>
+<p><code>frame_start</code> flag at each dwell boundary that resets the <code>DopplerProcessor</code>&#x27;s CPI</p>
+<p>accumulator. See <span class="wikilink-unresolved">ScanCommand</span>.</p>
+
+<div class="callout" data-callout="warning"><div class="callout-title">Coherent-integration caveat (upstream inconsistency I-1)</div><div class="callout-content"><p>The upstream fires this 16-long + 16-short <em>mixed</em> burst as the &quot;M = 32&quot; dwell,</p>
+<p>but its Doppler stage runs a <strong>32-point coherent FFT</strong>, which needs 32</p>
+<p><em>same-waveform, uniform-PRI</em> chirps — the mixed burst can&#x27;t supply that. radarv2</p>
+<p>resolves it by modelling a dwell as <strong>32 coherent same-waveform chirps</strong></p>
+<p>(<code>waveform_type</code> selects the mode), so the Doppler FFT is physically valid. Full</p>
+<p>rationale in <span class="wikilink-unresolved">I-1</span>.</p></div></div>
+
+<hr>
+
+<h2 id="3-timing-budget">3. Timing budget<a class="ha" href="#3-timing-budget" aria-hidden="true">¶</a></h2>
+
+<p>The dwell time dominates everything; the FPGA pipeline latency (~266 µs) is ~21×</p>
+<p>smaller than one dwell, so processing keeps up comfortably.</p>
+
+<table class="md-table"><thead><tr><th>Interval</th><th>Composition</th><th>Duration</th></tr></thead><tbody><tr><td>Per beam position $T_\text{pos}$</td><td>$16 T_{r,1} + T_\text{guard} + 16 T_{r,2}$ = 2672 + 175.4 + 2800 µs</td><td>≈ <strong>5.65 ms</strong></td></tr><tr><td>Elevation scan $T_\text{el}$</td><td>$31 \times T_\text{pos}$</td><td>≈ <strong>175.1 ms</strong></td></tr><tr><td>Stepper move $T_\text{step}$</td><td>4 steps × 1 ms</td><td>4 ms</td></tr><tr><td>Full revolution $T_\text{rev}$</td><td>$50 \times (T_\text{el} + T_\text{step})$</td><td>≈ <strong>8.96 s</strong></td></tr><tr><td>Full-scan rate</td><td>$1 / T_\text{rev}$</td><td>≈ <strong>0.112 Hz</strong></td></tr></tbody></table>
+
+<p>Duty cycles: long-chirp 30/167 ≈ 18.0%, short-chirp 0.5/175 ≈ 0.29%.</p>
+
+<div class="callout" data-callout="important"><div class="callout-title">radarv2&#x27;s canonical dwell (DEC-4)</div><div class="callout-content"><p>The table above is the <strong>upstream reference hardware budget</strong> for the 16-long + 16-short</p>
+<p><em>mixed</em> burst ($T_\text{pos} ≈ 5.65$ ms). Because that mixed burst can&#x27;t feed a 32-point</p>
+<p>coherent Doppler FFT (the I-1 inconsistency), **radarv2&#x27;s canonical dwell is 32 coherent</p>
+<p>same-waveform (long) chirps** at $T_{r,1}=167$ µs → $T_\text{dwell} = 32 \times 167\,\text{µs}</p>
+<p>= 5.344$ ms. This is the dwell the <code>DopplerProcessor</code> integrates and the value behind</p>
+<p>$\Delta v = 2.67$ m/s (<span class="wikilink-unresolved">§5</span>).</p>
+<p>The mixed-burst budget is kept only as documented upstream fidelity.</p></div></div>
+
+<div class="callout" data-callout="note"><div class="callout-title">How radarv2 reproduces the timing</div><div class="callout-content"><p><code>ScanController</code> is a <strong>tick-driven</strong> node. Rather than emit chirps at the real</p>
+<p>167 µs PRI (which would flood the demo), it advances the scan state machine one</p>
+<p>step per executor tick at a demo-friendly rate, preserving the <em>structure</em></p>
+<p>(chirp/elevation/azimuth nesting, long+short bursts, dwell boundaries) while</p>
+<p>scaling the wall-clock rate. The <code>prf</code> and <code>pulse_width</code> it stamps into each</p>
+<p><code>ScanCommand</code> are the <em>real</em> values, so downstream resolution math stays correct.</p></div></div>
+
+<hr>
+
+<h2 id="4-beam-geometry-in-radarv2">4. Beam geometry in radarv2<a class="ha" href="#4-beam-geometry-in-radarv2" aria-hidden="true">¶</a></h2>
+
+<p>For each <code>ScanCommand</code>, <code>ScanController</code> derives:</p>
+
+<ul><li><strong>Beam azimuth</strong> from the azimuth position (0–49) and the platform yaw: each</li></ul>
+<p>  position is 7.2° apart, referenced to true North via the magnetic declination</p>
+<p>  correction (−0.61°) and the platform heading from <code>PlatformNav</code>.</p>
+<ul><li><strong>Beam elevation</strong> from the elevation position (0–30) via the</li></ul>
+<p>  <code>phase_differences[31]</code> → $\theta = \arcsin(\Delta\phi_\text{deg}/180)$ map.</p>
+
+<p>These angles are what <code>RxSynthesizer</code> uses to decide which scenario targets fall</p>
+<p>inside the beam (within the HPBW) and at what aspect, and what <code>CfarDetector</code> /</p>
+<p><code>HostEgress</code> use to place a detection back into the world. The geometry chain is</p>
+<p><strong>radar polar → body → ENU → geodetic</strong>, detailed in</p>
+<p><a href="05-Node-Architecture.html" class="internal-link">05-Node-Architecture</a> and <a href="06-Message-Catalog.html" class="internal-link">06-Message-Catalog</a>.</p>
+
+<div class="callout" data-callout="note"><div class="callout-title">Monopulse DF refines the azimuth (shipped)</div><div class="callout-content"><p>The beam-pointing azimuth above is a coarse estimate (~one beamwidth). radarv2 now</p>
+<p>also models <strong>amplitude-comparison monopulse</strong>: <code>RxSynthesizer</code> forms two squinted</p>
+<p>beams and stamps the sum/difference ratio as <code>mono_az</code> onto each <code>IqFrame</code> (carried</p>
+<p>through <code>RangeProfile</code>/<code>RangeDopplerMap</code>), and <code>CfarDetector</code> inverts it through a</p>
+<p>loadable ratio→angle calibration table (<code>df_table</code>) to refine a detection&#x27;s azimuth</p>
+<p>to sub-beamwidth accuracy. Full mechanism in <a href="07-Detection-and-Tracking.html" class="internal-link">07-Detection-and-Tracking</a>.</p></div></div>
+
+<p>Continue to <a href="04-Signal-Processing-Pipeline.html" class="internal-link">04-Signal-Processing-Pipeline</a>.</p>
+
+</div>
+  </div><!-- main-content -->
+</div><!-- site-shell -->
+<script>
+mermaid.initialize({ startOnLoad: true, theme: 'dark', securityLevel: 'loose' });
+</script>
+</body>
+
+</html>

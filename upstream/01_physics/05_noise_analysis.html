@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>05_noise_analysis — aros Vault</title>
+<style>
+
+:root {
+  --color-blue:    #007ACC;
+  --color-green:   #2DA44E;
+  --color-yellow:  #D29922;
+  --color-purple:  #8B5CF6;
+  --color-orange:  #F59E0B;
+  --color-red:     #E5534B;
+  --color-cyan:    #0BC5EA;
+  --color-accent:  #7C3AED;
+  --text-normal:   #DCDDDE;
+  --text-muted:    #8E8EA0;
+  --background-primary:         #1E1E2E;
+  --background-secondary:       #181825;
+  --background-modifier-border: #313244;
+  --color-base-30:              #45475A;
+}
+body {
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.6;
+  margin: 0;
+}
+
+</style>
+<!-- Mermaid -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<!-- MathJax -->
+<script>window.MathJax={tex:{inlineMath:[['$','$'],['\\(','\\)']],displayMath:[['$$','$$'],['\\[','\\]']]},options:{skipHtmlTags:['script','noscript','style','textarea','pre']}};</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+<!-- Site CSS -->
+<link rel="stylesheet" href="../../site.css">
+</head>
+<body class="markdown-reading-view">
+<div class="site-shell">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <a href="../../00-Index.html" class="site-title">radarv2 / AERIS-10</a>
+      <div class="site-subtitle">aros Radar Documentation</div>
+    </div>
+    <ul class="nav-list">
+      <li class="nav-section">Core Docs</li>
+      <li><a href="../../09-Concepts-Primer.html">Radar Primer</a></li>
+      <li><a href="../../00-Index.html">Index</a></li>
+      <li><a href="../../01-System-Overview.html">System Overview</a></li>
+      <li><a href="../../02-Physics-and-Waveform.html">Physics &amp; Waveform</a></li>
+      <li><a href="../../03-Beamforming-and-Scan.html">Beamforming &amp; Scan</a></li>
+      <li><a href="../../04-Signal-Processing-Pipeline.html">Signal Processing</a></li>
+      <li><a href="../../05-Node-Architecture.html">Node Architecture</a></li>
+      <li><a href="../../06-Message-Catalog.html">Message Catalog</a></li>
+      <li><a href="../../07-Detection-and-Tracking.html">Detection &amp; Tracking</a></li>
+      <li><a href="../../08-Scenarios-and-Targets.html">Scenarios &amp; Targets</a></li>
+      <li class="nav-section">Advanced</li>
+      <li><a href="../../10-Radar-Model-Library.html">Radar Model Library</a></li>
+      <li><a href="../../11-Multi-Radar-Fusion.html">Multi-Radar Fusion</a></li>
+      <li><a href="../../12-3D-Scene.html">3-D Scene</a></li>
+      <li><a href="../../13-Reference-Tables.html">Reference Tables</a></li>
+      <li><a href="../../FUTURE-DEVELOPMENT.html">Future Development</a></li>
+      <li class="nav-section">Upstream Theory</li>
+      <li><a href="../../upstream/README.html">Upstream README</a></li>
+      <li><a href="../../upstream/00_notation/conventions.html">Notation</a></li>
+      <li><a href="../../upstream/01_physics/01_fmcw_theory.html">FMCW Theory</a></li>
+      <li><a href="../../upstream/01_physics/02_lfm_waveform_model.html">LFM Waveform</a></li>
+      <li><a href="../../upstream/01_physics/03_beamforming_theory.html">Beamforming Theory</a></li>
+      <li><a href="../../upstream/01_physics/04_detection_theory.html">Detection Theory</a></li>
+      <li><a href="../../upstream/01_physics/05_noise_analysis.html">Noise Analysis</a></li>
+      <li><a href="../../upstream/01_physics/06_calibration_theory.html">Calibration</a></li>
+      <li><a href="../../upstream/02_hardware/01_system_overview.html">HW Overview</a></li>
+      <li><a href="../../upstream/04_research/01_cfar_variants.html">CFAR Variants</a></li>
+    </ul>
+    <div class="sidebar-footer">
+      <a href="https://github.com/brkay54/radarv2-docs" target="_blank">GitHub</a>
+    </div>
+  </nav>
+  <div class="main-content">
+
+<div class="markdown-preview-section">
+<h1 id="noise-figure-chain-analysis">Noise Figure Chain Analysis<a class="ha" href="#noise-figure-chain-analysis" aria-hidden="true">¶</a></h1>
+
+<p class="kv-line"><span class="kv-key">Purpose:</span> <span class="kv-value">Trace noise through the complete AERIS-10 receive chain -- from antenna thermal noise through analog components (LNA, mixer, IF amplifier) to the ADC and digital processing (CIC decimation filter) -- quantifying each stage&#x27;s noise contribution to establish the system noise figure budget.</span></p>
+
+<p class="kv-line"><span class="kv-key">Prerequisites:</span> <span class="kv-value">Familiarity with:</span></p>
+<ul><li><a href="../00_notation/symbol_table.md">Symbol Table</a> -- all symbols used herein</li><li><a href="../00_notation/parameter_table.md">Parameter Table</a> -- numerical values for both variants</li><li><a href="../00_notation/conventions.md">Conventions</a> -- equation formatting rules</li></ul>
+
+<hr>
+
+<h2 id="1-thermal-noise-power">1. Thermal Noise Power<a class="ha" href="#1-thermal-noise-power" aria-hidden="true">¶</a></h2>
+
+<p>Every conductor at a nonzero temperature generates noise due to random thermal motion of charge carriers (Johnson-Nyquist noise). The available noise power at the output of a resistor at temperature $T$ over a bandwidth $B_n$ is</p>
+
+<p>$$</p>
+<p>P_n = k_B \, T \, B_n \tag{NF-1}</p>
+<p>$$</p>
+
+<p>where $k_B$ is the Boltzmann constant (defined in the <a href="../00_notation/symbol_table.md#physical-constants">Symbol Table</a>) and $B_n$ is the <strong>noise bandwidth</strong> of the receiver. At the standard reference temperature $T_0 = 290~\text{K}$, the noise power spectral density is</p>
+
+<p>$$</p>
+<p>N_0 = k_B \, T_0 \approx -174~\text{dBm/Hz} \tag{NF-2}</p>
+<p>$$</p>
+
+<p>The noise bandwidth $B_n$ is distinct from the signal bandwidth $B$; it is defined as the bandwidth of an ideal rectangular filter that would pass the same total noise power as the actual receiver transfer function $H(f)$:</p>
+
+<p>$$</p>
+<p>B_n = \frac{\displaystyle\int_0^\infty |H(f)|^2 \, df}{|H(f_0)|^2} \tag{NF-3}</p>
+<p>$$</p>
+
+<p>where $f_0$ is the frequency of peak gain. For a matched filter in an FMCW radar, $B_n$ is related to the chirp parameters; the exact relationship is developed in the FMCW theory document (<a href="01_fmcw_theory.md"><code>01_fmcw_theory.md</code></a>), where the noise floor against which targets must be detected is $P_n = k_B T_0 B_n$.</p>
+
+<hr>
+
+<h2 id="2-noise-figure-definition">2. Noise Figure Definition<a class="ha" href="#2-noise-figure-definition" aria-hidden="true">¶</a></h2>
+
+<p>The <strong>noise figure</strong> $F$ of a two-port network quantifies how much the network degrades the signal-to-noise ratio. It is defined as the ratio of input SNR to output SNR when the input noise source is at the standard temperature $T_0 = 290~\text{K}$:</p>
+
+<p>$$</p>
+<p>F = \frac{\text{SNR}_\text{in}}{\text{SNR}_\text{out}} \tag{NF-4}</p>
+<p>$$</p>
+
+<p>Since any real component adds some noise, $F \geq 1$ (i.e., $\text{NF}_\text{dB} \geq 0~\text{dB}$). An ideal noiseless component has $F = 1$.</p>
+
+<p>The noise figure is equivalently expressed through the <strong>equivalent noise temperature</strong> $T_e$, which represents the additional noise contributed by the device referred to its input:</p>
+
+<p>$$</p>
+<p>T_e = T_0 (F - 1) \tag{NF-5}</p>
+<p>$$</p>
+
+<p>A device with noise figure $F$ behaves as a noiseless device followed by an additive noise source of power $k_B T_e B_n$.</p>
+
+<p>The noise figure expressed in decibels is</p>
+
+<p>$$</p>
+<p>\text{NF}_\text{dB} = 10 \log_{10}(F) \tag{NF-6}</p>
+<p>$$</p>
+
+<blockquote><strong>Conversion Reminder:</strong></blockquote>
+<p>&gt;</p>
+<blockquote>| Quantity | Linear | dB |</blockquote>
+<blockquote>|----------|--------|----|</blockquote>
+<blockquote>| Noise figure | $F$ (ratio $\geq 1$) | $\text{NF}_\text{dB} = 10\log_{10}(F)$ |</blockquote>
+<blockquote>| Gain | $G$ (ratio) | $G_\text{dB} = 10\log_{10}(G)$ |</blockquote>
+<blockquote>| Linear from dB | $F = 10^{\text{NF}_\text{dB}/10}$ | -- |</blockquote>
+<p>&gt;</p>
+<blockquote><strong>All $F$ and $G$ values in the Friis cascade formula (next section) are linear ratios, NOT dB.</strong> Mixing dB and linear values is the most common error in noise figure calculations.</blockquote>
+
+<hr>
+
+<h2 id="3-friis-cascaded-noise-figure">3. Friis Cascaded Noise Figure<a class="ha" href="#3-friis-cascaded-noise-figure" aria-hidden="true">¶</a></h2>
+
+<p>When multiple stages are cascaded in series, the system noise figure is determined by the <strong>Friis formula</strong>. For an $M$-stage receive chain with individual noise figures $F_1, F_2, \ldots, F_M$ and available power gains $G_1, G_2, \ldots, G_M$ (all in <strong>linear</strong>, not dB):</p>
+
+<p>$$</p>
+<p>F_\text{sys} = F_1 + \frac{F_2 - 1}{G_1} + \frac{F_3 - 1}{G_1 G_2} + \cdots + \frac{F_M - 1}{\displaystyle\prod_{i=1}^{M-1} G_i} \tag{NF-7}</p>
+<p>$$</p>
+
+<h3 id="derivation">Derivation<a class="ha" href="#derivation" aria-hidden="true">¶</a></h3>
+
+<p>Consider a cascade of two stages. The output noise power of Stage 1 (referred to its input) is $k_B T_0 B_n F_1 G_1$. Stage 2 adds its own noise, referred to Stage 2&#x27;s input, of $k_B T_0 B_n (F_2 - 1)$. Referred to the input of Stage 1, this is $k_B T_0 B_n (F_2 - 1) / G_1$ (dividing by Stage 1&#x27;s gain). Thus the total input-referred noise is</p>
+
+<p>$$</p>
+<p>\begin{aligned}</p>
+<p>P_{n,\text{sys}} &amp;= k_B T_0 B_n \left[ F_1 + \frac{F_2 - 1}{G_1} \right]</p>
+<p>\end{aligned}</p>
+<p>$$</p>
+
+<p>Extending by induction to $M$ stages yields Eq. (NF-7).</p>
+
+<h3 id="key-insight">Key Insight<a class="ha" href="#key-insight" aria-hidden="true">¶</a></h3>
+
+<p>The first-stage noise figure $F_1$ appears directly, while subsequent stages are divided by the cumulative gain of all preceding stages. This is why the <strong>LNA (first stage) dominates the system noise figure</strong> provided it has sufficient gain. A high-gain, low-noise LNA suppresses the noise contributions of all downstream stages.</p>
+
+<h3 id="conversion-procedure-db-to-linear-and-back">Conversion Procedure (dB to Linear and Back)<a class="ha" href="#conversion-procedure-db-to-linear-and-back" aria-hidden="true">¶</a></h3>
+
+<p>Component datasheets specify noise figure in dB. To apply Eq. (NF-7):</p>
+
+<ul><li><strong>Convert each stage to linear:</strong> $F_k = 10^{\text{NF}_{k,\text{dB}}/10}$ and $G_k = 10^{G_{k,\text{dB}}/10}$</li><li><strong>Apply Eq. (NF-7)</strong> using linear values only</li><li><strong>Convert the result back to dB:</strong> $\text{NF}_{\text{sys,dB}} = 10\log_{10}(F_\text{sys})$</li></ul>
+
+<hr>
+
+<h2 id="4-aeris-10-receive-chain-stages">4. AERIS-10 Receive Chain Stages<a class="ha" href="#4-aeris-10-receive-chain-stages" aria-hidden="true">¶</a></h2>
+
+<p>The AERIS-10 receive chain (both Nexus and Extended variants) consists of the following stages from antenna to digital output. Component identifiers reference the <a href="../00_notation/parameter_table.md#rf-front-end">Parameter Table</a>.</p>
+
+<table class="md-table"><thead><tr><th>Stage</th><th>Component</th><th>Noise Figure</th><th>Gain</th><th>Notes</th></tr></thead><tbody><tr><td>1</td><td>LNA (ADTR1107)</td><td>$F_\text{LNA}$</td><td>$G_\text{LNA}$</td><td>Integrated T/R module; NF TBD from datasheet</td></tr><tr><td>2</td><td>Mixer (LT5552)</td><td>$F_\text{mix}$</td><td>$G_\text{mix}$</td><td>Double-balanced mixer; conversion loss $\Rightarrow G_\text{mix} &lt; 1$</td></tr><tr><td>3</td><td>IF amplifier</td><td>$F_\text{IF}$</td><td>$G_\text{IF}$</td><td>Post-mixer gain stage (if present in signal path)</td></tr><tr><td>4</td><td>ADC (AD9484)</td><td>$F_\text{ADC}$</td><td>$G_\text{ADC}$</td><td>8-bit, 500 MSPS rated, operated at 400 MSPS</td></tr></tbody></table>
+
+<p>Applying the Friis formula Eq. (NF-7) to this four-stage chain:</p>
+
+<p>$$</p>
+<p>F_\text{sys} = F_\text{LNA} + \frac{F_\text{mix} - 1}{G_\text{LNA}} + \frac{F_\text{IF} - 1}{G_\text{LNA} \, G_\text{mix}} + \frac{F_\text{ADC} - 1}{G_\text{LNA} \, G_\text{mix} \, G_\text{IF}} \tag{NF-8}</p>
+<p>$$</p>
+
+<p>All values in Eq. (NF-8) are <strong>linear ratios</strong>. For the current AERIS-10 system, $F_\text{LNA}$ and other component noise figures are TBD (see <a href="../00_notation/parameter_table.md#tbd-tracking">Parameter Table</a>). Sections 5 and 6 below derive the ADC and CIC contributions that extend the chain beyond the analog stages.</p>
+
+<blockquote><strong>Note on mixer gain:</strong> The LT5552 is a passive mixer with conversion <em>loss</em>. Its gain $G_\text{mix}$ is less than unity ($G_\text{mix} &lt; 1$, i.e., $G_{\text{mix,dB}} &lt; 0~\text{dB}$). This means the mixer&#x27;s own noise figure and the noise of subsequent stages are amplified in the Friis cascade, making the LNA gain $G_\text{LNA}$ critical for suppressing these contributions.</blockquote>
+
+<hr>
+
+<h2 id="5-adc-noise-contribution">5. ADC Noise Contribution<a class="ha" href="#5-adc-noise-contribution" aria-hidden="true">¶</a></h2>
+
+<p>The AD9484 is an 8-bit ADC (see <a href="../00_notation/parameter_table.md#signal-processing-fpga">Parameter Table</a>). The limited bit depth makes quantization noise a significant contributor to the system noise budget -- far more so than for higher-resolution ADCs (e.g., 14-bit or 16-bit).</p>
+
+<h3 id="5-1-quantization-noise-power">5.1 Quantization Noise Power<a class="ha" href="#5-1-quantization-noise-power" aria-hidden="true">¶</a></h3>
+
+<p>An ideal $b$-bit ADC with full-scale voltage $V_\text{FS}$ has a least significant bit (LSB) voltage of</p>
+
+<p>$$</p>
+<p>\Delta = \frac{V_\text{FS}}{2^b} \tag{NF-9}</p>
+<p>$$</p>
+
+<p>The quantization error is uniformly distributed over $[-\Delta/2, +\Delta/2]$, giving a quantization noise power (variance) of</p>
+
+<p>$$</p>
+<p>\sigma_q^2 = \frac{\Delta^2}{12} = \frac{V_\text{FS}^2}{12 \cdot 2^{2b}} \tag{NF-10}</p>
+<p>$$</p>
+
+<h3 id="5-2-signal-to-quantization-noise-ratio">5.2 Signal-to-Quantization-Noise Ratio<a class="ha" href="#5-2-signal-to-quantization-noise-ratio" aria-hidden="true">¶</a></h3>
+
+<p>For a full-scale sinusoidal input, the signal power is $P_\text{sig} = V_\text{FS}^2 / 8$. The theoretical maximum signal-to-quantization-noise ratio (SQNR) is</p>
+
+<p>$$</p>
+<p>\text{SQNR}_\text{dB} = 6.02 \, b + 1.76~\text{dB} \tag{NF-11}</p>
+<p>$$</p>
+
+<p>For the AD9484 with $b = 8$ bits:</p>
+
+<p>$$</p>
+<p>\text{SQNR}_\text{dB} = 6.02 \times 8 + 1.76 = 49.9~\text{dB}</p>
+<p>$$</p>
+
+<p>This means the quantization noise floor sits at $-49.9~\text{dBFS}$ (dB below full scale). For comparison, a 14-bit ADC achieves $\text{SQNR} = 86.0~\text{dB}$, giving a $36.1~\text{dB}$ advantage. The 8-bit quantization noise floor is therefore a <strong>dominant constraint</strong> on the AERIS-10 digital noise floor.</p>
+
+<h3 id="5-3-effective-noise-figure-of-the-adc">5.3 Effective Noise Figure of the ADC<a class="ha" href="#5-3-effective-noise-figure-of-the-adc" aria-hidden="true">¶</a></h3>
+
+<p>The ADC&#x27;s effective noise figure depends on the signal level relative to the ADC full scale. Defining $F_\text{ADC}$ as the ratio of total output noise (thermal + quantization) to the input thermal noise alone:</p>
+
+<p>$$</p>
+<p>F_\text{ADC} = 1 + \frac{\sigma_q^2}{k_B T_0 B_n G_\text{chain}} \tag{NF-12}</p>
+<p>$$</p>
+
+<p>where $G_\text{chain} = G_\text{LNA} \, G_\text{mix} \, G_\text{IF}$ is the total gain of the analog chain preceding the ADC. This expression shows that:</p>
+
+<ul><li><strong>Higher analog gain</strong> (larger $G_\text{chain}$) reduces the effective ADC noise figure by raising the thermal noise power at the ADC input above the quantization noise floor.</li><li><strong>Wider noise bandwidth</strong> $B_n$ similarly increases input thermal noise relative to quantization noise.</li><li>The ADC noise figure is <strong>not a fixed number</strong> -- it depends on system configuration.</li></ul>
+
+<p>When the analog gain is insufficient, quantization noise dominates and $F_\text{ADC}$ becomes large, degrading the system noise figure in Eq. (NF-8). For the 8-bit AD9484, ensuring that the analog chain provides enough gain to keep thermal noise above the quantization floor is a critical design constraint.</p>
+
+<h3 id="5-4-effective-number-of-bits-enob">5.4 Effective Number of Bits (ENOB)<a class="ha" href="#5-4-effective-number-of-bits-enob" aria-hidden="true">¶</a></h3>
+
+<p>In practice, the AD9484 achieves fewer effective bits than the nominal 8 due to aperture jitter, differential nonlinearity (DNL), integral nonlinearity (INL), and clock jitter. The effective number of bits (ENOB) is related to the measured signal-to-noise-and-distortion ratio (SINAD) by</p>
+
+<p>$$</p>
+<p>\text{ENOB} = \frac{\text{SINAD}_\text{dB} - 1.76}{6.02} \tag{NF-13}</p>
+<p>$$</p>
+
+<p>The datasheet ENOB determines the actual quantization noise floor, which may be several dB worse than the theoretical $-49.9~\text{dBFS}$.</p>
+
+<hr>
+
+<h2 id="6-cic-filter-noise-analysis">6. CIC Filter Noise Analysis<a class="ha" href="#6-cic-filter-noise-analysis" aria-hidden="true">¶</a></h2>
+
+<p>The CIC (Cascaded Integrator-Comb) decimation filter is a critical digital processing stage that follows the ADC. The AERIS-10 uses $N_\text{CIC} = 5$ stages with decimation factor $D_\text{CIC} = 4$ (see <a href="../00_notation/parameter_table.md#signal-processing-fpga">Parameter Table</a>, FPGA parameter <code>STAGES</code> and <code>DECIMATION</code> in <code>cic_decimator.v</code>).</p>
+
+<h3 id="6-1-cic-processing-gain">6.1 CIC Processing Gain<a class="ha" href="#6-1-cic-processing-gain" aria-hidden="true">¶</a></h3>
+
+<p>An ideal CIC decimation filter provides processing gain by averaging (filtering) the input signal over a wider bandwidth before decimating. For $N_\text{CIC}$ stages with decimation factor $D_\text{CIC}$, the DC gain is</p>
+
+<p>$$</p>
+<p>G_\text{CIC} = D_\text{CIC}^{N_\text{CIC}} \tag{NF-14}</p>
+<p>$$</p>
+
+<p>For the AERIS-10 parameters: $G_\text{CIC} = 4^5 = 1024$, corresponding to $30.1~\text{dB}$ of processing gain. This gain applies to the signal at DC (or equivalently, the center of the passband); it does not apply uniformly across the entire passband.</p>
+
+<h3 id="6-2-bit-growth">6.2 Bit Growth<a class="ha" href="#6-2-bit-growth" aria-hidden="true">¶</a></h3>
+
+<p>The CIC filter accumulates values across stages, requiring increased word length to avoid overflow. The output bit width $b_\text{out}$ for an $N_\text{CIC}$-stage CIC with decimation factor $D_\text{CIC}$ and input width $b_\text{in}$ is</p>
+
+<p>$$</p>
+<p>b_\text{out} = b_\text{in} + N_\text{CIC} \left\lceil \log_2(D_\text{CIC}) \right\rceil \tag{NF-15}</p>
+<p>$$</p>
+
+<p>For the AERIS-10: $b_\text{out} = 8 + 5 \times \lceil\log_2(4)\rceil = 8 + 5 \times 2 = 18~\text{bits}$.</p>
+
+<p>If the downstream processing path truncates or rounds back to a narrower word width, additional quantization noise is introduced. This truncation noise must be accounted for in the noise budget.</p>
+
+<h3 id="6-3-passband-droop">6.3 Passband Droop<a class="ha" href="#6-3-passband-droop" aria-hidden="true">¶</a></h3>
+
+<p>The CIC filter&#x27;s frequency response is</p>
+
+<p>$$</p>
+<p>H_\text{CIC}(f)| ^2 = \left| \frac{\sin(\pi D_\text{CIC} f / f_s)}{\sin(\pi f / f_s)} \right| ^{2 N_\text{CIC}} \tag{NF-16}</p>
+<p>$$</p>
+
+<p>where $f_s$ is the ADC sampling frequency. The passband is not flat: the response droops toward the edges of the passband, reducing the effective SNR for signals away from DC. For a 5-stage CIC with $D_\text{CIC} = 4$, the droop at the passband edge ($f = f_s / (2 D_\text{CIC})$) can be several dB, which must be compensated by a downstream compensation filter or accounted for as a loss in the noise budget.</p>
+
+<h3 id="6-4-effective-noise-figure-of-cic-processing">6.4 Effective Noise Figure of CIC Processing<a class="ha" href="#6-4-effective-noise-figure-of-cic-processing" aria-hidden="true">¶</a></h3>
+
+<p>The CIC filter contributes to the system noise budget through two mechanisms:</p>
+
+<ul><li><strong>Processing gain</strong> (beneficial): Noise bandwidth is reduced by decimation, improving SNR by approximately $10\log_{10}(D_\text{CIC}) = 6.0~\text{dB}$ per stage of decimation (for white noise input). However, the CIC filter is not an ideal decimation filter -- its finite stopband rejection allows some aliased noise to fold back into the passband.</li></ul>
+
+<ul><li><strong>Truncation/rounding noise</strong> (detrimental): If the 18-bit CIC output is truncated to a narrower width for subsequent processing, the truncation introduces quantization noise with variance $\sigma_\text{trunc}^2 = \Delta_\text{trunc}^2 / 12$, analogous to Eq. (NF-10).</li></ul>
+
+<p>The effective noise figure contribution of the digital chain can be expressed as</p>
+
+<p>$$</p>
+<p>F_\text{digital} = \frac{1}{G_\text{CIC,eff}} \left(1 + \frac{\sigma_\text{trunc}^2}{\sigma_\text{in}^2}\right) \tag{NF-17}</p>
+<p>$$</p>
+
+<p>where $G_\text{CIC,eff}$ is the effective processing gain (accounting for passband droop and aliased noise) and $\sigma_\text{in}^2$ is the noise power at the CIC input. When the full 18-bit output is preserved, the truncation term vanishes and $F_\text{digital} \approx 1/G_\text{CIC,eff}$ -- the CIC filter improves SNR.</p>
+
+<hr>
+
+<h2 id="7-system-noise-figure-budget">7. System Noise Figure Budget<a class="ha" href="#7-system-noise-figure-budget" aria-hidden="true">¶</a></h2>
+
+<h3 id="7-1-complete-chain">7.1 Complete Chain<a class="ha" href="#7-1-complete-chain" aria-hidden="true">¶</a></h3>
+
+<p>Combining the analog Friis cascade (Eq. (NF-8)) with the digital processing contributions, the complete system noise figure from antenna to digital output is</p>
+
+<p>$$</p>
+<p>F_\text{total} = F_\text{sys} + \frac{F_\text{digital} - 1}{G_\text{LNA} \, G_\text{mix} \, G_\text{IF} \, G_\text{ADC}} \tag{NF-18}</p>
+<p>$$</p>
+
+<p>where $F_\text{sys}$ is the analog chain noise figure from Eq. (NF-8), $F_\text{digital}$ is defined in Eq. (NF-17), and $G_\text{ADC}$ represents the ADC&#x27;s effective gain (unity for an ideal ADC mapping full-scale input to full-scale digital output).</p>
+
+<h3 id="7-2-noise-budget-table">7.2 Noise Budget Table<a class="ha" href="#7-2-noise-budget-table" aria-hidden="true">¶</a></h3>
+
+<p>The following table traces noise through each stage symbolically. All values are <strong>linear</strong> unless explicitly marked as dB.</p>
+
+<table class="md-table"><thead><tr><th>Stage</th><th>Component</th><th>Noise Figure</th><th>Gain</th><th>Cumulative $F_\text{sys}$</th></tr></thead><tbody><tr><td>1</td><td>LNA (ADTR1107)</td><td>$F_\text{LNA}$</td><td>$G_\text{LNA}$</td><td>$F_\text{LNA}$</td></tr><tr><td>2</td><td>Mixer (LT5552)</td><td>$F_\text{mix}$</td><td>$G_\text{mix}$</td><td>$F_\text{LNA} + \dfrac{F_\text{mix} - 1}{G_\text{LNA}}$</td></tr><tr><td>3</td><td>IF amplifier</td><td>$F_\text{IF}$</td><td>$G_\text{IF}$</td><td>$F_\text{LNA} + \dfrac{F_\text{mix} - 1}{G_\text{LNA}} + \dfrac{F_\text{IF} - 1}{G_\text{LNA} G_\text{mix}}$</td></tr><tr><td>4</td><td>ADC (AD9484)</td><td>$F_\text{ADC}$</td><td>$G_\text{ADC}$</td><td>$F_\text{sys}$ per Eq. (NF-8)</td></tr><tr><td>5</td><td>CIC filter (digital)</td><td>$F_\text{digital}$</td><td>$G_\text{CIC,eff}$</td><td>$F_\text{total}$ per Eq. (NF-18)</td></tr></tbody></table>
+
+<p>The system noise figure $F_\text{total}$ feeds directly into the radar range equation (see <a href="01_fmcw_theory.md"><code>01_fmcw_theory.md</code></a>), where the SNR at the detector is</p>
+
+<p>$$</p>
+<p>\text{SNR} = \frac{P_t G^2 \lambda^2 \sigma}{(4\pi)^3 R^4 k_B T_0 B_n F_\text{total} L}</p>
+<p>$$</p>
+
+<p>Higher $F_\text{total}$ directly reduces detection range.</p>
+
+<h3 id="7-3-numerical-evaluation-pending-parameter-resolution">7.3 Numerical Evaluation (Pending Parameter Resolution)<a class="ha" href="#7-3-numerical-evaluation-pending-parameter-resolution" aria-hidden="true">¶</a></h3>
+
+<p>Several component noise figures and gains are TBD in the <a href="../00_notation/parameter_table.md#tbd-tracking">Parameter Table</a>. Once resolved, substitute into Eq. (NF-8) as follows:</p>
+
+<p><strong>Step 1 -- Convert datasheet values to linear:</strong></p>
+
+<table class="md-table"><thead><tr><th>Stage</th><th>$\text{NF}_\text{dB}$</th><th>$F$ (linear)</th><th>$G_\text{dB}$</th><th>$G$ (linear)</th></tr></thead><tbody><tr><td>LNA</td><td>$\text{NF}_\text{LNA,dB}$</td><td>$10^{\text{NF}_\text{LNA,dB}/10}$</td><td>$G_\text{LNA,dB}$</td><td>$10^{G_\text{LNA,dB}/10}$</td></tr><tr><td>Mixer</td><td>$\text{NF}_\text{mix,dB}$</td><td>$10^{\text{NF}_\text{mix,dB}/10}$</td><td>$G_\text{mix,dB}$</td><td>$10^{G_\text{mix,dB}/10}$</td></tr><tr><td>IF amp</td><td>$\text{NF}_\text{IF,dB}$</td><td>$10^{\text{NF}_\text{IF,dB}/10}$</td><td>$G_\text{IF,dB}$</td><td>$10^{G_\text{IF,dB}/10}$</td></tr></tbody></table>
+
+<p><strong>Step 2 -- Substitute into Eq. (NF-8) and compute $F_\text{sys}$.</strong></p>
+
+<p class="kv-line"><span class="kv-key">Step 3 -- Convert result:</span> <span class="kv-value">$\text{NF}_\text{sys,dB} = 10\log_{10}(F_\text{sys})$.</span></p>
+
+<h4 id="representative-example-placeholder-values">Representative Example (Placeholder Values)<a class="ha" href="#representative-example-placeholder-values" aria-hidden="true">¶</a></h4>
+
+<blockquote><strong>Caution:</strong> The following values are <strong>representative placeholders</strong> for illustration only. They must be confirmed against component datasheets before use in system performance predictions. See the <a href="../00_notation/parameter_table.md#tbd-tracking">Parameter Table</a> for current TBD status.</blockquote>
+
+<p>Using representative values:</p>
+<ul><li>$F_\text{LNA} = 3~\text{dB}$ (to be confirmed against ADTR1107 datasheet) $\Rightarrow F_\text{LNA,lin} = 10^{0.3} \approx 2.0$</li><li>$G_\text{LNA} = 20~\text{dB}$ $\Rightarrow G_\text{LNA,lin} = 100$</li><li>$F_\text{mix} = 10~\text{dB}$ (typical double-balanced mixer) $\Rightarrow F_\text{mix,lin} = 10.0$</li><li>$G_\text{mix} = -7~\text{dB}$ (conversion loss) $\Rightarrow G_\text{mix,lin} = 0.2$</li><li>$F_\text{IF} = 4~\text{dB}$ $\Rightarrow F_\text{IF,lin} = 2.51$</li><li>$G_\text{IF} = 30~\text{dB}$ $\Rightarrow G_\text{IF,lin} = 1000$</li></ul>
+
+<p>Substituting into Eq. (NF-8):</p>
+
+<p>$$</p>
+<p>\begin{aligned}</p>
+<p>F_\text{sys} &amp;= 2.0 + \frac{10.0 - 1}{100} + \frac{2.51 - 1}{100 \times 0.2} + \frac{F_\text{ADC} - 1}{100 \times 0.2 \times 1000} \\</p>
+<p>&amp;= 2.0 + 0.09 + 0.076 + \frac{F_\text{ADC} - 1}{20{,}000} \\</p>
+<p>&amp;\approx 2.17 \quad \text{(neglecting ADC term due to large denominator)}</p>
+<p>\end{aligned}</p>
+<p>$$</p>
+
+<p>This corresponds to $\text{NF}_\text{sys} \approx 10\log_{10}(2.17) \approx 3.36~\text{dB}$.</p>
+
+<p class="kv-line"><span class="kv-key">Observation:</span> <span class="kv-value">With $20~\text{dB}$ of LNA gain, the LNA noise figure ($3~\text{dB}$) dominates, adding only $0.36~\text{dB}$ from all subsequent analog stages. The ADC contribution through the Friis chain is negligible when the cumulative analog gain is high. However, the ADC quantization noise floor ($-49.9~\text{dBFS}$) independently constrains dynamic range, as discussed in Section 5.</span></p>
+
+<hr>
+
+<h2 id="references">References<a class="ha" href="#references" aria-hidden="true">¶</a></h2>
+
+<ul><li><a href="../00_notation/symbol_table.md">Symbol Table</a> -- symbol definitions for $F$, $G$, $k_B$, $T_0$, $N_\text{CIC}$, $D_\text{CIC}$, $f_s$</li><li><a href="../00_notation/parameter_table.md">Parameter Table</a> -- component values (LNA, mixer, ADC, CIC parameters)</li><li><a href="../00_notation/conventions.md">Conventions</a> -- equation numbering and formatting rules</li><li><a href="01_fmcw_theory.md">FMCW Theory</a> -- radar range equation and SNR definition</li><li>Skolnik, M.I. <em>Introduction to Radar Systems</em>, 4th ed., McGraw-Hill, 2008 -- Chapters 2 (radar equation) and 11 (noise figure)</li><li>Friis, H.T. &quot;Noise Figures of Radio Receivers,&quot; <em>Proceedings of the IRE</em>, vol. 32, no. 7, pp. 419--422, July 1944</li><li>Analog Devices, &quot;AD9484 Datasheet,&quot; 8-bit, 500 MSPS ADC</li><li>Hogenauer, E.B. &quot;An Economical Class of Digital Filters for Decimation and Interpolation,&quot; <em>IEEE Trans. ASSP</em>, vol. 29, no. 2, pp. 155--162, April 1981</li></ul>
+
+</div>
+  </div><!-- main-content -->
+</div><!-- site-shell -->
+<script>
+mermaid.initialize({ startOnLoad: true, theme: 'dark', securityLevel: 'loose' });
+</script>
+</body>
+
+</html>

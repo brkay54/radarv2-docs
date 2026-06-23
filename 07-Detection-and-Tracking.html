@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>radarv2 — Detection and Tracking — aros Vault</title>
+<style>
+
+:root {
+  --color-blue:    #007ACC;
+  --color-green:   #2DA44E;
+  --color-yellow:  #D29922;
+  --color-purple:  #8B5CF6;
+  --color-orange:  #F59E0B;
+  --color-red:     #E5534B;
+  --color-cyan:    #0BC5EA;
+  --color-accent:  #7C3AED;
+  --text-normal:   #DCDDDE;
+  --text-muted:    #8E8EA0;
+  --background-primary:         #1E1E2E;
+  --background-secondary:       #181825;
+  --background-modifier-border: #313244;
+  --color-base-30:              #45475A;
+}
+body {
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.6;
+  margin: 0;
+}
+
+</style>
+<!-- Mermaid -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<!-- MathJax -->
+<script>window.MathJax={tex:{inlineMath:[['$','$'],['\\(','\\)']],displayMath:[['$$','$$'],['\\[','\\]']]},options:{skipHtmlTags:['script','noscript','style','textarea','pre']}};</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+<!-- Site CSS -->
+<link rel="stylesheet" href="site.css">
+</head>
+<body class="markdown-reading-view">
+<div class="site-shell">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <a href="00-Index.html" class="site-title">radarv2 / AERIS-10</a>
+      <div class="site-subtitle">aros Radar Documentation</div>
+    </div>
+    <ul class="nav-list">
+      <li class="nav-section">Core Docs</li>
+      <li><a href="09-Concepts-Primer.html">Radar Primer</a></li>
+      <li><a href="00-Index.html">Index</a></li>
+      <li><a href="01-System-Overview.html">System Overview</a></li>
+      <li><a href="02-Physics-and-Waveform.html">Physics &amp; Waveform</a></li>
+      <li><a href="03-Beamforming-and-Scan.html">Beamforming &amp; Scan</a></li>
+      <li><a href="04-Signal-Processing-Pipeline.html">Signal Processing</a></li>
+      <li><a href="05-Node-Architecture.html">Node Architecture</a></li>
+      <li><a href="06-Message-Catalog.html">Message Catalog</a></li>
+      <li><a href="07-Detection-and-Tracking.html">Detection &amp; Tracking</a></li>
+      <li><a href="08-Scenarios-and-Targets.html">Scenarios &amp; Targets</a></li>
+      <li class="nav-section">Advanced</li>
+      <li><a href="10-Radar-Model-Library.html">Radar Model Library</a></li>
+      <li><a href="11-Multi-Radar-Fusion.html">Multi-Radar Fusion</a></li>
+      <li><a href="12-3D-Scene.html">3-D Scene</a></li>
+      <li><a href="13-Reference-Tables.html">Reference Tables</a></li>
+      <li><a href="FUTURE-DEVELOPMENT.html">Future Development</a></li>
+      <li class="nav-section">Upstream Theory</li>
+      <li><a href="upstream/README.html">Upstream README</a></li>
+      <li><a href="upstream/00_notation/conventions.html">Notation</a></li>
+      <li><a href="upstream/01_physics/01_fmcw_theory.html">FMCW Theory</a></li>
+      <li><a href="upstream/01_physics/02_lfm_waveform_model.html">LFM Waveform</a></li>
+      <li><a href="upstream/01_physics/03_beamforming_theory.html">Beamforming Theory</a></li>
+      <li><a href="upstream/01_physics/04_detection_theory.html">Detection Theory</a></li>
+      <li><a href="upstream/01_physics/05_noise_analysis.html">Noise Analysis</a></li>
+      <li><a href="upstream/01_physics/06_calibration_theory.html">Calibration</a></li>
+      <li><a href="upstream/02_hardware/01_system_overview.html">HW Overview</a></li>
+      <li><a href="upstream/04_research/01_cfar_variants.html">CFAR Variants</a></li>
+    </ul>
+    <div class="sidebar-footer">
+      <a href="https://github.com/brkay54/radarv2-docs" target="_blank">GitHub</a>
+    </div>
+  </nav>
+  <div class="main-content">
+
+<div class="markdown-preview-section">
+<h1 id="detection-and-tracking">Detection and Tracking<a class="ha" href="#detection-and-tracking" aria-hidden="true">¶</a></h1>
+
+<div class="callout" data-callout="abstract"><div class="callout-title">Scope</div><div class="callout-content"><p>The detection theory behind CFAR, the CA-CFAR design radarv2 implements (upgrading</p>
+<p>AERIS-10&#x27;s placeholder threshold), and the tracking roadmap (deferred to future</p>
+<p>work, with the upstream&#x27;s own research as the reference).</p></div></div>
+
+<hr>
+
+<h2 id="1-detection-theory">1. Detection theory<a class="ha" href="#1-detection-theory" aria-hidden="true">¶</a></h2>
+
+<p>Detection is a binary hypothesis test per range-Doppler cell: $H_0$ (noise only) vs.</p>
+<p>$H_1$ (target + noise). The Neyman-Pearson optimal test compares the cell statistic</p>
+<p>$T = |x|^2$ against a threshold $\gamma$ chosen for a target false-alarm probability:</p>
+
+<p>$$P_\text{fa} = e^{-\gamma/\sigma_n^2} \quad\Rightarrow\quad \gamma = -\sigma_n^2 \ln P_\text{fa}.$$</p>
+
+<p>The problem: $\sigma_n^2$ (noise power) is unknown and varies across the map (clutter,</p>
+<p>gain, range). A <strong>fixed</strong> threshold therefore yields an uncontrolled false-alarm</p>
+<p>rate — exactly the failure mode of AERIS-10&#x27;s shipped detector.</p>
+
+<div class="callout" data-callout="warning"><div class="callout-title">The upstream detector is a placeholder</div><div class="callout-content"><p>The FPGA&#x27;s stage-9 detector is <code>|I| + |Q| &gt; 10000</code> — a fixed L1-magnitude</p>
+<p>threshold with <code>cfar_*</code> signal names but **no reference cells and no adaptive</p>
+<p>threshold**. The upstream documents a real CFAR as the intended replacement.</p>
+<p>radarv2 implements that replacement directly.</p></div></div>
+
+<h3 id="target-fluctuation-swerling-models">Target fluctuation — Swerling models<a class="ha" href="#target-fluctuation-swerling-models" aria-hidden="true">¶</a></h3>
+
+<p>The required SNR for a given $P_d$ depends on how the target&#x27;s RCS fluctuates. The</p>
+<p>Swerling models (RCS distribution × decorrelation rate) are the standard taxonomy, and</p>
+<p>set how much margin a detector needs over the non-fluctuating ideal:</p>
+
+<table class="md-table"><thead><tr><th>Case</th><th>RCS PDF</th><th>Decorrelation</th><th>Example</th></tr></thead><tbody><tr><td>0 / V</td><td>constant</td><td>none</td><td>sphere, calibration</td></tr><tr><td>I</td><td>Rayleigh / exp</td><td>scan-to-scan</td><td>aircraft, ship</td></tr><tr><td>II</td><td>Rayleigh / exp</td><td>pulse-to-pulse</td><td>fast-aspect aircraft</td></tr><tr><td>III</td><td>χ² (4-DOF)</td><td>scan-to-scan</td><td>vehicle + dominant scatterer</td></tr><tr><td>IV</td><td>χ² (4-DOF)</td><td>pulse-to-pulse</td><td>as III, fast aspect</td></tr></tbody></table>
+
+<p>A Rayleigh (Swerling I) target costs ≈ +8 dB over the non-fluctuating case at</p>
+<p>$P_d=0.9,\,P_\text{fa}=10^{-6}$; the per-case required-SNR figures are in</p>
+<p><span class="wikilink-unresolved">appendix R4b</span>. radarv2&#x27;s scenario</p>
+<p>targets carry an RCS and (future, <span class="wikilink-unresolved">FD-1</span>)</p>
+<p>a fluctuation class, so the synthesizer can exercise these margins.</p>
+
+<hr>
+
+<h2 id="2-ca-cfar-radarv2-s-detector">2. CA-CFAR (radarv2&#x27;s detector)<a class="ha" href="#2-ca-cfar-radarv2-s-detector" aria-hidden="true">¶</a></h2>
+
+<p><strong>Cell-Averaging CFAR</strong> estimates the local noise power from $N_\text{ref}$ reference</p>
+<p>cells surrounding the cell under test (CUT), separated by $N_\text{guard}$ guard cells</p>
+<p>that keep target energy from leaking into the estimate:</p>
+
+<p>$$\hat P_n = \frac{1}{N_\text{ref}}\sum_{i=1}^{N_\text{ref}} T_i,\qquad \text{declare detection if } T_\text{CUT} &gt; \alpha\,\hat P_n.$$</p>
+
+<p>The scaling constant $\alpha$ is set from the desired false-alarm probability and the</p>
+<p>window size:</p>
+
+<p>$$P_\text{fa} = \left(1 + \frac{\alpha}{N_\text{ref}}\right)^{-N_\text{ref}}\quad\Rightarrow\quad \alpha = N_\text{ref}\left(P_\text{fa}^{-1/N_\text{ref}} - 1\right).$$</p>
+
+<p>CA-CFAR loss (the SNR penalty vs. a known-noise threshold) shrinks as the window</p>
+<p>grows: ≈ 1.5 dB at $N_\text{ref} = 16$, ≈ 0.8 dB at 32, ≈ 0.4 dB at 64 (at $P_d = 0.9$,</p>
+<p>$P_\text{fa} = 10^{-6}$). radarv2 defaults to $N_\text{ref} = 32$, $N_\text{guard} = 4$,</p>
+<p>$P_\text{fa} = 10^{-6}$ — the upstream&#x27;s recommended starting point.</p>
+
+<div class="callout" data-callout="warning"><div class="callout-title">$N_\text{ref}$ counts total cells, not per-side</div><div class="callout-content"><p>$N_\text{ref} = 32$ is the <strong>total</strong> number of reference cells averaged (16 on each</p>
+<p>side of the CUT); $N_\text{guard} = 4$ is likewise total (2 per side). The</p>
+<p>$\alpha = N_\text{ref}(P_\text{fa}^{-1/N_\text{ref}} - 1)$ and CFAR-loss formulas both</p>
+<p>use the total. Reading 32 as <em>per-side</em> would double the averaging window and halve</p>
+<p>the threshold scale — an easy off-by-2× $P_\text{fa}$ bug; the implementation asserts</p>
+<p>the total convention.</p></div></div>
+
+<p>The window slides across the map; this is its 1-D layout around one cell under test:</p>
+
+<div class="mermaid">flowchart LR
+  R1[reference<br/>cells]:::ref
+  G1[guard]:::guard
+  CUT[CUT<br/>cell under test]:::cut
+  G2[guard]:::guard
+  R2[reference<br/>cells]:::ref
+
+  R1 --- G1 --- CUT --- G2 --- R2
+
+  classDef ref fill:#1d4ed8,color:#eff6ff,stroke:#1e40af
+  classDef guard fill:#a16207,color:#fefce8,stroke:#854d0e
+  classDef cut fill:#7c3aed,color:#f5f3ff,stroke:#6d28d9</div>
+
+<div class="callout" data-callout="info"><div class="callout-title">Reading the CFAR window</div><div class="callout-content"><p><strong>Blue</strong> = reference cells (estimate the local noise — the average $\hat P_n$) ·</p>
+<p><strong>Amber</strong> = guard cells (excluded, so a strong target&#x27;s own energy spilling into</p>
+<p>neighbours can&#x27;t inflate the noise estimate) · <strong>Purple</strong> = the cell under test.</p>
+<p>The threshold for the CUT is $\alpha\hat P_n$ — computed <em>from its own neighbours</em>,</p>
+<p>so it rises in clutter and falls in quiet regions, holding $P_\text{fa}$ constant.</p>
+<p>The whole pattern slides one cell at a time across all 64×32 cells.</p></div></div>
+
+<div class="mermaid">flowchart LR
+  MAP[RangeDopplerMap<br/>64x32 cells]:::in
+  MAG[cell magnitude<br/>T = I^2 + Q^2]:::calc
+  WIN[CA-CFAR window<br/>Nref=32 Nguard=4]:::calc
+  THR[threshold<br/>alpha * noise est]:::calc
+  DET[RadarDetection<br/>per cell over threshold]:::out
+
+  MAP --> MAG --> WIN --> THR --> DET
+
+  classDef in fill:#1d4ed8,color:#eff6ff,stroke:#1e40af
+  classDef calc fill:#a16207,color:#fefce8,stroke:#854d0e
+  classDef out fill:#7c3aed,color:#f5f3ff,stroke:#6d28d9</div>
+
+<div class="callout" data-callout="info"><div class="callout-title">Legend — CFAR flow</div><div class="callout-content"><p><strong>Blue</strong> = input map · <strong>Amber</strong> = CA-CFAR computation (magnitude → windowed noise</p>
+<p>estimate → adaptive threshold) · <strong>Purple</strong> = emitted detection. Each surviving</p>
+<p>cell is converted to range/velocity/azimuth/elevation + SNR for the</p>
+<p><span class="wikilink-unresolved">RadarDetection</span>.</p></div></div>
+
+<h3 id="cell-physical-conversion">Cell → physical conversion<a class="ha" href="#cell-physical-conversion" aria-hidden="true">¶</a></h3>
+
+<p>Each detected cell <code>(range_bin, doppler_bin)</code> is converted using the values stamped</p>
+<p>into the <span class="wikilink-unresolved">RangeDopplerMap</span>:</p>
+
+<ul><li><strong>range</strong> = <code>range_bin × range_res</code>;</li><li><strong>radial velocity</strong> = <code>(doppler_bin − doppler_bins/2) × velocity_res</code> (centered, so</li></ul>
+<p>  the zero-Doppler bin is stationary) — **valid because the <code>DopplerProcessor</code></p>
+<p>  fftshifts the map** so bin 16 = DC (<a href="04-Signal-Processing-Pipeline.html" class="internal-link">04-Signal-Processing-Pipeline</a>); on a raw</p>
+<p>  (un-shifted) FFT, DC would sit at bin 0 and this formula would be wrong;</p>
+<ul><li><strong>azimuth / elevation</strong> = the beam geometry from the dwell — **refined in azimuth</li></ul>
+<p>  by monopulse direction finding** when a calibration table is loaded (see §2.1);</p>
+<ul><li><strong>SNR</strong> = cell magnitude relative to the CFAR noise estimate.</li></ul>
+
+<h3 id="variants-selectable-rs2">Variants (selectable — RS2)<a class="ha" href="#variants-selectable-rs2" aria-hidden="true">¶</a></h3>
+
+<p>All four variants now ship as a per-radar parameter (<code>cfar_variant: ca|go|so|os</code></p>
+<p>on <code>CfarDetectorParams</code>); CA is the default, so the prior behaviour is unchanged.</p>
+<p>The OS rank is <code>os_rank</code> (1-based, <code>-1</code> → <code>0.75·N_ref</code>):</p>
+
+<table class="md-table"><thead><tr><th>Variant</th><th>Noise estimate</th><th>Strength</th><th>Relative cost</th></tr></thead><tbody><tr><td><strong>CA-CFAR</strong> (default)</td><td>mean of reference cells</td><td>optimal in homogeneous noise</td><td>1×</td></tr><tr><td>GO-CFAR</td><td>max of two half-windows</td><td>robust at clutter edges</td><td>~1.1×</td></tr><tr><td>SO-CFAR</td><td>min of two half-windows</td><td>better in multi-target, weak at edges</td><td>~1.1×</td></tr><tr><td>OS-CFAR</td><td>k-th order statistic</td><td>robust with interfering targets</td><td>2–3×</td></tr></tbody></table>
+
+<p>The threshold multiplier α is variant-correct: CA/GO/SO use <code>α = N(Pfa^(−1/N) − 1)</code>;</p>
+<p>OS uses the Rohling order-statistic relation <code>Pfa(α) = k·C(N,k)·B(α+N−k+1, k)</code> solved</p>
+<p>by bisection (<code>osCfarAlpha</code>), validated by a Monte-Carlo Pfa-recovery test. GO/SO/OS</p>
+<p>each have a unit test demonstrating their characteristic behaviour (GO suppresses a</p>
+<p>clutter-edge false alarm; OS rejects in-window interferers that mask CA).</p>
+
+<h3 id="2-1-direction-finding-monopulse-azimuth-refinement">2.1 Direction finding (monopulse azimuth refinement)<a class="ha" href="#2-1-direction-finding-monopulse-azimuth-refinement" aria-hidden="true">¶</a></h3>
+
+<p>A scanned beam only knows a target is <em>somewhere in the beam</em> — its azimuth defaults</p>
+<p>to the beam center. <strong>Amplitude-comparison monopulse</strong> does better: two beams squinted</p>
+<p>±<code>squint</code> off boresight give a sum/difference ratio <code>r = (R−L)/(R+L)</code> that is monotonic</p>
+<p>in the target&#x27;s intra-beam offset, so inverting <code>r</code> recovers the angle to a fraction of</p>
+<p>a beamwidth. radarv2 models this end to end:</p>
+
+<ul><li>the <code>RxSynthesizer</code> imprints the dominant in-beam target&#x27;s ratio on the <code>IqFrame</code></li></ul>
+<p>  (<code>mono_az</code>), carried through <code>RangeProfile</code> → <code>RangeDopplerMap</code>;</p>
+<ul><li>the <code>CfarDetector</code> inverts it through a <strong>loaded calibration table</strong> (<code>MonopulseTable</code>,</li></ul>
+<p>  param <code>df_table</code>) to set <code>azimuth = beam_azimuth + table.angleFromRatio(mono_az)</code>.</p>
+
+<p>The table is a <strong>loadable binary asset</strong> (ASSET-01), like the DTED tile — one of three</p>
+<p>such tables radarv2 ships: the <strong>DTED terrain tile</strong> (<code>map_provider</code>), the</p>
+<p><strong>matched-filter reference bank</strong> (<code>pulse_compressor</code>, param <code>matched_filter_table</code>,</p>
+<p>see <a href="04-Signal-Processing-Pipeline.html" class="internal-link">04-Signal-Processing-Pipeline</a>), and this <strong>monopulse DF table</strong>. Each has a</p>
+<p>build-time generator under <code>examples/radarv2/scripts/</code> and degrades gracefully to the</p>
+<p>analytic/beam-center path when absent. The full algorithm + math lives in the</p>
+<p><code>radarv2_cfar_detector</code> and <code>radarv2_utils</code> package READMEs.</p>
+
+<hr>
+
+<h2 id="3-tracking-implemented">3. Tracking (implemented)<a class="ha" href="#3-tracking-implemented" aria-hidden="true">¶</a></h2>
+
+<p>The single-radar tracking pipeline is <strong>shipped</strong> (RT0–RT6): detections are conditioned</p>
+<p>into plots and carried through association, filtering, and lifecycle management to</p>
+<p>confirmed tracks. The chain, per node (full math + citations in each package README):</p>
+
+<ul><li><strong><code>radarv2_plot_conditioner</code></strong> — DBSCAN-clusters the <code>DetectionReport</code>, consolidates</li></ul>
+<p>   each cluster to one plot at its magnitude-weighted centroid (scalars from the peak</p>
+<p>   cell), with SNR and zero-Doppler clutter gating.</p>
+<ul><li><strong><code>radarv2_tracking</code></strong> — ellipsoidal gating + <strong>global-nearest-neighbour</strong> assignment</li></ul>
+<p>   (Hungarian/Munkres) associates plots to tracks; the live filter is an <strong>IMM</strong> over a</p>
+<p>   shared 4-state <code>[E,vE,N,vN]</code> bank (CV / high-q &quot;CA&quot; / coordinated-turn), with</p>
+<p>   alpha-beta (Kalata 1984) and Kalman-CV baselines available in <code>filter.hpp</code>.</p>
+<ul><li><strong><code>radarv2_track_manager</code></strong> — owns the polar→ENU measurement conversion (Jacobian-</li></ul>
+<p>   propagated covariance), drives the <strong>M-of-N</strong> lifecycle (Tentative → Confirmed →</p>
+<p>   Coasting → Deleted), and snapshots the IMM state into the <code>Track</code> / <code>TrackReport</code>.</p>
+
+<p>Multi-radar <strong>fusion</strong> (FD-4) sits on top: <code>radarv2_fusion</code> /</p>
+<p><code>radarv2_fusion_center</code> fuse per-radar world tracks with <strong>Covariance Intersection</strong></p>
+<p>(default) or an information filter, into a <code>CommonPicture</code>; <code>radarv2_control_center</code></p>
+<p>closes the loop by cueing the beam to the highest-priority fused threat. See</p>
+<p><a href="11-Multi-Radar-Fusion.html" class="internal-link">11-Multi-Radar-Fusion</a>.</p>
+
+<div class="callout" data-callout="note"><div class="callout-title">Why this lives downstream of the signal chain</div><div class="callout-content"><p>radarv2&#x27;s core contribution is the <strong>signal-processing chain</strong>; tracking and fusion</p>
+<p>are built on top of it and are now fully wired and tested. The realistic-vehicle</p>
+<p>work (FD-1) and the IMM pair naturally: maneuvering jets are exactly what an IMM</p>
+<p>tracker exists to follow. See <a href="FUTURE-DEVELOPMENT.html" class="internal-link">FUTURE-DEVELOPMENT</a>.</p></div></div>
+
+<p>Continue to <a href="08-Scenarios-and-Targets.html" class="internal-link">08-Scenarios-and-Targets</a>.</p>
+
+</div>
+  </div><!-- main-content -->
+</div><!-- site-shell -->
+<script>
+mermaid.initialize({ startOnLoad: true, theme: 'dark', securityLevel: 'loose' });
+</script>
+</body>
+
+</html>

@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>02_clutter_rejection — aros Vault</title>
+<style>
+
+:root {
+  --color-blue:    #007ACC;
+  --color-green:   #2DA44E;
+  --color-yellow:  #D29922;
+  --color-purple:  #8B5CF6;
+  --color-orange:  #F59E0B;
+  --color-red:     #E5534B;
+  --color-cyan:    #0BC5EA;
+  --color-accent:  #7C3AED;
+  --text-normal:   #DCDDDE;
+  --text-muted:    #8E8EA0;
+  --background-primary:         #1E1E2E;
+  --background-secondary:       #181825;
+  --background-modifier-border: #313244;
+  --color-base-30:              #45475A;
+}
+body {
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.6;
+  margin: 0;
+}
+
+</style>
+<!-- Mermaid -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<!-- MathJax -->
+<script>window.MathJax={tex:{inlineMath:[['$','$'],['\\(','\\)']],displayMath:[['$$','$$'],['\\[','\\]']]},options:{skipHtmlTags:['script','noscript','style','textarea','pre']}};</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+<!-- Site CSS -->
+<link rel="stylesheet" href="../../site.css">
+</head>
+<body class="markdown-reading-view">
+<div class="site-shell">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <a href="../../00-Index.html" class="site-title">radarv2 / AERIS-10</a>
+      <div class="site-subtitle">aros Radar Documentation</div>
+    </div>
+    <ul class="nav-list">
+      <li class="nav-section">Core Docs</li>
+      <li><a href="../../09-Concepts-Primer.html">Radar Primer</a></li>
+      <li><a href="../../00-Index.html">Index</a></li>
+      <li><a href="../../01-System-Overview.html">System Overview</a></li>
+      <li><a href="../../02-Physics-and-Waveform.html">Physics &amp; Waveform</a></li>
+      <li><a href="../../03-Beamforming-and-Scan.html">Beamforming &amp; Scan</a></li>
+      <li><a href="../../04-Signal-Processing-Pipeline.html">Signal Processing</a></li>
+      <li><a href="../../05-Node-Architecture.html">Node Architecture</a></li>
+      <li><a href="../../06-Message-Catalog.html">Message Catalog</a></li>
+      <li><a href="../../07-Detection-and-Tracking.html">Detection &amp; Tracking</a></li>
+      <li><a href="../../08-Scenarios-and-Targets.html">Scenarios &amp; Targets</a></li>
+      <li class="nav-section">Advanced</li>
+      <li><a href="../../10-Radar-Model-Library.html">Radar Model Library</a></li>
+      <li><a href="../../11-Multi-Radar-Fusion.html">Multi-Radar Fusion</a></li>
+      <li><a href="../../12-3D-Scene.html">3-D Scene</a></li>
+      <li><a href="../../13-Reference-Tables.html">Reference Tables</a></li>
+      <li><a href="../../FUTURE-DEVELOPMENT.html">Future Development</a></li>
+      <li class="nav-section">Upstream Theory</li>
+      <li><a href="../../upstream/README.html">Upstream README</a></li>
+      <li><a href="../../upstream/00_notation/conventions.html">Notation</a></li>
+      <li><a href="../../upstream/01_physics/01_fmcw_theory.html">FMCW Theory</a></li>
+      <li><a href="../../upstream/01_physics/02_lfm_waveform_model.html">LFM Waveform</a></li>
+      <li><a href="../../upstream/01_physics/03_beamforming_theory.html">Beamforming Theory</a></li>
+      <li><a href="../../upstream/01_physics/04_detection_theory.html">Detection Theory</a></li>
+      <li><a href="../../upstream/01_physics/05_noise_analysis.html">Noise Analysis</a></li>
+      <li><a href="../../upstream/01_physics/06_calibration_theory.html">Calibration</a></li>
+      <li><a href="../../upstream/02_hardware/01_system_overview.html">HW Overview</a></li>
+      <li><a href="../../upstream/04_research/01_cfar_variants.html">CFAR Variants</a></li>
+    </ul>
+    <div class="sidebar-footer">
+      <a href="https://github.com/brkay54/radarv2-docs" target="_blank">GitHub</a>
+    </div>
+  </nav>
+  <div class="main-content">
+
+<div class="markdown-preview-section">
+<h1 id="clutter-rejection-for-aeris-10">Clutter Rejection for AERIS-10<a class="ha" href="#clutter-rejection-for-aeris-10" aria-hidden="true">¶</a></h1>
+
+<p class="kv-line"><span class="kv-key">Purpose:</span> <span class="kv-value">Survey clutter rejection approaches -- Moving Target Indication (MTI), Doppler notch filtering, recursive background subtraction, and delay-line cancellation -- with pipeline integration analysis, computational cost, and Artix-7 XC7A100T resource estimates to guide future signal processing improvements.</span></p>
+
+<p class="kv-line"><span class="kv-key">Prerequisites:</span> <span class="kv-value">Familiarity with:</span></p>
+<ul><li><a href="../00_notation/symbol_table.md">Symbol Table</a> -- all symbols used herein</li><li><a href="../00_notation/parameter_table.md">Parameter Table</a> -- numerical values for both variants</li><li><a href="../00_notation/conventions.md">Conventions</a> -- equation formatting rules</li><li><a href="../03_software/01_fpga_pipeline.md">FPGA Pipeline</a> -- Stages 6-7 (matched filter and Doppler processing)</li><li><a href="../01_physics/01_fmcw_theory.md">FMCW Theory</a> -- Doppler shift and velocity measurement</li><li><a href="../02_hardware/05_fpga_board.md">FPGA Board</a> -- XC7A100T resource capacity</li></ul>
+
+<hr>
+
+<h2 id="1-current-state">1. Current State<a class="ha" href="#1-current-state" aria-hidden="true">¶</a></h2>
+
+<p>The AERIS-10 radar has <strong>no clutter rejection mechanism</strong>. The receive pipeline (documented in <a href="../03_software/01_fpga_pipeline.md"><code>03_software/01_fpga_pipeline.md</code></a>) processes digitized IF samples through matched filtering (Stage 6), range bin decimation (Stage 7), and Doppler processing (Stage 8) without any explicit clutter suppression between or within these stages.</p>
+
+<h3 id="doppler-processing-baseline">Doppler Processing Baseline<a class="ha" href="#doppler-processing-baseline" aria-hidden="true">¶</a></h3>
+
+<p>The Doppler processor (<code>doppler_processor_optimized</code>, Stage 8 in the pipeline) computes a $N_\text{Doppler}$-point FFT across $M$ chirps for each of $N_\text{rb}$ range bins (see Eq. (SW-6) in <a href="../03_software/01_fpga_pipeline.md#9-stage-7-doppler-processing"><code>03_software/01_fpga_pipeline.md</code></a>):</p>
+
+<p>$$</p>
+<p>\text{addr} = \text{chirp\_index} \times N_\text{rb} + \text{range\_bin} \tag{SW-6}</p>
+<p>$$</p>
+
+<p>with $N_\text{Doppler} = 32$ Doppler bins, $M = 32$ chirps per CPI, and $N_\text{rb} = 64$ range bins. A Hamming window is applied before the Doppler FFT.</p>
+
+<p>The Doppler FFT provides velocity discrimination: each Doppler bin corresponds to a velocity interval. However, the zero-Doppler bin (bin 0) contains both the returns from stationary targets and ground clutter with no mechanism to separate them. In a ground-based radar operating at X-band ($f_c \approx 10.5~\text{GHz}$, see <a href="../00_notation/parameter_table.md">Parameter Table</a>), stationary clutter returns from buildings, terrain, vegetation, and ground can be orders of magnitude stronger than target returns.</p>
+
+<h3 id="clutter-impact">Clutter Impact<a class="ha" href="#clutter-impact" aria-hidden="true">¶</a></h3>
+
+<p>Without clutter rejection:</p>
+
+<ul><li><strong>Zero-Doppler bin dominated by clutter.</strong> Stationary ground clutter energy is concentrated in Doppler bin 0 and leaks into adjacent bins through the Hamming window sidelobes. The Hamming window provides approximately $-43~\text{dB}$ sidelobe suppression, but strong clutter can still leak into neighboring Doppler bins.</li></ul>
+
+<ul><li><strong>Dynamic range limitation.</strong> The 8-bit ADC ($\text{AD9484}$, see <a href="../00_notation/parameter_table.md#signal-processing-fpga">Parameter Table</a>) provides $\sim 49.9~\text{dB}$ SQNR. Strong ground clutter can consume a significant fraction of this dynamic range, reducing the effective dynamic range available for target detection.</li></ul>
+
+<ul><li><strong>Threshold detector degradation.</strong> The fixed threshold detector (Eq. SW-7, $|I| + |Q| &gt; 10{,}000$) is applied to all Doppler bins including the clutter-dominated zero-Doppler bin. Clutter returns routinely exceed this threshold, generating persistent false detections at zero and near-zero Doppler.</li></ul>
+
+<ul><li><strong>No platform motion compensation.</strong> If the radar platform is moving (e.g., vehicle-mounted), the clutter Doppler shifts away from bin 0 by the platform velocity component. Without compensation, clutter energy spreads across multiple Doppler bins.</li></ul>
+
+<h3 id="pipeline-integration-context">Pipeline Integration Context<a class="ha" href="#pipeline-integration-context" aria-hidden="true">¶</a></h3>
+
+<p>The clutter rejection insertion point is between the matched filter output (Stage 6) and the Doppler processor input (Stage 8), specifically at or around the range bin decimation stage (Stage 7). This is the standard position in radar processing chains because:</p>
+
+<ul><li>Clutter rejection operates on slow-time (pulse-to-pulse) data, which becomes available after matched filtering produces range profiles for each chirp</li><li>The Doppler FFT should operate on clutter-suppressed data to maximize the dynamic range of the Doppler spectrum</li></ul>
+
+<p>The matched filter output provides 16-bit signed I/Q range profiles (<code>pc_i</code>, <code>pc_q</code>, <code>pc_valid</code>) at 100 MHz (see <a href="../03_software/01_fpga_pipeline.md#7-stage-5-matched-filter-pulse-compression"><code>03_software/01_fpga_pipeline.md</code></a> Stage 6). After range bin decimation, the data rate is reduced to $N_\text{rb} = 64$ range bins per chirp.</p>
+
+<h3 id="fpga-resource-context">FPGA Resource Context<a class="ha" href="#fpga-resource-context" aria-hidden="true">¶</a></h3>
+
+<p>Available headroom on the XC7A100T (see Table 2.1 in <a href="../02_hardware/05_fpga_board.md#22-resource-utilization"><code>02_hardware/05_fpga_board.md</code></a>):</p>
+
+<table class="md-table"><thead><tr><th>Resource</th><th>Available Headroom</th></tr></thead><tbody><tr><td>LUTs</td><td>~46,900 of 63,400</td></tr><tr><td>DSP48E1</td><td>~152 of 240</td></tr><tr><td>Block RAM</td><td>~34 of 135</td></tr></tbody></table>
+
+<p>BRAM is the most constrained resource. Clutter rejection approaches that require storing full range-Doppler maps in BRAM must be evaluated carefully.</p>
+
+<hr>
+
+<h2 id="2-literature-survey">2. Literature Survey<a class="ha" href="#2-literature-survey" aria-hidden="true">¶</a></h2>
+
+<p>This section surveys four clutter rejection approaches applicable to the AERIS-10 FMCW radar, each evaluated for effectiveness, computational complexity, and FPGA implementation cost.</p>
+
+<h3 id="2-1-mti-moving-target-indication">2.1 MTI -- Moving Target Indication<a class="ha" href="#2-1-mti-moving-target-indication" aria-hidden="true">¶</a></h3>
+
+<p>MTI is the classical approach to clutter rejection in pulsed and FMCW radar systems. Three MTI sub-techniques are applicable to the AERIS-10 architecture.</p>
+
+<h4 id="2-1-1-background-subtraction">2.1.1 Background Subtraction<a class="ha" href="#2-1-1-background-subtraction" aria-hidden="true">¶</a></h4>
+
+<p><strong>Algorithm.</strong> Compute a running average of the range profile across chirps and subtract it from each new chirp&#x27;s range profile:</p>
+
+<p>$$</p>
+<p>\bar{x}[n, k] = \beta \cdot \bar{x}[n, k-1] + (1 - \beta) \cdot x[n, k] \tag{CR-1}</p>
+<p>$$</p>
+
+<p>$$</p>
+<p>y[n, k] = x[n, k] - \bar{x}[n, k] \tag{CR-2}</p>
+<p>$$</p>
+
+<p>where $x[n, k]$ is the range profile for range bin $n$ at chirp $k$, $\bar{x}[n, k]$ is the exponentially weighted moving average, $y[n, k]$ is the clutter-suppressed output, and $\beta$ is the forgetting factor ($0.9 \le \beta \le 0.999$ typically).</p>
+
+<p><strong>Performance.</strong> Background subtraction removes stationary clutter by canceling the DC component of the slow-time signal. The improvement factor $I_\text{MTI}$ (clutter attenuation in dB) depends on the stability of the clutter return:</p>
+
+<ul><li>Perfectly stationary clutter: $I_\text{MTI} \to \infty$ (limited by ADC quantization)</li><li>Slowly varying clutter (vegetation in wind): $I_\text{MTI} \approx 20-30~\text{dB}$</li></ul>
+
+<p><strong>Blind speeds.</strong> Background subtraction has no blind speeds -- it only cancels the DC (zero-velocity) component.</p>
+
+<p><strong>FPGA resources.</strong> Requires storing the running average $\bar{x}[n, k]$ for each range bin. For $N_\text{rb} = 64$ range bins with 16-bit I/Q (32 bits per bin): $64 \times 32 = 2{,}048$ bits = 0.25 KB. This fits in distributed RAM (no BRAM required for 1D). For full 1024-bin range profiles before decimation: $1{,}024 \times 32 = 32{,}768$ bits = 4 KB = approximately 1 BRAM.</p>
+
+<h4 id="2-1-2-fir-high-pass-filter">2.1.2 FIR High-Pass Filter<a class="ha" href="#2-1-2-fir-high-pass-filter" aria-hidden="true">¶</a></h4>
+
+<p><strong>Algorithm.</strong> Apply a FIR high-pass filter to the slow-time samples at each range bin. A 1st-order FIR canceller (single delay-line subtraction) is the simplest MTI filter:</p>
+
+<p>$$</p>
+<p>y[n, k] = x[n, k] - x[n, k-1] \tag{CR-3}</p>
+<p>$$</p>
+
+<p>A 2nd-order FIR canceller provides deeper notch at zero Doppler:</p>
+
+<p>$$</p>
+<p>y[n, k] = x[n, k] - 2x[n, k-1] + x[n, k-2] \tag{CR-4}</p>
+<p>$$</p>
+
+<p><strong>Performance.</strong> The frequency response of the 1st-order canceller is $H(f) = 2j \sin(\pi f T_\text{PRI})$, which has nulls at $f = 0$ and $f = 1/T_\text{PRI}$ (the PRF). The improvement factor for a 1st-order canceller against stationary clutter with Gaussian spectral spread $\sigma_c$ is:</p>
+
+<p>$$</p>
+<p>I_\text{MTI} = \frac{1}{1 - \rho} \tag{CR-5}</p>
+<p>$$</p>
+
+<p>where $\rho = \exp(-8\pi^2 \sigma_c^2 T_\text{PRI}^2)$ is the correlation coefficient between adjacent chirps. For narrowband clutter ($\sigma_c \ll 1/T_\text{PRI}$), $I_\text{MTI}$ can exceed 40 dB.</p>
+
+<p><strong>Blind speeds.</strong> The FIR canceller has blind speeds at integer multiples of the ambiguous velocity $v_\text{amb} = \lambda f_r / 2$ where $f_r$ is the PRF and $\lambda$ is the wavelength. At these velocities, target returns are also canceled. A 2nd-order canceller has the same blind speeds but a wider notch (improved clutter rejection at the cost of more velocity blindness near zero Doppler).</p>
+
+<p><strong>FPGA resources.</strong> 1st-order: ~100-200 LUTs (subtractor, register for delayed sample). 2nd-order: ~200-300 LUTs (two delays, weighted subtraction). No DSP slices needed for simple subtract. BRAM: 1 per range bin set for delay storage ($N_\text{rb} \times 32$ bits per delay tap).</p>
+
+<h4 id="2-1-3-iir-notch-filter-at-zero-doppler">2.1.3 IIR Notch Filter at Zero Doppler<a class="ha" href="#2-1-3-iir-notch-filter-at-zero-doppler" aria-hidden="true">¶</a></h4>
+
+<p><strong>Algorithm.</strong> A 2nd-order IIR notch filter with a narrow rejection band centered at zero Doppler:</p>
+
+<p>$$</p>
+<p>H(z) = \frac{1 - 2\cos(\omega_0) z^{-1} + z^{-2}}{1 - 2r\cos(\omega_0) z^{-1} + r^2 z^{-2}} \tag{CR-6}</p>
+<p>$$</p>
+
+<p>where $\omega_0 = 0$ (zero Doppler), $r$ is the pole radius ($0.9 \le r &lt; 1$) controlling notch bandwidth.</p>
+
+<p><strong>Performance.</strong> The IIR notch provides a narrower rejection band than the FIR canceller, preserving more of the Doppler spectrum for target detection. The notch depth is theoretically infinite at $\omega_0$, with the 3-dB bandwidth controlled by $r$:</p>
+
+<p>$$</p>
+<p>\Delta\omega_{3\text{dB}} \approx 2(1 - r) \tag{CR-7}</p>
+<p>$$</p>
+
+<p>For $r = 0.95$: $\Delta\omega_{3\text{dB}} \approx 0.1$ radians, corresponding to a narrow notch that removes zero-Doppler clutter while preserving targets at very low (but non-zero) velocities.</p>
+
+<p><strong>Blind speeds.</strong> The IIR notch only cancels a narrow band around zero Doppler. Targets with velocities outside the notch bandwidth are preserved. No periodically repeated blind speeds (unlike FIR cancellers).</p>
+
+<p><strong>FPGA resources.</strong> ~300-500 LUTs for the 2nd-order IIR structure with fixed-point coefficients. 2-4 DSP48E1 slices for the multiply-accumulate operations. BRAM: minimal (IIR state is only 2 registers per range bin).</p>
+
+<h3 id="2-2-doppler-notch-filtering">2.2 Doppler Notch Filtering<a class="ha" href="#2-2-doppler-notch-filtering" aria-hidden="true">¶</a></h3>
+
+<p><strong>Algorithm.</strong> A digital notch filter with complex coefficients that can reject clutter at any Doppler frequency, not limited to zero Doppler. The center frequency $\omega_0$ is programmable:</p>
+
+<p>$$</p>
+<p>H(z) = \frac{1 - 2\cos(\omega_0) z^{-1} + z^{-2}}{1 - 2r\cos(\omega_0) z^{-1} + r^2 z^{-2}} \tag{CR-8}</p>
+<p>$$</p>
+
+<p>For platform motion compensation, $\omega_0$ is set to the Doppler frequency corresponding to the platform velocity:</p>
+
+<p>$$</p>
+<p>\omega_0 = \frac{2\pi \cdot 2 v_\text{platform}}{v_\text{amb}} \tag{CR-9}</p>
+<p>$$</p>
+
+<p>where $v_\text{platform}$ is the platform velocity and $v_\text{amb}$ is the ambiguous velocity.</p>
+
+<p><strong>Performance.</strong> Adaptive Doppler notch placement allows clutter rejection when the radar platform is in motion. The improvement factor depends on the accuracy of the platform velocity estimate (from GPS/IMU, see <a href="../02_hardware/07_timing_budget.md"><code>02_hardware/07_timing_budget.md</code></a>) and the notch bandwidth. A 2nd-order IIR notch provides 30-50 dB rejection at the center frequency.</p>
+
+<p><strong>Adaptive notch placement.</strong> The notch center frequency can be updated per scan or per CPI using IMU-derived platform velocity. This requires recomputing the filter coefficients $\cos(\omega_0)$ at the update rate -- a trivial computation for the STM32 microcontroller, which can pass the updated coefficient to the FPGA via a control register.</p>
+
+<p><strong>Blind speeds.</strong> Targets with velocities matching the notch center frequency are suppressed. The notch width determines the velocity resolution loss.</p>
+
+<p><strong>FPGA resources.</strong> ~200-500 LUTs for a 2nd-order IIR filter with programmable coefficients. 2-4 DSP48E1 slices. Minimal BRAM (coefficient storage only). The programmable coefficient adds a small control register interface (~50 LUTs).</p>
+
+<h3 id="2-3-recursive-background-subtraction">2.3 Recursive Background Subtraction<a class="ha" href="#2-3-recursive-background-subtraction" aria-hidden="true">¶</a></h3>
+
+<p><strong>Algorithm.</strong> Maintain an exponentially weighted moving average (EWMA) of the full range-Doppler map and subtract it from each new frame:</p>
+
+<p>$$</p>
+<p>\bar{X}[n, m, k] = \beta \cdot \bar{X}[n, m, k-1] + (1 - \beta) \cdot X[n, m, k] \tag{CR-10}</p>
+<p>$$</p>
+
+<p>$$</p>
+<p>Y[n, m, k] = X[n, m, k] - \bar{X}[n, m, k] \tag{CR-11}</p>
+<p>$$</p>
+
+<p>where $X[n, m, k]$ is the range-Doppler map value at range bin $n$, Doppler bin $m$, and frame $k$.</p>
+
+<p><strong>Performance.</strong> Recursive background subtraction removes all persistent returns (both stationary and slowly moving clutter) by subtracting the historical average. It is effective against clutter that is stable across multiple CPIs. The forgetting factor $\beta$ controls the adaptation rate: higher $\beta$ provides better clutter cancellation for stationary clutter but slower adaptation to changing environments.</p>
+
+<p><strong>Advantage over MTI.</strong> Background subtraction in the range-Doppler domain removes persistent returns at any Doppler frequency, not just zero Doppler. This handles scenarios where clutter has non-zero Doppler (e.g., rotating structures, vibrating objects).</p>
+
+<p><strong>FPGA resources -- BRAM intensive.</strong> Storing the EWMA of the full range-Doppler map requires:</p>
+
+<p>$$</p>
+<p>\text{BRAM}_\text{bg} = \frac{N_\text{rb} \times N_\text{Doppler} \times W_\text{data}}{36{,}864} \tag{CR-12}</p>
+<p>$$</p>
+
+<p>For $N_\text{rb} = 64$, $N_\text{Doppler} = 32$, and $W_\text{data} = 32$ bits (16-bit I + 16-bit Q):</p>
+
+<p>$$</p>
+<p>\text{BRAM}_\text{bg} = \frac{64 \times 32 \times 32}{36{,}864} = \frac{65{,}536}{36{,}864} \approx 1.8~\text{BRAMs} \tag{CR-13}</p>
+<p>$$</p>
+
+<p>For the mean values (I and Q stored separately with higher precision, e.g., 32-bit accumulators):</p>
+
+<p>$$</p>
+<p>\text{BRAM}_\text{bg,acc} = \frac{64 \times 32 \times 64}{36{,}864} = \frac{131{,}072}{36{,}864} \approx 3.6~\text{BRAMs} \tag{CR-14}</p>
+<p>$$</p>
+
+<blockquote><strong>BRAM assessment:</strong> At 4-6 BRAMs total (current map + accumulator), this is well within the 34-BRAM headroom. The earlier concern about BRAM intensity is mitigated by the relatively small range-Doppler map dimensions ($64 \times 32$).</blockquote>
+
+<h3 id="2-4-delay-line-clutter-cancellation-pulse-pair">2.4 Delay-Line Clutter Cancellation (Pulse-Pair)<a class="ha" href="#2-4-delay-line-clutter-cancellation-pulse-pair" aria-hidden="true">¶</a></h3>
+
+<p><strong>Algorithm.</strong> The simplest clutter rejection method: subtract the previous chirp&#x27;s range profile from the current chirp. This is equivalent to the 1st-order FIR MTI canceller (Eq. CR-3) but specifically described in the context of FMCW pulse-pair processing:</p>
+
+<p>$$</p>
+<p>y[n, k] = x[n, k] - x[n, k-1] \tag{CR-15}</p>
+<p>$$</p>
+
+<p>A 2-pulse delay canceller subtracts with binomial weights:</p>
+
+<p>$$</p>
+<p>y[n, k] = x[n, k] - 2x[n, k-1] + x[n, k-2] \tag{CR-16}</p>
+<p>$$</p>
+
+<p><strong>Performance.</strong> The 1-pulse canceller provides a single null at zero Doppler with improvement factor given by Eq. (CR-5). The 2-pulse canceller provides a double null (wider notch) at zero Doppler. Improvement factors for stationary clutter:</p>
+
+<table class="md-table"><thead><tr><th>Canceller</th><th>Improvement Factor (typical)</th><th>Blind Speeds</th></tr></thead><tbody><tr><td>1-pulse</td><td>25-35 dB</td><td>At $v = k \cdot v_\text{amb}$, $k = 0, 1, 2, \ldots$</td></tr><tr><td>2-pulse</td><td>35-50 dB</td><td>Same as 1-pulse, wider notch</td></tr></tbody></table>
+
+<p><strong>Implementation simplicity.</strong> The delay-line canceller is the simplest clutter rejection approach: one register (or small BRAM buffer) per range bin, one subtractor, and no multiply operations. It can be implemented in under 100 LUTs.</p>
+
+<p><strong>Limitations.</strong> Limited improvement factor compared to IIR notch or multi-pulse MTI. Blind speeds at multiples of $v_\text{amb}$ cannot be avoided with a single-PRF system.</p>
+
+<p><strong>Pipeline insertion point.</strong> Operates on slow-time data between the matched filter output (Stage 6) and the range bin decimator (Stage 7) -- or equivalently, between range bin decimation (Stage 7) and the Doppler processor (Stage 8). Inserting after decimation reduces BRAM requirements (64 vs. 1024 range bins to buffer).</p>
+
+<p><strong>FPGA resources.</strong> 1-pulse: ~50-100 LUTs, 0 DSPs, &lt;1 BRAM (64 range bins x 32 bits = 256 bytes). 2-pulse: ~80-150 LUTs, 0 DSPs, &lt;1 BRAM (two delay lines).</p>
+
+<hr>
+
+<h2 id="3-gap-analysis">3. Gap Analysis<a class="ha" href="#3-gap-analysis" aria-hidden="true">¶</a></h2>
+
+<h3 id="3-1-no-clutter-filtering-critical">3.1 No Clutter Filtering (Critical)<a class="ha" href="#3-1-no-clutter-filtering-critical" aria-hidden="true">¶</a></h3>
+
+<p>The current pipeline has no clutter suppression at any stage. Zero-Doppler clutter dominates in ground-based operation and directly corrupts the threshold detector.</p>
+
+<p class="kv-line"><span class="kv-key">Impact:</span> <span class="kv-value">Persistent false detections from stationary ground clutter. The fixed threshold (Eq. SW-7) does not distinguish between target returns and clutter returns in the same Doppler bin.</span></p>
+
+<h3 id="3-2-zero-doppler-clutter-dominance-critical">3.2 Zero-Doppler Clutter Dominance (Critical)<a class="ha" href="#3-2-zero-doppler-clutter-dominance-critical" aria-hidden="true">¶</a></h3>
+
+<p>For a ground-based radar, stationary ground clutter power at X-band can exceed thermal noise by 40-60 dB. The zero-Doppler bin and its sidelobe-contaminated neighbors carry this energy with no attenuation.</p>
+
+<p class="kv-line"><span class="kv-key">Impact:</span> <span class="kv-value">Effective detection sensitivity is severely degraded in Doppler bins near zero. Slow-moving targets (pedestrians, vehicles at low speed) are masked by clutter sidelobes.</span></p>
+
+<h3 id="3-3-no-platform-motion-compensation-high">3.3 No Platform Motion Compensation (High)<a class="ha" href="#3-3-no-platform-motion-compensation-high" aria-hidden="true">¶</a></h3>
+
+<p>If the AERIS-10 is deployed on a moving platform, the clutter Doppler shifts away from bin 0. Without compensation, clutter energy spreads across multiple Doppler bins, further degrading detection performance.</p>
+
+<p class="kv-line"><span class="kv-key">Impact:</span> <span class="kv-value">Mobile deployment scenarios become impractical without Doppler compensation. The GPS/IMU subsystem (documented in <a href="../02_hardware/07_timing_budget.md"><code>02_hardware/07_timing_budget.md</code></a>) provides velocity information that could feed an adaptive Doppler notch filter, but no such mechanism exists.</span></p>
+
+<h3 id="3-4-clutter-environment-not-characterized-medium">3.4 Clutter Environment Not Characterized (Medium)<a class="ha" href="#3-4-clutter-environment-not-characterized-medium" aria-hidden="true">¶</a></h3>
+
+<p>No measured clutter statistics are available for the AERIS-10 system. The clutter power distribution (Rayleigh, K-distribution, Weibull, log-normal) is unknown. This affects:</p>
+
+<ul><li>Choice of clutter rejection approach and adaptation parameters</li><li>Forgetting factor $\beta$ for background subtraction</li><li>Notch bandwidth for IIR filters</li><li>Expected improvement factor in the operational environment</li></ul>
+
+<h3 id="3-5-no-pre-doppler-clutter-suppression-medium">3.5 No Pre-Doppler Clutter Suppression (Medium)<a class="ha" href="#3-5-no-pre-doppler-clutter-suppression-medium" aria-hidden="true">¶</a></h3>
+
+<p>Clutter rejection is most effective when applied before the Doppler FFT (which distributes clutter energy across the spectrum through windowing sidelobes). The current pipeline has no processing stage between the matched filter and the Doppler processor dedicated to clutter suppression.</p>
+
+<hr>
+
+<h2 id="4-feasibility-assessment">4. Feasibility Assessment<a class="ha" href="#4-feasibility-assessment" aria-hidden="true">¶</a></h2>
+
+<p>All resource estimates use available headroom: ~46,900 LUTs, ~152 DSP48E1 slices, ~34 Block RAMs. Estimates include 30% conservative margin.</p>
+
+<h3 id="4-1-2-pulse-delay-line-canceller-1st-order">4.1 2-Pulse Delay-Line Canceller (1st Order)<a class="ha" href="#4-1-2-pulse-delay-line-canceller-1st-order" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Property</th><th>Value</th></tr></thead><tbody><tr><td>Algorithm complexity</td><td>$O(1)$ per sample (single subtraction)</td></tr><tr><td>Estimated LUTs</td><td>~50-100</td></tr><tr><td>Estimated DSPs</td><td>0</td></tr><tr><td>Estimated BRAMs</td><td>&lt;1 (64 range bins x 32 bits = 256 bytes in distributed RAM)</td></tr><tr><td>Improvement factor</td><td>25-35 dB (stationary clutter)</td></tr><tr><td>Pipeline integration</td><td>Between range bin decimation (Stage 7) and Doppler processor (Stage 8); operates on decimated range profile</td></tr><tr><td>Published reference</td><td>Skolnik Ch. 15; standard delay-line canceller architecture</td></tr><tr><td>Verdict</td><td><strong>FEASIBLE</strong> -- trivial resource cost, immediate benefit</td></tr></tbody></table>
+
+<h3 id="4-2-mti-fir-high-pass-filter-2nd-order">4.2 MTI FIR High-Pass Filter (2nd Order)<a class="ha" href="#4-2-mti-fir-high-pass-filter-2nd-order" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Property</th><th>Value</th></tr></thead><tbody><tr><td>Algorithm complexity</td><td>$O(1)$ per sample (weighted subtraction of 2 delayed samples)</td></tr><tr><td>Estimated LUTs</td><td>~200-300</td></tr><tr><td>Estimated DSPs</td><td>0-2 (for weighted subtraction; can use LUT-based multiply)</td></tr><tr><td>Estimated BRAMs</td><td>&lt;1 (two delay lines, 64 range bins each)</td></tr><tr><td>Improvement factor</td><td>35-50 dB (stationary clutter)</td></tr><tr><td>Pipeline integration</td><td>Same as delay-line canceller (between Stage 7 and Stage 8)</td></tr><tr><td>Published reference</td><td>Skolnik Ch. 15; MathWorks MTI reference implementation</td></tr><tr><td>Verdict</td><td><strong>FEASIBLE</strong> -- minimal resource cost, significant improvement over 1st order</td></tr></tbody></table>
+
+<h3 id="4-3-iir-notch-filter-2nd-order-zero-doppler">4.3 IIR Notch Filter (2nd Order, Zero Doppler)<a class="ha" href="#4-3-iir-notch-filter-2nd-order-zero-doppler" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Property</th><th>Value</th></tr></thead><tbody><tr><td>Algorithm complexity</td><td>$O(1)$ per sample (2nd-order IIR recursion)</td></tr><tr><td>Estimated LUTs</td><td>~300-500</td></tr><tr><td>Estimated DSPs</td><td>2-4 (multiply-accumulate for IIR coefficients)</td></tr><tr><td>Estimated BRAMs</td><td>&lt;1 (IIR state: 2 registers per range bin, 64 bins = 512 bytes)</td></tr><tr><td>Improvement factor</td><td>30-50 dB (narrowband clutter); tunable notch width via pole radius $r$</td></tr><tr><td>Pipeline integration</td><td>Same insertion point; provides narrower notch than FIR, preserving more low-Doppler targets</td></tr><tr><td>Published reference</td><td>Standard IIR notch filter design; coefficients computable from desired notch frequency and bandwidth</td></tr><tr><td>Verdict</td><td><strong>FEASIBLE</strong> -- moderate resource cost, excellent selectivity</td></tr></tbody></table>
+
+<h3 id="4-4-adaptive-doppler-notch-filter-programmable-center-frequency">4.4 Adaptive Doppler Notch Filter (Programmable Center Frequency)<a class="ha" href="#4-4-adaptive-doppler-notch-filter-programmable-center-frequency" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Property</th><th>Value</th></tr></thead><tbody><tr><td>Algorithm complexity</td><td>$O(1)$ per sample (same IIR structure, programmable coefficients)</td></tr><tr><td>Estimated LUTs</td><td>~350-550 (IIR + coefficient register interface)</td></tr><tr><td>Estimated DSPs</td><td>2-4</td></tr><tr><td>Estimated BRAMs</td><td>&lt;1</td></tr><tr><td>Improvement factor</td><td>30-50 dB at programmable Doppler frequency</td></tr><tr><td>Pipeline integration</td><td>Same insertion point; STM32 updates notch center frequency via control register based on GPS/IMU velocity</td></tr><tr><td>Published reference</td><td>Standard adaptive notch filter; coefficient update computed on STM32</td></tr><tr><td>Verdict</td><td><strong>FEASIBLE</strong> -- slight additional complexity over fixed notch; enables mobile platform operation</td></tr></tbody></table>
+
+<h3 id="4-5-recursive-background-subtraction-range-doppler-domain">4.5 Recursive Background Subtraction (Range-Doppler Domain)<a class="ha" href="#4-5-recursive-background-subtraction-range-doppler-domain" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Property</th><th>Value</th></tr></thead><tbody><tr><td>Algorithm complexity</td><td>$O(1)$ per cell (EWMA update + subtraction)</td></tr><tr><td>Estimated LUTs</td><td>~500-800 (EWMA logic, subtraction, forgetting factor multiply)</td></tr><tr><td>Estimated DSPs</td><td>2-4 (forgetting factor multiplication)</td></tr><tr><td>Estimated BRAMs</td><td>4-6 (map storage + accumulator, per Eq. CR-14)</td></tr><tr><td>Improvement factor</td><td>20-40 dB (depends on clutter stationarity and $\beta$)</td></tr><tr><td>Pipeline integration</td><td>Operates after Doppler FFT (Stage 8) output; requires full range-Doppler map buffering</td></tr><tr><td>Published reference</td><td>Standard EWMA background subtraction; widely used in video surveillance and radar</td></tr><tr><td>Verdict</td><td><strong>FEASIBLE</strong> -- moderate BRAM cost (4-6 of 34 available); removes persistent returns at any Doppler</td></tr></tbody></table>
+
+<blockquote><strong>BRAM note:</strong> At 4-6 BRAMs, this approach consumes 12-18% of available BRAM headroom. If combined with a CFAR implementation (2-4 BRAMs from SWRES-01), total additional BRAM usage would be 6-10 BRAMs, leaving 24-28 BRAMs for other improvements. This is within acceptable limits but should be tracked.</blockquote>
+
+<h3 id="4-6-feasibility-summary">4.6 Feasibility Summary<a class="ha" href="#4-6-feasibility-summary" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Approach</th><th>LUTs (est.)</th><th>% Available</th><th>DSPs</th><th>BRAMs</th><th>Verdict</th></tr></thead><tbody><tr><td>Delay-line canceller (1st)</td><td>50-100</td><td>&lt;1%</td><td>0</td><td>&lt;1</td><td><strong>FEASIBLE</strong></td></tr><tr><td>MTI FIR filter (2nd)</td><td>200-300</td><td>&lt;1%</td><td>0-2</td><td>&lt;1</td><td><strong>FEASIBLE</strong></td></tr><tr><td>IIR notch (zero Doppler)</td><td>300-500</td><td>~1%</td><td>2-4</td><td>&lt;1</td><td><strong>FEASIBLE</strong></td></tr><tr><td>Adaptive Doppler notch</td><td>350-550</td><td>~1%</td><td>2-4</td><td>&lt;1</td><td><strong>FEASIBLE</strong></td></tr><tr><td>Background subtraction</td><td>500-800</td><td>~2%</td><td>2-4</td><td>4-6</td><td><strong>FEASIBLE</strong></td></tr></tbody></table>
+
+<p>All approaches are well within the Artix-7 resource headroom. The clutter rejection problem is fundamentally less resource-intensive than CFAR detection because the algorithms are simple linear operations applied per range bin or per range-Doppler cell.</p>
+
+<hr>
+
+<h2 id="5-recommendations">5. Recommendations<a class="ha" href="#5-recommendations" aria-hidden="true">¶</a></h2>
+
+<h3 id="priority-1-2-pulse-delay-line-canceller-immediate-simplest">Priority 1: 2-Pulse Delay-Line Canceller (Immediate, Simplest)<a class="ha" href="#priority-1-2-pulse-delay-line-canceller-immediate-simplest" aria-hidden="true">¶</a></h3>
+
+<ul><li><strong>Expected improvement:</strong> 25-35 dB stationary clutter suppression; eliminates dominant zero-Doppler clutter in ground-based operation</li><li><strong>Resource cost:</strong> ~50-100 LUTs, 0 DSPs, &lt;1 BRAM (trivial)</li><li><strong>Risk:</strong> LOW -- single subtraction operation per range bin; well-understood algorithm with decades of deployment history</li><li><strong>Recommended investigation steps:</strong></li><li><strong>Clutter measurement campaign</strong> (FIRST STEP): Collect raw range profile data from the AERIS-10 in a representative deployment environment to characterize clutter power, spectral spread, and temporal stability</li><li>Implement 1-pulse canceller between range bin decimation (Stage 7) and Doppler processor (Stage 8) as a proof-of-concept</li><li>Measure improvement factor using recorded data before and after cancellation</li><li>Evaluate whether blind speed limitations at multiples of $v_\text{amb}$ are acceptable for the operational velocity range</li></ul>
+
+<h3 id="priority-2-mti-fir-filter-2nd-order">Priority 2: MTI FIR Filter (2nd Order)<a class="ha" href="#priority-2-mti-fir-filter-2nd-order" aria-hidden="true">¶</a></h3>
+
+<ul><li><strong>Expected improvement:</strong> 35-50 dB clutter suppression; wider notch than 1st-order canceller provides better rejection of slowly fluctuating clutter (vegetation, sea surface)</li><li><strong>Resource cost:</strong> ~200-300 LUTs, 0-2 DSPs, &lt;1 BRAM</li><li><strong>Risk:</strong> LOW -- extension of Priority 1 with an additional delay tap and weighted subtraction</li><li><strong>Recommended investigation steps:</strong></li><li>Compare 1st-order vs. 2nd-order canceller improvement factors using measured clutter data from the measurement campaign</li><li>Evaluate the velocity blindness penalty: 2nd-order canceller has a wider rejection notch, potentially masking slow-moving targets</li><li>Consider implementing both 1st and 2nd order as selectable modes (minimal additional resource cost)</li></ul>
+
+<h3 id="priority-3-adaptive-doppler-notch-filter">Priority 3: Adaptive Doppler Notch Filter<a class="ha" href="#priority-3-adaptive-doppler-notch-filter" aria-hidden="true">¶</a></h3>
+
+<ul><li><strong>Expected improvement:</strong> 30-50 dB clutter rejection at any programmable Doppler frequency; enables mobile platform operation with GPS/IMU-driven notch placement</li><li><strong>Resource cost:</strong> ~350-550 LUTs, 2-4 DSPs, &lt;1 BRAM</li><li><strong>Risk:</strong> MEDIUM -- requires integration with GPS/IMU velocity estimate via STM32 control interface; notch bandwidth selection requires tuning based on measured clutter spectral width</li><li><strong>Recommended investigation steps:</strong></li><li>Quantify the STM32-to-FPGA coefficient update latency to determine maximum supportable platform acceleration</li><li>Determine appropriate notch bandwidth ($\Delta\omega_{3\text{dB}}$) from measured clutter spectral characteristics</li><li>Evaluate whether the GPS/IMU velocity accuracy (documented in <a href="../02_hardware/07_timing_budget.md"><code>02_hardware/07_timing_budget.md</code></a>) is sufficient for precise notch placement</li></ul>
+
+<h3 id="priority-4-recursive-background-subtraction-complementary">Priority 4: Recursive Background Subtraction (Complementary)<a class="ha" href="#priority-4-recursive-background-subtraction-complementary" aria-hidden="true">¶</a></h3>
+
+<ul><li><strong>Expected improvement:</strong> 20-40 dB rejection of persistent returns at any Doppler frequency, including non-zero-Doppler persistent interference</li><li><strong>Resource cost:</strong> ~500-800 LUTs, 2-4 DSPs, 4-6 BRAMs</li><li><strong>Risk:</strong> MEDIUM -- operates post-Doppler FFT, so it complements (not replaces) pre-Doppler MTI filtering; forgetting factor $\beta$ requires tuning to balance adaptation speed vs. clutter rejection depth</li><li><strong>Recommended investigation steps:</strong></li><li>Implement only after Priorities 1-3 are evaluated, as pre-Doppler MTI may provide sufficient clutter rejection alone</li><li>Determine optimal forgetting factor $\beta$ from measured clutter temporal statistics</li><li>Evaluate BRAM budget impact in conjunction with planned CFAR implementation (SWRES-01)</li></ul>
+
+<h3 id="recommended-first-step-clutter-measurement-campaign">Recommended First Step: Clutter Measurement Campaign<a class="ha" href="#recommended-first-step-clutter-measurement-campaign" aria-hidden="true">¶</a></h3>
+
+<p>Before implementing any clutter rejection algorithm, characterize the AERIS-10 clutter environment through field measurements. This campaign should:</p>
+
+<ul><li>Record raw range profile data (pre-detection) across multiple deployment sites (urban, suburban, open field)</li><li>Compute clutter power spectral density to determine spectral spread $\sigma_c$</li><li>Characterize clutter amplitude distribution (Rayleigh, K-distribution, Weibull) for each site type</li><li>Measure clutter-to-noise ratio (CNR) as a function of range and elevation angle</li><li>Assess clutter temporal stability (decorrelation time) to determine forgetting factor $\beta$ and MTI improvement factor limits</li></ul>
+
+<p>This measurement data will inform:</p>
+<ul><li>Selection of clutter rejection approach and parameters</li><li>CFAR variant selection (SWRES-01) for the measured clutter distribution</li><li>Validation of implemented clutter rejection improvement factors</li></ul>
+
+<hr>
+
+<h2 id="references">References<a class="ha" href="#references" aria-hidden="true">¶</a></h2>
+
+<p>[1] M. I. Skolnik, <em>Introduction to Radar Systems</em>, 4th ed. New York, NY, USA: McGraw-Hill, 2008, ch. 15 (MTI and Pulse-Doppler Radar).</p>
+
+<p>[2] M. A. Richards, <em>Fundamentals of Radar Signal Processing</em>, 2nd ed. New York, NY, USA: McGraw-Hill, 2014, ch. 8 (Moving Target Indication).</p>
+
+<p>[3] MathWorks, &quot;Ground Clutter Mitigation with Moving Target Indication (MTI) Radar,&quot; Radar Toolbox Documentation. [Online]. Available: https://www.mathworks.com/help/radar/ug/ground-clutter-mitigation-with-moving-target-indication-mti-radar.html</p>
+
+<p>[4] W. L. Melvin and J. A. Scheer, Eds., <em>Principles of Modern Radar: Advanced Techniques</em>. Raleigh, NC, USA: SciTech Publishing, 2013, ch. 2 (STAP and Clutter Mitigation).</p>
+
+<p>[5] B. R. Mahafza, <em>Radar Systems Analysis and Design Using MATLAB</em>, 3rd ed. Boca Raton, FL, USA: CRC Press, 2013, ch. 8 (MTI and Pulse Doppler Radar).</p>
+
+<p>[6] Xilinx, &quot;Artix-7 FPGAs Data Sheet: DC and AC Switching Characteristics,&quot; DS181, v1.28, Feb. 2022.</p>
+
+</div>
+  </div><!-- main-content -->
+</div><!-- site-shell -->
+<script>
+mermaid.initialize({ startOnLoad: true, theme: 'dark', securityLevel: 'loose' });
+</script>
+</body>
+
+</html>

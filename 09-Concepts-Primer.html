@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>radarv2 — Radar Concepts Primer (start here) — aros Vault</title>
+<style>
+
+:root {
+  --color-blue:    #007ACC;
+  --color-green:   #2DA44E;
+  --color-yellow:  #D29922;
+  --color-purple:  #8B5CF6;
+  --color-orange:  #F59E0B;
+  --color-red:     #E5534B;
+  --color-cyan:    #0BC5EA;
+  --color-accent:  #7C3AED;
+  --text-normal:   #DCDDDE;
+  --text-muted:    #8E8EA0;
+  --background-primary:         #1E1E2E;
+  --background-secondary:       #181825;
+  --background-modifier-border: #313244;
+  --color-base-30:              #45475A;
+}
+body {
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.6;
+  margin: 0;
+}
+
+</style>
+<!-- Mermaid -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<!-- MathJax -->
+<script>window.MathJax={tex:{inlineMath:[['$','$'],['\\(','\\)']],displayMath:[['$$','$$'],['\\[','\\]']]},options:{skipHtmlTags:['script','noscript','style','textarea','pre']}};</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+<!-- Site CSS -->
+<link rel="stylesheet" href="site.css">
+</head>
+<body class="markdown-reading-view">
+<div class="site-shell">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <a href="00-Index.html" class="site-title">radarv2 / AERIS-10</a>
+      <div class="site-subtitle">aros Radar Documentation</div>
+    </div>
+    <ul class="nav-list">
+      <li class="nav-section">Core Docs</li>
+      <li><a href="09-Concepts-Primer.html">Radar Primer</a></li>
+      <li><a href="00-Index.html">Index</a></li>
+      <li><a href="01-System-Overview.html">System Overview</a></li>
+      <li><a href="02-Physics-and-Waveform.html">Physics &amp; Waveform</a></li>
+      <li><a href="03-Beamforming-and-Scan.html">Beamforming &amp; Scan</a></li>
+      <li><a href="04-Signal-Processing-Pipeline.html">Signal Processing</a></li>
+      <li><a href="05-Node-Architecture.html">Node Architecture</a></li>
+      <li><a href="06-Message-Catalog.html">Message Catalog</a></li>
+      <li><a href="07-Detection-and-Tracking.html">Detection &amp; Tracking</a></li>
+      <li><a href="08-Scenarios-and-Targets.html">Scenarios &amp; Targets</a></li>
+      <li class="nav-section">Advanced</li>
+      <li><a href="10-Radar-Model-Library.html">Radar Model Library</a></li>
+      <li><a href="11-Multi-Radar-Fusion.html">Multi-Radar Fusion</a></li>
+      <li><a href="12-3D-Scene.html">3-D Scene</a></li>
+      <li><a href="13-Reference-Tables.html">Reference Tables</a></li>
+      <li><a href="FUTURE-DEVELOPMENT.html">Future Development</a></li>
+      <li class="nav-section">Upstream Theory</li>
+      <li><a href="upstream/README.html">Upstream README</a></li>
+      <li><a href="upstream/00_notation/conventions.html">Notation</a></li>
+      <li><a href="upstream/01_physics/01_fmcw_theory.html">FMCW Theory</a></li>
+      <li><a href="upstream/01_physics/02_lfm_waveform_model.html">LFM Waveform</a></li>
+      <li><a href="upstream/01_physics/03_beamforming_theory.html">Beamforming Theory</a></li>
+      <li><a href="upstream/01_physics/04_detection_theory.html">Detection Theory</a></li>
+      <li><a href="upstream/01_physics/05_noise_analysis.html">Noise Analysis</a></li>
+      <li><a href="upstream/01_physics/06_calibration_theory.html">Calibration</a></li>
+      <li><a href="upstream/02_hardware/01_system_overview.html">HW Overview</a></li>
+      <li><a href="upstream/04_research/01_cfar_variants.html">CFAR Variants</a></li>
+    </ul>
+    <div class="sidebar-footer">
+      <a href="https://github.com/brkay54/radarv2-docs" target="_blank">GitHub</a>
+    </div>
+  </nav>
+  <div class="main-content">
+
+<div class="markdown-preview-section">
+<h1 id="radar-concepts-primer">Radar Concepts Primer<a class="ha" href="#radar-concepts-primer" aria-hidden="true">¶</a></h1>
+
+<div class="callout" data-callout="abstract"><div class="callout-title">For newcomers — read this first</div><div class="callout-content"><p>This page teaches the radar vocabulary the rest of the vault assumes, in plain</p>
+<p>language, with a diagram for each idea. If you have never built a radar</p>
+<p>pipeline, start here; then the other docs will read easily. Each concept ends</p>
+<p>with <strong>&quot;in radarv2 →&quot;</strong> pointing at where it lives in the code/messages.</p></div></div>
+
+<hr>
+
+<h2 id="1-the-one-sentence-idea">1. The one-sentence idea<a class="ha" href="#1-the-one-sentence-idea" aria-hidden="true">¶</a></h2>
+
+<blockquote>A radar **transmits a known signal, listens for the echo, and measures three</blockquote>
+<blockquote>things about whatever reflected it: how far (range), how fast (radial</blockquote>
+<blockquote>velocity), and in what direction (angle).**</blockquote>
+
+<p>Everything in this project is machinery to extract those three numbers reliably</p>
+<p>from a noisy echo, for every direction in the sky, several times a second.</p>
+
+<div class="mermaid">flowchart LR
+  W[world<br/>targets + terrain]:::w
+  TX[transmit<br/>chirp]:::rf
+  RX[receive<br/>echo + noise]:::rf
+  DSP[signal processing<br/>range / velocity / angle]:::dsp
+  DET[detections]:::det
+  PIC[world picture<br/>tracks on a map]:::out
+
+  W -->|reflects| RX
+  TX -->|illuminates| W
+  RX --> DSP --> DET --> PIC
+
+  classDef w fill:#4d7c0f,color:#f7fee7,stroke:#3f6212
+  classDef rf fill:#0e7490,color:#ecfeff,stroke:#155e75
+  classDef dsp fill:#1d4ed8,color:#eff6ff,stroke:#1e40af
+  classDef det fill:#a16207,color:#fefce8,stroke:#854d0e
+  classDef out fill:#7c3aed,color:#f5f3ff,stroke:#6d28d9</div>
+
+<div class="callout" data-callout="info"><div class="callout-title">Legend — the big loop</div><div class="callout-content"><p><strong>Green</strong> = the physical world · <strong>Teal</strong> = the RF transmit/receive · <strong>Blue</strong> =</p>
+<p>the digital signal processing that extracts range/velocity/angle · <strong>Amber</strong> =</p>
+<p>detections · <strong>Purple</strong> = the final world picture. radarv2 models everything from</p>
+<p>&quot;receive echo&quot; rightward.</p></div></div>
+
+<hr>
+
+<h2 id="2-the-chirp-and-why-it-measures-range">2. The chirp (and why it measures range)<a class="ha" href="#2-the-chirp-and-why-it-measures-range" aria-hidden="true">¶</a></h2>
+
+<p>A <strong>chirp</strong> is a pulse whose frequency sweeps linearly in time (Linear Frequency</p>
+<p>Modulation, <strong>LFM</strong>). AERIS-10 transmits a chirp that ramps across a bandwidth $B$</p>
+<p>over a duration $T_c$.</p>
+
+<p>When the chirp hits a target at range $R$, the echo comes back <strong>delayed</strong> by the</p>
+<p>round-trip time $\tau = 2R/c$. Because the transmit frequency is <em>still ramping</em>,</p>
+<p>the returned echo&#x27;s frequency differs from what&#x27;s being transmitted <em>right now</em> by</p>
+<p>a constant <strong>beat frequency</strong> $f_b$ — and that beat is directly proportional to range.</p>
+
+<div class="mermaid">xychart-beta
+  title "Why delay becomes a beat frequency (TX vs delayed echo)"
+  x-axis "time within one chirp" 0 --> 10
+  y-axis "frequency" 0 --> 10
+  line [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+  line [0, 0, 1, 2, 3, 4, 5, 6, 7, 8]</div>
+
+<div class="callout" data-callout="info"><div class="callout-title">Reading the plot</div><div class="callout-content"><p>The upper line is the <strong>transmitted</strong> chirp frequency ramping up; the lower line</p>
+<p>is the <strong>echo</strong> — the same ramp, shifted right by the delay $\tau$. At any instant</p>
+<p>the vertical gap between them is the <strong>beat frequency</strong> $f_b$ — constant, and</p>
+<p>proportional to range: $R = c\,f_b / 2\mu$ where $\mu = B/T_c$ is the ramp slope.</p></div></div>
+
+<div class="callout" data-callout="tip"><div class="callout-title">Intuition</div><div class="callout-content"><p>A farther target = more delay = the echo ramp is shifted further right = a bigger</p>
+<p>constant gap = a higher beat tone. <strong>Measure the tone, you know the range.</strong> An FFT</p>
+<p>of the echo turns &quot;which tone&quot; into &quot;which range bin.&quot;</p></div></div>
+
+<p><strong>In radarv2 →</strong> the chirp parameters ($B$, $T_c$) travel in</p>
+<p><span class="wikilink-unresolved">ScanCommand</span>; <code>RxSynthesizer</code> injects each</p>
+<p>target&#x27;s beat, and <code>PulseCompressor</code> recovers range. Math: <a href="02-Physics-and-Waveform.html" class="internal-link">02-Physics-and-Waveform</a>.</p>
+
+<hr>
+
+<h2 id="3-velocity-pri-and-the-cpi-slow-time">3. Velocity, PRI, and the CPI (slow time)<a class="ha" href="#3-velocity-pri-and-the-cpi-slow-time" aria-hidden="true">¶</a></h2>
+
+<p>A single chirp gives range. To get <strong>velocity</strong> you transmit <em>many</em> chirps in a</p>
+<p>row and watch the target&#x27;s echo <strong>phase</strong> creep from chirp to chirp — a moving</p>
+<p>target shifts the phase a little each time (the Doppler effect). The rate of that</p>
+<p>creep is the Doppler frequency, which gives radial velocity $v = \lambda f_d / 2$.</p>
+
+<p>Two timescales matter:</p>
+
+<table class="md-table"><thead><tr><th>Term</th><th>Meaning</th><th>radarv2 value</th></tr></thead><tbody><tr><td><strong>PRI</strong> ($T_r$)</td><td>Pulse Repetition Interval — time between chirps (&quot;fast time&quot; is <em>within</em> a chirp; &quot;slow time&quot; steps <em>across</em> chirps)</td><td>167 µs (long)</td></tr><tr><td><strong>CPI</strong></td><td>Coherent Processing Interval — the block of $M$ chirps you integrate together to measure Doppler</td><td>$M = 32$ chirps</td></tr><tr><td><strong>Doppler FFT</strong></td><td>An FFT across the $M$ chirps (slow time) per range bin → velocity</td><td>32-point</td></tr></tbody></table>
+
+<div class="callout" data-callout="tip"><div class="callout-title">Intuition</div><div class="callout-content"><p>Range comes from <strong>one</strong> chirp (fast time). Velocity comes from how the phase</p>
+<p>changes <strong>across many</strong> chirps (slow time). Two FFTs, two axes — that&#x27;s the</p>
+<p><strong>range-Doppler map</strong>.</p></div></div>
+
+<p><strong>In radarv2 →</strong> <code>DopplerProcessor</code> accumulates the CPI and runs the slow-time FFT.</p>
+
+<hr>
+
+<h2 id="4-the-range-doppler-map-the-central-data-product">4. The range-Doppler map (the central data product)<a class="ha" href="#4-the-range-doppler-map-the-central-data-product" aria-hidden="true">¶</a></h2>
+
+<p>After the two FFTs you have a 2-D grid: one axis is <strong>range bin</strong>, the other is</p>
+<p><strong>Doppler (velocity) bin</strong>. A target shows up as a bright spot at <em>its</em> range and</p>
+<p><em>its</em> velocity. AERIS-10&#x27;s grid is <strong>64 range × 32 Doppler</strong> cells per beam.</p>
+
+<div class="mermaid">xychart-beta
+  title "One range profile: a target peak vs threshold"
+  x-axis "range bin" 0 --> 12
+  y-axis "magnitude" 0 --> 100
+  bar [8,6,9,7,12,10,88,14,9,7,8,6]
+  line [25,25,25,25,25,25,25,25,25,25,25,25]</div>
+
+<div class="callout" data-callout="info"><div class="callout-title">Reading the plot</div><div class="callout-content"><p>Each bar is one range bin&#x27;s magnitude; the tall bar is a target. The flat line is</p>
+<p>a <strong>detection threshold</strong>. Anything above the line is declared a detection — and</p>
+<p>setting that line correctly is what <span class="wikilink-unresolved">CFAR</span> does. The</p>
+<p>full map stacks 64 such rows (range) across 32 Doppler columns.</p></div></div>
+
+<p><strong>In radarv2 →</strong> <span class="wikilink-unresolved">RangeDopplerMap</span> is this grid;</p>
+<p><code>CfarDetector</code> thresholds it.</p>
+
+<hr>
+
+<h2 id="5-beamforming-the-angle-dimension">5. Beamforming (the angle dimension)<a class="ha" href="#5-beamforming-the-angle-dimension" aria-hidden="true">¶</a></h2>
+
+<p>Range and velocity tell you <em>where along a line</em> and <em>how fast</em>; <strong>angle</strong> tells you</p>
+<p><em>which line</em>. A <strong>phased array</strong> steers its beam electronically by delaying</p>
+<p>(phase-shifting) each antenna element so the wavefronts add up in the chosen</p>
+<p>direction — no moving parts. AERIS-10 steers 16 elements in azimuth and steps a</p>
+<p>motor for the rest.</p>
+
+<div class="mermaid">xychart-beta
+  title "Beam pattern, 16-element array (dB)"
+  x-axis "angle (deg)" -40 --> 40
+  y-axis "gain (dB)" -35 --> 0
+  line [-33,-35,-21,-13,0,-13,-21,-35,-33]</div>
+
+<div class="callout" data-callout="info"><div class="callout-title">Reading the plot</div><div class="callout-content"><p>The peak at 0° is the <strong>mainlobe</strong> — where the radar is &quot;looking.&quot; The smaller</p>
+<p>bumps are <strong>sidelobes</strong> (here the first is ≈ −13 dB down). Steering shifts this</p>
+<p>whole pattern left/right; the beam is ≈ 6.3° wide for this array.</p></div></div>
+
+<div class="callout" data-callout="tip"><div class="callout-title">Intuition</div><div class="callout-content"><p>Think of dropping pebbles in a row, each a moment after the last: the ripples</p>
+<p>reinforce in one direction. Phasing the antenna elements does the same to radio</p>
+<p>waves. <strong>The phase slope across elements picks the look direction.</strong></p></div></div>
+
+<p><strong>In radarv2 →</strong> <code>ScanController</code> computes the beam azimuth/elevation per dwell.</p>
+<p>Geometry: <a href="03-Beamforming-and-Scan.html" class="internal-link">03-Beamforming-and-Scan</a>.</p>
+
+<hr>
+
+<h2 id="6-cfar-deciding-what-s-really-there">6. CFAR (deciding what&#x27;s really there)<a class="ha" href="#6-cfar-deciding-what-s-really-there" aria-hidden="true">¶</a></h2>
+
+<p>A fixed threshold fails: noise level varies across the map (clutter, gain, range),</p>
+<p>so a fixed line gives too many false alarms in some places and misses targets in</p>
+<p>others. <strong>CFAR</strong> (Constant False-Alarm Rate) estimates the local noise from the</p>
+<p><em>neighbouring</em> cells and sets the threshold just above it — keeping the false-alarm</p>
+<p>rate constant everywhere.</p>
+
+<div class="callout" data-callout="tip"><div class="callout-title">Intuition</div><div class="callout-content"><p>&quot;Is this cell unusually bright <strong>compared to its neighbours</strong>?&quot; — not &quot;compared to</p>
+<p>a fixed number.&quot; That one change is the whole idea. Details + the cell layout</p>
+<p>diagram: <a href="07-Detection-and-Tracking.html" class="internal-link">07-Detection-and-Tracking</a>.</p></div></div>
+
+<p><strong>In radarv2 →</strong> <code>CfarDetector</code> implements CA-CFAR (the upstream ships only a</p>
+<p>placeholder fixed threshold; radarv2 upgrades it).</p>
+
+<hr>
+
+<h2 id="7-glossary-quick-reference">7. Glossary (quick reference)<a class="ha" href="#7-glossary-quick-reference" aria-hidden="true">¶</a></h2>
+
+<table class="md-table"><thead><tr><th>Term</th><th>One line</th></tr></thead><tbody><tr><td>Chirp / LFM</td><td>A pulse whose frequency ramps linearly; lets delay become a measurable beat tone</td></tr><tr><td>Beat frequency $f_b$</td><td>The constant frequency gap between TX and echo; ∝ range</td></tr><tr><td>Bandwidth $B$</td><td>How far the chirp sweeps; sets range resolution $\Delta R = c/2B$</td></tr><tr><td>PRI $T_r$</td><td>Time between chirps (slow-time step)</td></tr><tr><td>CPI / $M$</td><td>The block of chirps integrated for Doppler</td></tr><tr><td>Range bin</td><td>One cell along the range axis of the map</td></tr><tr><td>Doppler bin</td><td>One cell along the velocity axis of the map</td></tr><tr><td>Range-Doppler map</td><td>The 2-D range × velocity grid; targets are bright spots</td></tr><tr><td>Pulse compression</td><td>Matched-filtering the echo against the known chirp to sharpen range</td></tr><tr><td>Beamforming</td><td>Phasing array elements to steer the beam electronically</td></tr><tr><td>CFAR</td><td>Adaptive threshold from neighbouring cells → constant false-alarm rate</td></tr><tr><td>Dwell</td><td>One beam position&#x27;s worth of chirps (a CPI at one az/el)</td></tr><tr><td>Scan</td><td>Sweeping the beam over all az/el to cover the sky</td></tr></tbody></table>
+
+<p>Now continue to <a href="01-System-Overview.html" class="internal-link">01-System-Overview</a> — or jump straight to the part you want from</p>
+<p><a href="00-Index.html" class="internal-link">00-Index</a>.</p>
+
+</div>
+  </div><!-- main-content -->
+</div><!-- site-shell -->
+<script>
+mermaid.initialize({ startOnLoad: true, theme: 'dark', securityLevel: 'loose' });
+</script>
+</body>
+
+</html>

@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>08_adaptive_beamforming — aros Vault</title>
+<style>
+
+:root {
+  --color-blue:    #007ACC;
+  --color-green:   #2DA44E;
+  --color-yellow:  #D29922;
+  --color-purple:  #8B5CF6;
+  --color-orange:  #F59E0B;
+  --color-red:     #E5534B;
+  --color-cyan:    #0BC5EA;
+  --color-accent:  #7C3AED;
+  --text-normal:   #DCDDDE;
+  --text-muted:    #8E8EA0;
+  --background-primary:         #1E1E2E;
+  --background-secondary:       #181825;
+  --background-modifier-border: #313244;
+  --color-base-30:              #45475A;
+}
+body {
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.6;
+  margin: 0;
+}
+
+</style>
+<!-- Mermaid -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<!-- MathJax -->
+<script>window.MathJax={tex:{inlineMath:[['$','$'],['\\(','\\)']],displayMath:[['$$','$$'],['\\[','\\]']]},options:{skipHtmlTags:['script','noscript','style','textarea','pre']}};</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+<!-- Site CSS -->
+<link rel="stylesheet" href="../../site.css">
+</head>
+<body class="markdown-reading-view">
+<div class="site-shell">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <a href="../../00-Index.html" class="site-title">radarv2 / AERIS-10</a>
+      <div class="site-subtitle">aros Radar Documentation</div>
+    </div>
+    <ul class="nav-list">
+      <li class="nav-section">Core Docs</li>
+      <li><a href="../../09-Concepts-Primer.html">Radar Primer</a></li>
+      <li><a href="../../00-Index.html">Index</a></li>
+      <li><a href="../../01-System-Overview.html">System Overview</a></li>
+      <li><a href="../../02-Physics-and-Waveform.html">Physics &amp; Waveform</a></li>
+      <li><a href="../../03-Beamforming-and-Scan.html">Beamforming &amp; Scan</a></li>
+      <li><a href="../../04-Signal-Processing-Pipeline.html">Signal Processing</a></li>
+      <li><a href="../../05-Node-Architecture.html">Node Architecture</a></li>
+      <li><a href="../../06-Message-Catalog.html">Message Catalog</a></li>
+      <li><a href="../../07-Detection-and-Tracking.html">Detection &amp; Tracking</a></li>
+      <li><a href="../../08-Scenarios-and-Targets.html">Scenarios &amp; Targets</a></li>
+      <li class="nav-section">Advanced</li>
+      <li><a href="../../10-Radar-Model-Library.html">Radar Model Library</a></li>
+      <li><a href="../../11-Multi-Radar-Fusion.html">Multi-Radar Fusion</a></li>
+      <li><a href="../../12-3D-Scene.html">3-D Scene</a></li>
+      <li><a href="../../13-Reference-Tables.html">Reference Tables</a></li>
+      <li><a href="../../FUTURE-DEVELOPMENT.html">Future Development</a></li>
+      <li class="nav-section">Upstream Theory</li>
+      <li><a href="../../upstream/README.html">Upstream README</a></li>
+      <li><a href="../../upstream/00_notation/conventions.html">Notation</a></li>
+      <li><a href="../../upstream/01_physics/01_fmcw_theory.html">FMCW Theory</a></li>
+      <li><a href="../../upstream/01_physics/02_lfm_waveform_model.html">LFM Waveform</a></li>
+      <li><a href="../../upstream/01_physics/03_beamforming_theory.html">Beamforming Theory</a></li>
+      <li><a href="../../upstream/01_physics/04_detection_theory.html">Detection Theory</a></li>
+      <li><a href="../../upstream/01_physics/05_noise_analysis.html">Noise Analysis</a></li>
+      <li><a href="../../upstream/01_physics/06_calibration_theory.html">Calibration</a></li>
+      <li><a href="../../upstream/02_hardware/01_system_overview.html">HW Overview</a></li>
+      <li><a href="../../upstream/04_research/01_cfar_variants.html">CFAR Variants</a></li>
+    </ul>
+    <div class="sidebar-footer">
+      <a href="https://github.com/brkay54/radarv2-docs" target="_blank">GitHub</a>
+    </div>
+  </nav>
+  <div class="main-content">
+
+<div class="markdown-preview-section">
+<h1 id="adaptive-beamforming-research">Adaptive Beamforming Research<a class="ha" href="#adaptive-beamforming-research" aria-hidden="true">¶</a></h1>
+
+<p class="kv-line"><span class="kv-key">Purpose:</span> <span class="kv-value">Survey adaptive beamforming algorithms (MVDR, LCMV, robust beamforming) for the AERIS-10 radar system, with feasibility assessment against Artix-7 FPGA resource constraints and ADAR1000 phase/gain quantization limits.</span></p>
+
+<p class="kv-line"><span class="kv-key">Prerequisites:</span> <span class="kv-value">Familiarity with:</span></p>
+<ul><li><a href="../00_notation/symbol_table.md">Symbol Table</a> -- all symbols used herein</li><li><a href="../00_notation/parameter_table.md">Parameter Table</a> -- numerical values for both variants</li><li><a href="../00_notation/conventions.md">Conventions</a> -- equation formatting rules</li><li><a href="../01_physics/03_beamforming_theory.md">Beamforming Theory</a> -- array factor derivation, beam steering, grating lobes</li><li><a href="../02_hardware/04_antenna_beamforming.md">Antenna &amp; Beamforming Hardware</a> -- ADAR1000 phase/gain control, beam steering tables</li><li><a href="../02_hardware/05_fpga_board.md">FPGA Board</a> -- Artix-7 XC7A100T resource capacity</li></ul>
+
+<hr>
+
+<h2 id="1-current-state">1. Current State<a class="ha" href="#1-current-state" aria-hidden="true">¶</a></h2>
+
+<h3 id="1-1-fixed-beam-steering-architecture">1.1 Fixed Beam Steering Architecture<a class="ha" href="#1-1-fixed-beam-steering-architecture" aria-hidden="true">¶</a></h3>
+
+<p>The AERIS-10 radar uses <strong>fixed beam steering tables</strong> with no adaptive capability. The beam pattern is determined by pre-computed phase settings stored in firmware beam matrices, as documented in Section 3 of <a href="../02_hardware/04_antenna_beamforming.md#3-beam-steering-implementation"><code>02_hardware/04_antenna_beamforming.md</code></a>.</p>
+
+<p>The array factor for the $N = 16$ element uniform linear array (ULA) is (from Eq. (BF-3) in <a href="../01_physics/03_beamforming_theory.md#2-array-factor"><code>01_physics/03_beamforming_theory.md</code></a>):</p>
+
+<p>$$</p>
+<p>AF(\theta) = \sum_{n=0}^{N-1} w_n \, e^{jn\psi} \tag{BF-3}</p>
+<p>$$</p>
+
+<p>where $\psi = kd(\sin\theta - \sin\theta_0)$ (Eq. (BF-5)) and $w_n$ are the element weights. In the current system, the weights are uniform ($w_n = 1$) and only the progressive phase shift $\Delta\phi = -kd\sin\theta_0$ (Eq. (BF-4)) is applied.</p>
+
+<p>The firmware defines 31 inter-element phase differences (<code>phase_differences[31]</code> in <code>main.cpp</code>) mapping to 31 elevation beam positions. Position 15 is broadside ($\Delta\phi = 0$), with symmetric positive and negative steering up to $\Delta\phi = \pm 160°$ (corresponding to $\theta_0 \approx \pm 62.7°$, though the effective scan range is approximately $\pm 33°$ for acceptable beam quality per the grating lobe analysis of Eq. (BF-16)).</p>
+
+<h3 id="1-2-adar1000-hardware-constraints">1.2 ADAR1000 Hardware Constraints<a class="ha" href="#1-2-adar1000-hardware-constraints" aria-hidden="true">¶</a></h3>
+
+<p>The ADAR1000 beamformer IC imposes two critical precision constraints on any adaptive beamforming scheme:</p>
+
+<p class="kv-line"><span class="kv-key">Phase quantization:</span> <span class="kv-value">The ADAR1000 provides 7-bit phase control (128 steps) with a step size of (from Eq. (HW-ANT-1) in <a href="../02_hardware/04_antenna_beamforming.md#24-phase-control"><code>02_hardware/04_antenna_beamforming.md</code></a>):</span></p>
+
+<p>$$</p>
+<p>\Delta\phi_\text{step} = \frac{360°}{128} = 2.8125° \tag{HW-ANT-1}</p>
+<p>$$</p>
+
+<p>The maximum phase error per element is $\Delta\phi_\text{step}/2 = 1.40625°$. For $N = 16$ elements, this quantization limits the achievable sidelobe suppression to approximately $-29~\text{dB}$ (predicted by the phase quantization analysis in <a href="../01_physics/03_beamforming_theory.md"><code>01_physics/03_beamforming_theory.md</code></a>). This is a <strong>hard precision floor</strong> that no adaptive algorithm can overcome without hardware modification.</p>
+
+<p class="kv-line"><span class="kv-key">Gain quantization:</span> <span class="kv-value">The ADAR1000 VGA provides 8-bit gain control. The effective gain resolution is approximately $0.5~\text{dB}$ per step. Amplitude tapering for sidelobe control (Section 8 of the beamforming theory) is limited by this resolution.</span></p>
+
+<p class="kv-line"><span class="kv-key">SPI update rate:</span> <span class="kv-value">The firmware writes phase settings via SPI, bypassing the ADAR1000 beam RAM (<code>MEM_CTRL_BIAS_RAM_BYPASS | MEM_CTRL_BEAM_RAM_BYPASS</code>). Each 16-element weight update requires 4 ADAR1000 devices x 4 channels x 2 registers (I and Q) = 32 SPI transactions, plus the <code>LOAD_WORKING</code> register write per device (4 transactions). At the STM32F746 SPI1 clock rate, each 3-byte SPI transaction takes approximately $1$-$2~\mu\text{s}$, giving a total weight update time of approximately:</span></p>
+
+<p>$$</p>
+<p>T_\text{update} \approx 36 \times 2~\mu\text{s} = 72~\mu\text{s}</p>
+<p>$$</p>
+
+<p>This is fast enough for per-beam-position updates but limits the rate of adaptive weight adaptation to the beam scan rate (31 positions per azimuth step).</p>
+
+<h3 id="1-3-current-system-limitations">1.3 Current System Limitations<a class="ha" href="#1-3-current-system-limitations" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Aspect</th><th>Current State</th><th>Impact</th></tr></thead><tbody><tr><td>Weight adaptation</td><td>None -- fixed uniform weights</td><td>No interference rejection, no adaptive null steering</td></tr><tr><td>Sidelobe control</td><td>Uniform weights: $-13.3~\text{dB}$ first sidelobe (from Eq. (BF-9))</td><td>Interference from sidelobe directions degrades detection</td></tr><tr><td>Null steering</td><td>Not available</td><td>Cannot suppress known interferers</td></tr><tr><td>Pattern optimization</td><td>Pre-computed phase tables only</td><td>Cannot adapt to changing interference environment</td></tr></tbody></table>
+
+<h3 id="1-4-fpga-resource-context">1.4 FPGA Resource Context<a class="ha" href="#1-4-fpga-resource-context" aria-hidden="true">¶</a></h3>
+
+<p>The Artix-7 XC7A100T has the following resource capacity (from <a href="../02_hardware/05_fpga_board.md"><code>02_hardware/05_fpga_board.md</code></a>):</p>
+
+<table class="md-table"><thead><tr><th>Resource</th><th>Available</th><th>Estimated Used</th><th>Remaining</th></tr></thead><tbody><tr><td>LUTs</td><td>63,400</td><td>~16,500 (26%)</td><td>~46,900</td></tr><tr><td>DSP48E1</td><td>240</td><td>~89 (37%)</td><td>~151</td></tr><tr><td>BRAM (36 Kb)</td><td>135</td><td>~101 (75%)</td><td>~34</td></tr><tr><td>Flip-Flops</td><td>126,800</td><td>--</td><td>--</td></tr></tbody></table>
+
+<p class="kv-line"><span class="kv-key">Critical constraint:</span> <span class="kv-value">BRAM utilization is already at ~75%. Any on-FPGA adaptive beamforming algorithm requiring significant buffer memory faces a tight resource budget. DSP availability (~151 remaining) is the second-most constraining resource for matrix-intensive algorithms.</span></p>
+
+<hr>
+
+<h2 id="2-literature-survey">2. Literature Survey<a class="ha" href="#2-literature-survey" aria-hidden="true">¶</a></h2>
+
+<h3 id="2-1-mvdr-minimum-variance-distortionless-response">2.1 MVDR (Minimum Variance Distortionless Response)<a class="ha" href="#2-1-mvdr-minimum-variance-distortionless-response" aria-hidden="true">¶</a></h3>
+
+<p>The MVDR beamformer, also known as the Capon beamformer, minimizes the output power subject to a distortionless constraint in the look direction:</p>
+
+<p>$$</p>
+<p>\min_{\mathbf{w}} \; \mathbf{w}^H \mathbf{R}_{xx} \mathbf{w} \quad \text{subject to} \quad \mathbf{w}^H \mathbf{a}(\theta_0) = 1</p>
+<p>$$</p>
+
+<p>where $\mathbf{R}_{xx}$ is the $N \times N$ sample covariance matrix and $\mathbf{a}(\theta_0)$ is the steering vector for the look direction. The closed-form solution is:</p>
+
+<p>$$</p>
+<p>\mathbf{w}_\text{MVDR} = \frac{\mathbf{R}_{xx}^{-1} \mathbf{a}(\theta_0)}{\mathbf{a}^H(\theta_0) \mathbf{R}_{xx}^{-1} \mathbf{a}(\theta_0)}</p>
+<p>$$</p>
+
+<p><strong>Computational requirements:</strong></p>
+
+<table class="md-table"><thead><tr><th>Operation</th><th>Complexity</th><th>For $N = 16$</th></tr></thead><tbody><tr><td>Covariance estimation $\mathbf{R}_{xx}$</td><td>$O(K \cdot N^2)$, $K$ = snapshot count</td><td>$K \times 256$ multiply-accumulates</td></tr><tr><td>Matrix inversion $\mathbf{R}_{xx}^{-1}$</td><td>$O(N^3)$</td><td>4,096 multiply-accumulates</td></tr><tr><td>Weight computation</td><td>$O(N^2)$</td><td>256 multiply-accumulates</td></tr><tr><td><strong>Total per update</strong></td><td>$O(K \cdot N^2 + N^3)$</td><td>Dominated by covariance estimation</td></tr></tbody></table>
+
+<p class="kv-line"><span class="kv-key">Covariance matrix estimation:</span> <span class="kv-value">MVDR requires $K \geq 2N = 32$ independent snapshots for a well-conditioned $\mathbf{R}_{xx}$ estimate (Rule of thumb: $K \geq 2N$ for reliable inversion). The current system provides $M = 32$ chirps per CPI per beam position, potentially providing exactly the minimum required snapshots if each chirp is treated as an independent spatial sample.</span></p>
+
+<p class="kv-line"><span class="kv-key">FPGA implementations:</span> <span class="kv-value">Published MVDR implementations on Xilinx FPGAs require substantial resources:</span></p>
+
+<table class="md-table"><thead><tr><th>Reference</th><th>FPGA</th><th>DSP Slices</th><th>LUTs</th><th>Notes</th></tr></thead><tbody><tr><td>MathWorks HDL-optimized MVDR</td><td>Kintex UltraScale+</td><td>~1,000+</td><td>~50,000+</td><td>16-element, fixed-point</td></tr><tr><td>ScienceDirect 2024</td><td>XCKU085</td><td>4,000+</td><td>--</td><td>Real-time MVDR with matrix inversion</td></tr><tr><td>Springer 2017 (comparison)</td><td>Virtex-7</td><td>~2,000</td><td>~30,000</td><td>8-element array</td></tr></tbody></table>
+
+<p>These implementations target FPGAs with 2,000-4,000+ DSP slices. The Artix-7 XC7A100T has only 240 DSP48E1 slices, of which ~89 are already used.</p>
+
+<p class="kv-line"><span class="kv-key">ADAR1000 quantization impact on MVDR:</span> <span class="kv-value">The MVDR algorithm computes optimal complex weights with full floating-point precision. However, the ADAR1000 quantizes these weights to 7-bit phase ($2.8°$ steps) and 8-bit gain ($0.5~\text{dB}$ steps). This quantization degrades the adaptive null depth. For a $-29~\text{dB}$ phase quantization floor (as predicted for $N = 16$), the achievable null depth of quantized MVDR weights is limited to approximately $-25$ to $-30~\text{dB}$, compared to $-40$ to $-60~\text{dB}$ achievable with unquantized weights. The ADAR1000 quantization, not the algorithm, becomes the precision bottleneck.</span></p>
+
+<p><strong>References:</strong></p>
+<ul><li>Capon, J., &quot;High-resolution frequency-wavenumber spectrum analysis,&quot; <em>Proceedings of the IEEE</em>, vol. 57, no. 8, pp. 1408-1418, 1969</li><li>Van Trees, H.L., <em>Optimum Array Processing</em>, Wiley, 2002, Ch. 6-7</li><li>MathWorks, &quot;FPGA-Based Uniform Linear Array MVDR Beamformer,&quot; HDL Coder documentation</li><li>Elgonemy, F. et al., &quot;MVDR Algorithm and FPGA Integration,&quot; <em>ScienceDirect</em>, 2024</li></ul>
+
+<h3 id="2-2-lcmv-linearly-constrained-minimum-variance">2.2 LCMV (Linearly Constrained Minimum Variance)<a class="ha" href="#2-2-lcmv-linearly-constrained-minimum-variance" aria-hidden="true">¶</a></h3>
+
+<p>The LCMV beamformer generalizes MVDR by allowing multiple linear constraints:</p>
+
+<p>$$</p>
+<p>\min_{\mathbf{w}} \; \mathbf{w}^H \mathbf{R}_{xx} \mathbf{w} \quad \text{subject to} \quad \mathbf{C}^H \mathbf{w} = \mathbf{f}</p>
+<p>$$</p>
+
+<p>where $\mathbf{C}$ is the $N \times L$ constraint matrix and $\mathbf{f}$ is the $L \times 1$ response vector. The closed-form solution is:</p>
+
+<p>$$</p>
+<p>\mathbf{w}_\text{LCMV} = \mathbf{R}_{xx}^{-1} \mathbf{C} (\mathbf{C}^H \mathbf{R}_{xx}^{-1} \mathbf{C})^{-1} \mathbf{f}</p>
+<p>$$</p>
+
+<p class="kv-line"><span class="kv-key">Additional capability over MVDR:</span> <span class="kv-value">LCMV can simultaneously:</span></p>
+<ul><li>Maintain unity gain in the look direction (same as MVDR)</li><li>Place nulls at known interferer directions (null steering)</li><li>Maintain specified gain in multiple directions (multi-beam)</li></ul>
+
+<p><strong>Constraint design examples:</strong></p>
+<ul><li><strong>Single null:</strong> $\mathbf{C} = [\mathbf{a}(\theta_0), \mathbf{a}(\theta_\text{int})]$, $\mathbf{f} = [1, 0]^T$ -- maintain look direction gain, null at $\theta_\text{int}$</li><li><strong>Multiple nulls:</strong> Add columns to $\mathbf{C}$ for each interferer direction</li></ul>
+
+<p class="kv-line"><span class="kv-key">Computational requirements:</span> <span class="kv-value">Similar to MVDR, with an additional $O(L^3)$ matrix inversion for the constraint subspace. For $L = 2$-$3$ constraints, this overhead is minimal.</span></p>
+
+<p class="kv-line"><span class="kv-key">FPGA feasibility:</span> <span class="kv-value">Same resource requirements as MVDR -- the matrix inversion of $\mathbf{R}_{xx}$ dominates. Published FPGA implementations require comparable DSP/LUT resources (2,000+ DSPs).</span></p>
+
+<p><strong>References:</strong></p>
+<ul><li>Frost, O.L., &quot;An algorithm for linearly constrained adaptive array processing,&quot; <em>Proceedings of the IEEE</em>, vol. 60, no. 8, pp. 926-935, 1972</li><li>Van Trees, H.L., <em>Optimum Array Processing</em>, Wiley, 2002, Ch. 6.6</li></ul>
+
+<h3 id="2-3-hybrid-host-computed-approach">2.3 Hybrid Host-Computed Approach<a class="ha" href="#2-3-hybrid-host-computed-approach" aria-hidden="true">¶</a></h3>
+
+<p>Given the FPGA resource constraints, a hybrid architecture moves the adaptive weight computation to the host PC while maintaining the ADAR1000 hardware for weight application:</p>
+
+<pre><code>Host PC (Python)                    STM32 + ADAR1000
+     |                                    |
+     v                                    |
+Covariance estimation                     |
+     |                                    |
+     v                                    |
+MVDR/LCMV weight computation              |
+     |                                    |
+     v                                    v
+Weight quantization (7-bit phase,    SPI write to ADAR1000
+  8-bit gain)  ----USB CDC----&gt;      per beam position
+     |                                    |
+     v                                    v
+Performance monitoring               Beam steering execution</code></pre>
+
+<p class="kv-line"><span class="kv-key">Architecture:</span> <span class="kv-value">The host PC receives spatial data from the FPGA (individual element signals or covariance statistics), computes optimal weights using NumPy (MVDR/LCMV in Python with full floating-point precision), quantizes the weights to ADAR1000 resolution, and downloads them via USB CDC to the STM32, which writes them to the ADAR1000 via SPI.</span></p>
+
+<p><strong>Latency analysis:</strong></p>
+
+<table class="md-table"><thead><tr><th>Stage</th><th>Estimated Time</th></tr></thead><tbody><tr><td>USB data transfer (covariance matrix, ~2 KB)</td><td>~0.5-1 ms</td></tr><tr><td>MVDR weight computation (Python/NumPy, $N = 16$)</td><td>~0.1-0.5 ms</td></tr><tr><td>Weight quantization</td><td>~0.01 ms</td></tr><tr><td>USB CDC weight download (32 bytes)</td><td>~0.5-1 ms</td></tr><tr><td>SPI write to ADAR1000 (36 transactions)</td><td>~0.072 ms</td></tr><tr><td><strong>Total round-trip latency</strong></td><td>~1.2-2.6 ms</td></tr></tbody></table>
+
+<p class="kv-line"><span class="kv-key">Update rate constraint:</span> <span class="kv-value">The hybrid approach can update weights approximately every 1-3 ms. Given that each beam position requires $M = 32$ chirps at PRI $\approx 167~\mu\text{s}$ (long chirp), the CPI duration per beam position is approximately $M \times T_\text{PRI} \approx 5.3~\text{ms}$. The hybrid update latency is shorter than a single CPI, enabling <strong>per-CPI weight adaptation</strong> -- sufficient for slowly varying interference environments.</span></p>
+
+<p><strong>Limitations:</strong></p>
+<ul><li>Cannot adapt faster than the USB round-trip time (~1-3 ms)</li><li>Requires individual element data to be streamed to the host (increases USB bandwidth)</li><li>The current FT601 data pipeline transmits processed range-Doppler maps, not raw per-element data; pipeline modification would be needed</li></ul>
+
+<p><strong>SPI update time for 16-element weight update</strong> (per Open Question 5 from the research phase): As calculated in Section 1.2, the full 16-element weight update takes approximately $72~\mu\text{s}$ via SPI -- fast enough to not be the bottleneck in the hybrid approach.</p>
+
+<h3 id="2-4-robust-beamforming">2.4 Robust Beamforming<a class="ha" href="#2-4-robust-beamforming" aria-hidden="true">¶</a></h3>
+
+<p>Robust beamforming methods reduce sensitivity to steering vector errors and hardware imperfections (including the ADAR1000 phase/gain quantization). These methods are computationally simpler than full MVDR/LCMV.</p>
+
+<p><strong>Diagonal loading:</strong></p>
+
+<p>The simplest robust technique adds a scaled identity matrix to the sample covariance:</p>
+
+<p>$$</p>
+<p>\mathbf{R}_\text{loaded} = \mathbf{R}_{xx} + \delta \mathbf{I}</p>
+<p>$$</p>
+
+<p>where $\delta &gt; 0$ is the diagonal loading factor. This improves the condition number of $\mathbf{R}_{xx}$, reducing sensitivity to:</p>
+<ul><li>Finite sample effects (small $K$)</li><li>Steering vector mismatch (pointing errors, mutual coupling)</li><li>Phase/gain quantization (ADAR1000 precision limits)</li></ul>
+
+<p>The loaded MVDR weight becomes:</p>
+
+<p>$$</p>
+<p>\mathbf{w}_\text{robust} = \frac{(\mathbf{R}_{xx} + \delta\mathbf{I})^{-1} \mathbf{a}(\theta_0)}{\mathbf{a}^H(\theta_0)(\mathbf{R}_{xx} + \delta\mathbf{I})^{-1} \mathbf{a}(\theta_0)}</p>
+<p>$$</p>
+
+<p>The computational cost is identical to standard MVDR since the loading is applied before inversion. The benefit is improved robustness at the cost of slightly reduced interference rejection.</p>
+
+<p><strong>Worst-case optimization:</strong></p>
+
+<p>More sophisticated robust methods optimize performance under worst-case steering vector uncertainty:</p>
+
+<p>$$</p>
+<p>\min_{\mathbf{w}} \; \mathbf{w}^H \mathbf{R}_{xx} \mathbf{w} \quad \text{subject to} \quad \min_{\|\mathbf{e}\| \leq \epsilon} |\mathbf{w}^H (\mathbf{a}(\theta_0) + \mathbf{e})| \geq 1</p>
+<p>$$</p>
+
+<p>where $\mathbf{e}$ represents the steering vector uncertainty and $\epsilon$ bounds its norm. This can be reformulated as a second-order cone program (SOCP), solvable in polynomial time but computationally heavier than diagonal loading.</p>
+
+<p><strong>FPGA feasibility for robust beamforming:</strong></p>
+
+<table class="md-table"><thead><tr><th>Approach</th><th>Complexity vs. MVDR</th><th>FPGA Potential</th></tr></thead><tbody><tr><td>Diagonal loading</td><td>Same (just add $\delta\mathbf{I}$)</td><td>Same as MVDR -- infeasible on Artix-7</td></tr><tr><td>Fixed robust weights (pre-computed)</td><td>Table lookup only</td><td>FEASIBLE (no real-time computation)</td></tr><tr><td>Worst-case SOCP</td><td>Higher than MVDR</td><td>INFEASIBLE on Artix-7</td></tr></tbody></table>
+
+<p class="kv-line"><span class="kv-key">Practical approach:</span> <span class="kv-value">Pre-compute robust beamforming weights offline for the expected interference scenarios, store them in lookup tables, and select the appropriate weight set based on detected interference direction. This avoids real-time matrix inversion entirely but provides limited adaptability.</span></p>
+
+<p><strong>References:</strong></p>
+<ul><li>Li, J., Stoica, P., and Wang, Z., &quot;On robust Capon beamforming and diagonal loading,&quot; <em>IEEE Trans. Signal Processing</em>, vol. 51, no. 7, pp. 1702-1715, 2003</li><li>Vorobyov, S.A., Gershman, A.B., and Luo, Z.-Q., &quot;Robust adaptive beamforming using worst-case performance optimization,&quot; <em>IEEE Trans. Signal Processing</em>, vol. 51, no. 2, pp. 313-324, 2003</li></ul>
+
+<h3 id="2-5-adar1000-quantization-impact-analysis">2.5 ADAR1000 Quantization Impact Analysis<a class="ha" href="#2-5-adar1000-quantization-impact-analysis" aria-hidden="true">¶</a></h3>
+
+<p>The ADAR1000 7-bit phase quantization ($2.8°$ steps) and 8-bit gain control fundamentally limit adaptive beamforming performance. This section quantifies the impact.</p>
+
+<p class="kv-line"><span class="kv-key">Phase quantization error model:</span> <span class="kv-value">Each element&#x27;s applied phase $\phi_n^\text{applied}$ differs from the desired phase $\phi_n^\text{desired}$ by a quantization error $e_n$:</span></p>
+
+<p>$$</p>
+<p>\phi_n^\text{applied} = \phi_n^\text{desired} + e_n, \quad |e_n| \leq \frac{\Delta\phi_\text{step}}{2} = 1.41°</p>
+<p>$$</p>
+
+<p>For deterministic rounding (as implemented in <code>degreesTo7BitPhase()</code> per Eq. (HW-ANT-5) in <a href="../02_hardware/04_antenna_beamforming.md#34-conversion-to-7-bit-adar1000-register-value"><code>02_hardware/04_antenna_beamforming.md</code></a>), the phase errors are bounded but not random. The resulting sidelobe floor is approximately:</p>
+
+<p>$$</p>
+<p>\text{SLL}_\text{quant} \approx -10\log_{10}\left(\frac{12}{\Delta\phi_\text{step,rad}^2 \cdot N}\right) \approx -29~\text{dB} \quad \text{for } N = 16</p>
+<p>$$</p>
+
+<p>This $-29~\text{dB}$ floor means:</p>
+<ul><li><strong>Adaptive null depth</strong> is limited to approximately $-25$ to $-30~\text{dB}$ regardless of algorithm precision</li><li><strong>MVDR/LCMV</strong> theoretical null depths of $-40$ to $-60~\text{dB}$ cannot be realized with ADAR1000 hardware</li><li><strong>Amplitude tapering</strong> for sidelobe control (e.g., Taylor $-30~\text{dB}$, Eq. (BF-18)) approaches the quantization floor -- achievable but with reduced margin</li></ul>
+
+<p class="kv-line"><span class="kv-key">Gain quantization impact:</span> <span class="kv-value">The $0.5~\text{dB}$ gain resolution adds a secondary error. For Taylor weights with $\bar{n} = 5$, SLL $= -30~\text{dB}$, the required amplitude taper ratio is approximately 4:1 (12 dB). With $0.5~\text{dB}$ steps, this is represented by 24 discrete gain levels -- adequate resolution for amplitude tapering but limiting for precise adaptive weight control.</span></p>
+
+<p class="kv-line"><span class="kv-key">Combined effect:</span> <span class="kv-value">The phase and gain quantization together establish an effective sidelobe/null floor of approximately $-27$ to $-30~\text{dB}$. Adaptive beamforming provides meaningful improvement only if the desired null depth is within this range. Deep nulls ($&lt; -30~\text{dB}$) are not achievable with the current ADAR1000 hardware.</span></p>
+
+<hr>
+
+<h2 id="3-gap-analysis">3. Gap Analysis<a class="ha" href="#3-gap-analysis" aria-hidden="true">¶</a></h2>
+
+<table class="md-table"><thead><tr><th>Gap</th><th>Impact</th><th>Severity</th></tr></thead><tbody><tr><td><strong>No adaptive weight computation</strong></td><td>Cannot reject interference or steer nulls</td><td>HIGH</td></tr><tr><td><strong>Fixed beam pattern</strong> (uniform weights only)</td><td>First sidelobe at $-13.3~\text{dB}$ -- poor interference rejection</td><td>HIGH</td></tr><tr><td><strong>No amplitude tapering</strong></td><td>Sidelobes higher than achievable with Taylor/Chebyshev weighting</td><td>MEDIUM</td></tr><tr><td><strong>No interference detection</strong></td><td>System cannot identify interferer directions for null steering</td><td>MEDIUM</td></tr><tr><td><strong>ADAR1000 quantization</strong> ($2.8°$ phase, $0.5~\text{dB}$ gain)</td><td>Limits achievable null depth to $\sim -29~\text{dB}$</td><td>MEDIUM (hardware constraint)</td></tr><tr><td><strong>No per-element data path to host</strong></td><td>Cannot compute covariance matrix for MVDR/LCMV on host</td><td>HIGH (for hybrid approach)</td></tr></tbody></table>
+
+<p><strong>Prioritized gap summary:</strong></p>
+<ul><li><strong>Adaptive weight computation</strong> (MVDR/LCMV): The fundamental missing capability. Even with ADAR1000 quantization limits, moving from $-13.3~\text{dB}$ sidelobes to $-29~\text{dB}$ null depth is a $16~\text{dB}$ improvement in interference rejection.</li><li><strong>Data path for covariance estimation</strong>: The hybrid approach requires per-element spatial data to be available at the host PC, which is not currently supported by the FT601 data pipeline.</li><li><strong>Amplitude tapering</strong>: Can be implemented with fixed Taylor/Chebyshev weights as a non-adaptive improvement, using the existing beam matrix architecture.</li></ul>
+
+<hr>
+
+<h2 id="4-feasibility-assessment">4. Feasibility Assessment<a class="ha" href="#4-feasibility-assessment" aria-hidden="true">¶</a></h2>
+
+<h3 id="4-1-mvdr-lcmv-on-fpga-real-time">4.1 MVDR/LCMV on FPGA (Real-Time)<a class="ha" href="#4-1-mvdr-lcmv-on-fpga-real-time" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Property</th><th>Value</th></tr></thead><tbody><tr><td>Algorithm complexity</td><td>$O(K \cdot N^2 + N^3)$ per beam position</td></tr><tr><td>Estimated DSPs required</td><td>~2,000-4,000 (matrix inversion, complex multiply-accumulate)</td></tr><tr><td>Estimated LUTs required</td><td>~30,000-50,000 (control logic, fixed-point arithmetic)</td></tr><tr><td>Estimated BRAMs required</td><td>~20-40 ($N \times N$ complex covariance matrix storage)</td></tr><tr><td>Pipeline integration</td><td>Would replace fixed beam steering in <code>radar_system_top.v</code></td></tr><tr><td>Published reference</td><td>ScienceDirect 2024: MVDR on XCKU085 (4,000+ DSPs); MathWorks: MVDR on Kintex UltraScale+ (~1,000 DSPs)</td></tr><tr><td><strong>Verdict</strong></td><td><strong>INFEASIBLE on Artix-7</strong> -- requires ~2,000+ DSPs vs. 151 available</td></tr></tbody></table>
+
+<p>The Artix-7 XC7A100T with 240 DSP48E1 slices (151 remaining) cannot support real-time MVDR/LCMV matrix operations. Published implementations consistently require Kintex UltraScale+ or Virtex-class FPGAs with 2,000-4,000+ DSP slices. This is a resource gap of approximately 10x-25x.</p>
+
+<h3 id="4-2-hybrid-host-computed-mvdr-lcmv">4.2 Hybrid Host-Computed MVDR/LCMV<a class="ha" href="#4-2-hybrid-host-computed-mvdr-lcmv" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Property</th><th>Value</th></tr></thead><tbody><tr><td>Algorithm complexity</td><td>Same as MVDR, but executed in Python/NumPy on host PC</td></tr><tr><td>FPGA resource cost</td><td>Minimal -- only per-element data streaming addition (~2-5 BRAMs for buffering)</td></tr><tr><td>Host computation time</td><td>~0.1-0.5 ms per weight update (NumPy <code>linalg.inv</code> for $16 \times 16$)</td></tr><tr><td>Round-trip latency</td><td>~1.2-2.6 ms (USB transfer + computation + SPI write)</td></tr><tr><td>Update rate achievable</td><td>Per-CPI (~5.3 ms per beam position)</td></tr><tr><td>Pipeline modification</td><td>Requires streaming per-element ADC data to host via FT601</td></tr><tr><td><strong>Verdict</strong></td><td><strong>FEASIBLE</strong> -- moves computation off-FPGA, latency acceptable for per-CPI updates</td></tr></tbody></table>
+
+<p class="kv-line"><span class="kv-key">Key requirement:</span> <span class="kv-value">The current FT601 data pipeline transmits processed range-Doppler maps (post-FFT, post-detection). For MVDR covariance estimation, the host needs access to per-element complex samples (pre-beamforming). This requires modifying the FPGA data pipeline to include a per-element data streaming mode -- a significant but bounded engineering effort.</span></p>
+
+<p class="kv-line"><span class="kv-key">ADAR1000 quantization limitation:</span> <span class="kv-value">Even with full-precision MVDR weights computed on the host, the quantized weights applied via ADAR1000 limit null depth to approximately $-29~\text{dB}$. The hybrid approach provides meaningful improvement (from $-13.3~\text{dB}$ uniform sidelobes to $-29~\text{dB}$ adaptive nulls) but cannot achieve the deep nulls ($-40$ to $-60~\text{dB}$) theoretically possible with MVDR.</span></p>
+
+<h3 id="4-3-robust-beamforming-with-diagonal-loading">4.3 Robust Beamforming with Diagonal Loading<a class="ha" href="#4-3-robust-beamforming-with-diagonal-loading" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Property</th><th>Value</th></tr></thead><tbody><tr><td>Algorithm complexity</td><td>Same as MVDR ($\delta\mathbf{I}$ addition is $O(N)$ overhead)</td></tr><tr><td>FPGA resource cost</td><td>Same as MVDR -- infeasible for real-time on Artix-7</td></tr><tr><td>Host-computed variant</td><td>Same as hybrid MVDR with improved robustness to quantization errors</td></tr><tr><td>Pre-computed table variant</td><td>Table lookup only -- FEASIBLE on FPGA (~2-4 BRAMs for weight storage)</td></tr><tr><td>Accuracy improvement</td><td>More stable than standard MVDR for small $K$ and quantized weights</td></tr><tr><td><strong>Verdict (real-time FPGA)</strong></td><td><strong>INFEASIBLE</strong> -- same DSP requirements as MVDR</td></tr><tr><td><strong>Verdict (host-computed)</strong></td><td><strong>FEASIBLE</strong> -- preferred over standard MVDR due to quantization robustness</td></tr><tr><td><strong>Verdict (pre-computed tables)</strong></td><td><strong>FEASIBLE</strong> -- limited adaptability but no real-time computation</td></tr></tbody></table>
+
+<h3 id="4-4-fixed-amplitude-tapering-non-adaptive">4.4 Fixed Amplitude Tapering (Non-Adaptive)<a class="ha" href="#4-4-fixed-amplitude-tapering-non-adaptive" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Property</th><th>Value</th></tr></thead><tbody><tr><td>Algorithm complexity</td><td>None (pre-computed weights)</td></tr><tr><td>FPGA resource cost</td><td>Zero additional (weights stored in existing beam matrices)</td></tr><tr><td>Implementation effort</td><td>Modify <code>initializeBeamMatrices()</code> to include amplitude weights alongside phase</td></tr><tr><td>Sidelobe improvement</td><td>Taylor $\bar{n} = 5$: from $-13.3~\text{dB}$ to $-30~\text{dB}$ (Eq. (BF-18))</td></tr><tr><td>Beamwidth impact</td><td>25% broadening ($\beta_\text{BB} \approx 1.25$)</td></tr><tr><td><strong>Verdict</strong></td><td><strong>FEASIBLE</strong> -- simplest improvement, no real-time computation needed</td></tr></tbody></table>
+
+<h3 id="4-5-artix-7-resource-summary">4.5 Artix-7 Resource Summary<a class="ha" href="#4-5-artix-7-resource-summary" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Approach</th><th>DSPs Needed</th><th>DSPs Available</th><th>LUTs Needed</th><th>LUTs Available</th><th>Verdict</th></tr></thead><tbody><tr><td>Real-time MVDR</td><td>~2,000-4,000</td><td>151</td><td>~30,000-50,000</td><td>46,900</td><td>INFEASIBLE</td></tr><tr><td>Real-time LCMV</td><td>~2,000-4,000</td><td>151</td><td>~30,000-50,000</td><td>46,900</td><td>INFEASIBLE</td></tr><tr><td>Real-time robust (SOCP)</td><td>&gt;4,000</td><td>151</td><td>&gt;50,000</td><td>46,900</td><td>INFEASIBLE</td></tr><tr><td>Hybrid host-computed</td><td>~0-5</td><td>151</td><td>~500-2,000</td><td>46,900</td><td>FEASIBLE</td></tr><tr><td>Pre-computed tables</td><td>0</td><td>151</td><td>~100-500</td><td>46,900</td><td>FEASIBLE</td></tr><tr><td>Fixed amplitude taper</td><td>0</td><td>151</td><td>0</td><td>46,900</td><td>FEASIBLE</td></tr></tbody></table>
+
+<p>The fundamental constraint is DSP count: real-time matrix inversion for MVDR/LCMV requires 10x-25x more DSP slices than the Artix-7 provides. Moving computation to the host PC eliminates this constraint entirely.</p>
+
+<hr>
+
+<h2 id="5-recommendations">5. Recommendations<a class="ha" href="#5-recommendations" aria-hidden="true">¶</a></h2>
+
+<h3 id="priority-1-hybrid-host-computed-mvdr">Priority 1: Hybrid Host-Computed MVDR<a class="ha" href="#priority-1-hybrid-host-computed-mvdr" aria-hidden="true">¶</a></h3>
+
+<ul><li><strong>Expected improvement:</strong> Adaptive null steering with $\sim -29~\text{dB}$ null depth (limited by ADAR1000 quantization), up from $-13.3~\text{dB}$ uniform sidelobes -- approximately $16~\text{dB}$ interference rejection improvement</li><li><strong>Resource cost:</strong> Minimal FPGA resources (~2-5 BRAMs for per-element data buffering); moderate host CPU load (Python/NumPy)</li><li><strong>Risk:</strong> MEDIUM -- requires FPGA pipeline modification to stream per-element data; USB bandwidth analysis needed</li><li><strong>Investigation steps:</strong></li><li>Assess FT601 USB 3.0 bandwidth for streaming $N = 16$ complex element samples per CPI (in addition to existing range-Doppler data)</li><li>Prototype MVDR weight computation in Python with diagonal loading for ADAR1000 quantization robustness</li><li>Measure actual ADAR1000 null depth with quantized MVDR weights vs. theoretical predictions</li><li>Design per-element data streaming mode for the FPGA data pipeline</li><li>Validate end-to-end latency (covariance estimation to weight application) against CPI timing</li></ul>
+
+<h3 id="priority-2-robust-beamforming-with-diagonal-loading-host-computed">Priority 2: Robust Beamforming with Diagonal Loading (Host-Computed)<a class="ha" href="#priority-2-robust-beamforming-with-diagonal-loading-host-computed" aria-hidden="true">¶</a></h3>
+
+<ul><li><strong>Expected improvement:</strong> Same null depth as MVDR but with improved stability against steering vector mismatch, mutual coupling, and ADAR1000 quantization errors</li><li><strong>Resource cost:</strong> Same as hybrid MVDR; diagonal loading parameter $\delta$ adds negligible computation</li><li><strong>Risk:</strong> LOW -- diagonal loading is a well-understood regularization technique</li><li><strong>Investigation steps:</strong></li><li>Implement alongside Priority 1 MVDR (trivial addition of $\delta\mathbf{I}$ to covariance matrix)</li><li>Determine optimal $\delta$ as a function of SNR and ADAR1000 quantization error variance</li><li>Compare null depth stability between standard MVDR and loaded MVDR across calibration states</li></ul>
+
+<h3 id="priority-3-real-time-fpga-mvdr-requires-fpga-upgrade">Priority 3: Real-Time FPGA MVDR (Requires FPGA Upgrade)<a class="ha" href="#priority-3-real-time-fpga-mvdr-requires-fpga-upgrade" aria-hidden="true">¶</a></h3>
+
+<ul><li><strong>Expected improvement:</strong> Eliminates host-PC latency; enables per-chirp weight adaptation instead of per-CPI</li><li><strong>Resource cost:</strong> Requires FPGA upgrade to Kintex UltraScale+ or Artix UltraScale+ (per HWRES-06 in Phase 6 research)</li><li><strong>Risk:</strong> HIGH -- requires PCB redesign, new FPGA bring-up, significant development effort</li><li><strong>Investigation steps:</strong></li><li>Wait for Phase 6 HWRES-06 (FPGA upgrade path) research results</li><li>Identify minimum FPGA with sufficient DSP count for $N = 16$ MVDR (target: 1,000+ DSPs)</li><li>Evaluate whether per-chirp adaptation provides meaningful improvement over per-CPI hybrid approach for the AERIS-10 operating environment</li><li>Cost-benefit analysis: FPGA upgrade cost vs. hybrid approach performance</li></ul>
+
+<h3 id="supplementary-fixed-amplitude-tapering-immediate">Supplementary: Fixed Amplitude Tapering (Immediate)<a class="ha" href="#supplementary-fixed-amplitude-tapering-immediate" aria-hidden="true">¶</a></h3>
+
+<ul><li><strong>Expected improvement:</strong> Sidelobe reduction from $-13.3~\text{dB}$ to $-30~\text{dB}$ with Taylor $\bar{n} = 5$ weighting; no adaptive capability but improves baseline interference rejection by $\sim 17~\text{dB}$</li><li><strong>Resource cost:</strong> Zero -- uses existing beam matrix infrastructure</li><li><strong>Risk:</strong> LOW -- pre-computed weights, no real-time computation</li><li><strong>Investigation steps:</strong></li><li>Compute Taylor weights for $N = 16$, $\bar{n} = 5$, SLL $= -30~\text{dB}$</li><li>Quantize to ADAR1000 8-bit gain resolution and evaluate sidelobe degradation</li><li>Modify <code>initializeBeamMatrices()</code> to include gain weights alongside phase settings</li><li>Measure beam pattern with amplitude tapering vs. uniform weights</li></ul>
+
+<hr>
+
+<h2 id="references">References<a class="ha" href="#references" aria-hidden="true">¶</a></h2>
+
+<h3 id="project-documentation">Project Documentation<a class="ha" href="#project-documentation" aria-hidden="true">¶</a></h3>
+<ul><li><a href="../00_notation/symbol_table.md">Symbol Table</a> -- canonical symbol definitions</li><li><a href="../00_notation/parameter_table.md">Parameter Table</a> -- numerical values for both variants</li><li><a href="../00_notation/conventions.md">Conventions</a> -- equation formatting rules</li><li><a href="../01_physics/03_beamforming_theory.md">Beamforming Theory</a> -- array factor Eq. (BF-3), steering Eq. (BF-4)/(BF-5), quantization sidelobes, Taylor weighting Eq. (BF-18)</li><li><a href="../02_hardware/04_antenna_beamforming.md">Antenna &amp; Beamforming Hardware</a> -- ADAR1000 phase control Eq. (HW-ANT-1), SPI interface, beam matrices</li><li><a href="../02_hardware/05_fpga_board.md">FPGA Board</a> -- XC7A100T resource capacity</li></ul>
+
+<h3 id="literature">Literature<a class="ha" href="#literature" aria-hidden="true">¶</a></h3>
+<ul><li>Capon, J., &quot;High-resolution frequency-wavenumber spectrum analysis,&quot; <em>Proceedings of the IEEE</em>, vol. 57, no. 8, pp. 1408-1418, 1969</li><li>Frost, O.L., &quot;An algorithm for linearly constrained adaptive array processing,&quot; <em>Proceedings of the IEEE</em>, vol. 60, no. 8, pp. 926-935, 1972</li><li>Li, J., Stoica, P., and Wang, Z., &quot;On robust Capon beamforming and diagonal loading,&quot; <em>IEEE Trans. Signal Processing</em>, vol. 51, no. 7, pp. 1702-1715, 2003</li><li>Van Trees, H.L., <em>Optimum Array Processing</em>, Wiley, 2002</li><li>Vorobyov, S.A., Gershman, A.B., and Luo, Z.-Q., &quot;Robust adaptive beamforming using worst-case performance optimization,&quot; <em>IEEE Trans. Signal Processing</em>, vol. 51, no. 2, pp. 313-324, 2003</li><li>Elgonemy, F. et al., &quot;MVDR Algorithm and FPGA Integration,&quot; <em>ScienceDirect</em>, 2024</li><li>Springer, &quot;MVDR and LCMV Beamformers FPGA Comparison,&quot; <em>Wireless Personal Communications</em>, 2017</li><li>MathWorks, &quot;FPGA-Based Uniform Linear Array MVDR Beamformer,&quot; HDL Coder documentation</li></ul>
+
+</div>
+  </div><!-- main-content -->
+</div><!-- site-shell -->
+<script>
+mermaid.initialize({ startOnLoad: true, theme: 'dark', securityLevel: 'loose' });
+</script>
+</body>
+
+</html>

@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>03_range_extension — aros Vault</title>
+<style>
+
+:root {
+  --color-blue:    #007ACC;
+  --color-green:   #2DA44E;
+  --color-yellow:  #D29922;
+  --color-purple:  #8B5CF6;
+  --color-orange:  #F59E0B;
+  --color-red:     #E5534B;
+  --color-cyan:    #0BC5EA;
+  --color-accent:  #7C3AED;
+  --text-normal:   #DCDDDE;
+  --text-muted:    #8E8EA0;
+  --background-primary:         #1E1E2E;
+  --background-secondary:       #181825;
+  --background-modifier-border: #313244;
+  --color-base-30:              #45475A;
+}
+body {
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.6;
+  margin: 0;
+}
+
+</style>
+<!-- Mermaid -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<!-- MathJax -->
+<script>window.MathJax={tex:{inlineMath:[['$','$'],['\\(','\\)']],displayMath:[['$$','$$'],['\\[','\\]']]},options:{skipHtmlTags:['script','noscript','style','textarea','pre']}};</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+<!-- Site CSS -->
+<link rel="stylesheet" href="../../site.css">
+</head>
+<body class="markdown-reading-view">
+<div class="site-shell">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <a href="../../00-Index.html" class="site-title">radarv2 / AERIS-10</a>
+      <div class="site-subtitle">aros Radar Documentation</div>
+    </div>
+    <ul class="nav-list">
+      <li class="nav-section">Core Docs</li>
+      <li><a href="../../09-Concepts-Primer.html">Radar Primer</a></li>
+      <li><a href="../../00-Index.html">Index</a></li>
+      <li><a href="../../01-System-Overview.html">System Overview</a></li>
+      <li><a href="../../02-Physics-and-Waveform.html">Physics &amp; Waveform</a></li>
+      <li><a href="../../03-Beamforming-and-Scan.html">Beamforming &amp; Scan</a></li>
+      <li><a href="../../04-Signal-Processing-Pipeline.html">Signal Processing</a></li>
+      <li><a href="../../05-Node-Architecture.html">Node Architecture</a></li>
+      <li><a href="../../06-Message-Catalog.html">Message Catalog</a></li>
+      <li><a href="../../07-Detection-and-Tracking.html">Detection &amp; Tracking</a></li>
+      <li><a href="../../08-Scenarios-and-Targets.html">Scenarios &amp; Targets</a></li>
+      <li class="nav-section">Advanced</li>
+      <li><a href="../../10-Radar-Model-Library.html">Radar Model Library</a></li>
+      <li><a href="../../11-Multi-Radar-Fusion.html">Multi-Radar Fusion</a></li>
+      <li><a href="../../12-3D-Scene.html">3-D Scene</a></li>
+      <li><a href="../../13-Reference-Tables.html">Reference Tables</a></li>
+      <li><a href="../../FUTURE-DEVELOPMENT.html">Future Development</a></li>
+      <li class="nav-section">Upstream Theory</li>
+      <li><a href="../../upstream/README.html">Upstream README</a></li>
+      <li><a href="../../upstream/00_notation/conventions.html">Notation</a></li>
+      <li><a href="../../upstream/01_physics/01_fmcw_theory.html">FMCW Theory</a></li>
+      <li><a href="../../upstream/01_physics/02_lfm_waveform_model.html">LFM Waveform</a></li>
+      <li><a href="../../upstream/01_physics/03_beamforming_theory.html">Beamforming Theory</a></li>
+      <li><a href="../../upstream/01_physics/04_detection_theory.html">Detection Theory</a></li>
+      <li><a href="../../upstream/01_physics/05_noise_analysis.html">Noise Analysis</a></li>
+      <li><a href="../../upstream/01_physics/06_calibration_theory.html">Calibration</a></li>
+      <li><a href="../../upstream/02_hardware/01_system_overview.html">HW Overview</a></li>
+      <li><a href="../../upstream/04_research/01_cfar_variants.html">CFAR Variants</a></li>
+    </ul>
+    <div class="sidebar-footer">
+      <a href="https://github.com/brkay54/radarv2-docs" target="_blank">GitHub</a>
+    </div>
+  </nav>
+  <div class="main-content">
+
+<div class="markdown-preview-section">
+<h1 id="range-extension-via-snr-optimization">Range Extension via SNR Optimization<a class="ha" href="#range-extension-via-snr-optimization" aria-hidden="true">¶</a></h1>
+
+<p class="kv-line"><span class="kv-key">Purpose:</span> <span class="kv-value">Survey coherent and non-coherent integration techniques for extending AERIS-10 detection range, with range migration analysis for CPI extension proposals and Artix-7 feasibility assessments.</span></p>
+
+<p class="kv-line"><span class="kv-key">Prerequisites:</span> <span class="kv-value">Familiarity with:</span></p>
+<ul><li><a href="../00_notation/symbol_table.md">Symbol Table</a> -- all symbols used herein</li><li><a href="../00_notation/parameter_table.md">Parameter Table</a> -- numerical values for both variants</li><li><a href="../00_notation/conventions.md">Conventions</a> -- equation formatting rules</li><li><a href="../01_physics/05_noise_analysis.md">Noise Figure Chain</a> -- system noise figure budget (Eqs. NF-1 through NF-18)</li><li><a href="../01_physics/01_fmcw_theory.md">FMCW Theory</a> -- radar range equation and Doppler measurement</li><li><a href="../03_software/01_fpga_pipeline.md">FPGA Pipeline</a> -- current Doppler processing implementation (Stages 4--7)</li></ul>
+
+<hr>
+
+<h2 id="1-current-state">1. Current State<a class="ha" href="#1-current-state" aria-hidden="true">¶</a></h2>
+
+<p>The AERIS-10 radar detection range is governed by the monostatic radar range equation, Eq. (FMCW-11) in <a href="../01_physics/01_fmcw_theory.md#signal-to-noise-ratio"><code>01_physics/01_fmcw_theory.md</code></a>:</p>
+
+<p>$$</p>
+<p>\text{SNR} = \frac{P_t G^2 \lambda^2 \sigma}{(4\pi)^3 R^4 k_B T_0 B_n F_\text{total} L} \tag{FMCW-11}</p>
+<p>$$</p>
+
+<p>where $F_\text{total}$ is the complete system noise figure from antenna to digital output, traced through the four-stage analog chain and the CIC digital processing chain in Eqs. (NF-1) through (NF-18) of <a href="../01_physics/05_noise_analysis.md"><code>01_physics/05_noise_analysis.md</code></a>. The representative system noise figure is $F_\text{sys} \approx 3.36~\text{dB}$ (placeholder values, pending parameter resolution), with the LNA noise figure dominating per the Friis cascade analysis of Eq. (NF-7) and Eq. (NF-8).</p>
+
+<h3 id="current-integration-parameters">Current Integration Parameters<a class="ha" href="#current-integration-parameters" aria-hidden="true">¶</a></h3>
+
+<p>The system currently implements coherent integration across $M = 32$ chirps per CPI in the Doppler processor (Stage 7 of the FPGA pipeline, see <a href="../03_software/01_fpga_pipeline.md#9-stage-7-doppler-processing"><code>03_software/01_fpga_pipeline.md</code></a>, Eq. (SW-6)):</p>
+
+<table class="md-table"><thead><tr><th>Parameter</th><th>Symbol</th><th>Current Value</th><th>Source</th></tr></thead><tbody><tr><td>Chirps per CPI</td><td>$M$</td><td>32</td><td><code>CHIRPS_PER_FRAME</code> in <code>doppler_processor.v</code></td></tr><tr><td>Doppler FFT size</td><td>$N_\text{Doppler}$</td><td>32</td><td><code>DOPPLER_FFT_SIZE</code></td></tr><tr><td>Range bins (decimated)</td><td>$N_\text{rb}$</td><td>64</td><td><code>RANGE_BINS</code></td></tr><tr><td>FFT size (range)</td><td>$N_\text{FFT}$</td><td>1024</td><td><code>BUFFER_SIZE</code></td></tr><tr><td>Hamming window</td><td>$w[n]$</td><td>32-point Q15</td><td>Pre-calculated coefficients in <code>doppler_processor.v</code></td></tr></tbody></table>
+
+<p>The Doppler processor accumulates $M$ chirps in block RAM with chirp-major addressing (Eq. (SW-6)), applies a Hamming window, and computes a 32-point FFT per range bin using the Xilinx <code>xfft_32</code> IP core. The coherent integration gain is inherent in the Doppler FFT: coherent summation of $M$ chirps provides an SNR improvement of $M$ (in linear scale), corresponding to $10\log_{10}(32) = 15.1~\text{dB}$.</p>
+
+<h3 id="current-range-limitations">Current Range Limitations<a class="ha" href="#current-range-limitations" aria-hidden="true">¶</a></h3>
+
+<p>With the current integration gain, detection range is limited by:</p>
+
+<ul><li><strong>Noise figure chain:</strong> The system noise figure $F_\text{total}$ from Eq. (NF-18) sets the noise floor against which targets must be detected</li><li><strong>Processing gain:</strong> The matched filter provides $G_p = B T_c$ (Eq. (LFM-14) in <a href="../01_physics/02_lfm_waveform_model.md"><code>01_physics/02_lfm_waveform_model.md</code></a>), and the Doppler FFT adds $10\log_{10}(M) = 15.1~\text{dB}$</li><li><strong>ADC dynamic range:</strong> The 8-bit AD9484 limits the quantization noise floor to $-49.9~\text{dBFS}$ (Eq. (NF-11)), constraining the usable dynamic range</li></ul>
+
+<p>No non-coherent integration is implemented. No range migration compensation is available. No adaptive CPI selection exists.</p>
+
+<hr>
+
+<h2 id="2-literature-survey">2. Literature Survey<a class="ha" href="#2-literature-survey" aria-hidden="true">¶</a></h2>
+
+<p>Range can be extended by increasing the post-processing SNR. From the radar range equation (Eq. (FMCW-11)), the detection range $R$ scales as the fourth root of SNR:</p>
+
+<p>$$</p>
+<p>R \propto \text{SNR}^{1/4}</p>
+<p>$$</p>
+
+<p>Therefore, an SNR improvement of $\Delta\text{SNR}_\text{dB}$ extends range by a factor:</p>
+
+<p>$$</p>
+<p>\frac{R_\text{new}}{R_\text{old}} = 10^{\Delta\text{SNR}_\text{dB} / 40}</p>
+<p>$$</p>
+
+<h3 id="2-1-coherent-integration-longer-cpi">2.1 Coherent Integration (Longer CPI)<a class="ha" href="#2-1-coherent-integration-longer-cpi" aria-hidden="true">¶</a></h3>
+
+<p>Coherent integration sums the complex (I/Q) returns from $M$ pulses with proper phase alignment. For $M$ coherently integrated pulses with identical target return, the SNR improves by a factor of $M$ relative to a single pulse:</p>
+
+<p>$$</p>
+<p>\text{SNR}_\text{CI} = M \cdot \text{SNR}_\text{single}</p>
+<p>$$</p>
+
+<p>The current system uses $M = 32$. Extending to larger values of $M$:</p>
+
+<table class="md-table"><thead><tr><th>CPI Extension</th><th>$M$</th><th>$\Delta\text{SNR}$ (vs. $M{=}32$)</th><th>Range Extension Factor</th><th>Cumulative $\text{SNR}_\text{CI}$</th></tr></thead><tbody><tr><td>Current</td><td>32</td><td>Reference (0 dB)</td><td>1.00x</td><td>$15.1~\text{dB}$ above single pulse</td></tr><tr><td>2x CPI</td><td>64</td><td>$+3.0~\text{dB}$</td><td>1.19x</td><td>$18.1~\text{dB}$</td></tr><tr><td>4x CPI</td><td>128</td><td>$+6.0~\text{dB}$</td><td>1.41x</td><td>$21.1~\text{dB}$</td></tr><tr><td>8x CPI</td><td>256</td><td>$+9.0~\text{dB}$</td><td>1.68x</td><td>$24.1~\text{dB}$</td></tr></tbody></table>
+
+<p class="kv-line"><span class="kv-key">Diminishing returns:</span> <span class="kv-value">Each doubling of $M$ yields only 3 dB of additional SNR and approximately 19% range extension. The cost in CPI duration (and thus update rate) grows linearly while the range benefit grows logarithmically.</span></p>
+
+<p class="kv-line"><span class="kv-key">Doppler resolution improvement:</span> <span class="kv-value">Increasing $M$ also improves velocity resolution. From Eq. (FMCW-21) in <a href="../01_physics/01_fmcw_theory.md#velocity-measurement"><code>01_physics/01_fmcw_theory.md</code></a>, the velocity resolution is $\Delta v = \lambda / (2 M T_r)$, which halves when $M$ doubles.</span></p>
+
+<h3 id="2-2-non-coherent-integration">2.2 Non-Coherent Integration<a class="ha" href="#2-2-non-coherent-integration" aria-hidden="true">¶</a></h3>
+
+<p>When coherent integration is limited by target phase instability, platform motion, or CPI duration constraints, <strong>non-coherent integration</strong> provides reduced but still useful gain. Non-coherent integration sums the magnitude-squared (power) of individual pulse returns, discarding phase information:</p>
+
+<p>$$</p>
+<p>\text{SNR}_\text{NCI} \approx \sqrt{K} \cdot \text{SNR}_\text{single}</p>
+<p>$$</p>
+
+<p>where $K$ is the number of non-coherently integrated looks. The exact gain depends on the probability of detection and false alarm rate; the $\sqrt{K}$ approximation is valid for moderate-to-high SNR regimes (Albersheim&#x27;s approximation).</p>
+
+<p><strong>Comparison to coherent integration:</strong></p>
+
+<table class="md-table"><thead><tr><th>Property</th><th>Coherent ($M$ pulses)</th><th>Non-Coherent ($K$ looks)</th></tr></thead><tbody><tr><td>SNR gain</td><td>$M$ (linear)</td><td>$\approx \sqrt{K}$</td></tr><tr><td>SNR gain (dB)</td><td>$10\log_{10}(M)$</td><td>$\approx 5\log_{10}(K)$</td></tr><tr><td>Phase required</td><td>Yes (complex I/Q)</td><td>No (magnitude only)</td></tr><tr><td>Doppler resolution</td><td>$\lambda / (2 M T_r)$</td><td>Not applicable</td></tr><tr><td>Target motion tolerance</td><td>Low (requires coherent across CPI)</td><td>High (tolerates inter-look motion)</td></tr></tbody></table>
+
+<p class="kv-line"><span class="kv-key">Post-Doppler non-coherent integration:</span> <span class="kv-value">A practical approach combines both methods. The Doppler FFT performs coherent integration within each CPI of $M$ chirps, producing a range-Doppler map. Then, multiple consecutive range-Doppler maps are non-coherently integrated (summing magnitude-squared values across maps). This two-stage approach captures the coherent gain within a CPI and adds non-coherent gain across CPIs without requiring phase coherence over long intervals.</span></p>
+
+<p>For $K$ non-coherently integrated CPIs, the total SNR improvement is approximately:</p>
+
+<p>$$</p>
+<p>\text{SNR}_\text{total} \approx M \cdot \sqrt{K} \cdot \text{SNR}_\text{single}</p>
+<p>$$</p>
+
+<h3 id="2-3-longer-cpi-with-range-migration-compensation">2.3 Longer CPI with Range Migration Compensation<a class="ha" href="#2-3-longer-cpi-with-range-migration-compensation" aria-hidden="true">¶</a></h3>
+
+<p class="kv-line"><span class="kv-key">CRITICAL per Pitfall 6:</span> <span class="kv-value">Every CPI extension proposal must include range migration analysis.</span></p>
+
+<p>When the CPI duration $T_\text{CPI} = M \cdot T_r$ is extended, fast-moving targets may migrate through one or more range bins during the integration interval. A target at radial velocity $v$ traverses a range distance of $v \cdot T_\text{CPI}$ during the CPI. Range migration exceeds one range bin when:</p>
+
+<p>$$</p>
+<p>v \cdot T_\text{CPI} &gt; \Delta R = \frac{c}{2B}</p>
+<p>$$</p>
+
+<p>The critical velocity at which range migration equals one range bin is:</p>
+
+<p>$$</p>
+<p>v_\text{crit} = \frac{\Delta R}{T_\text{CPI}} = \frac{c}{2 B \cdot M \cdot T_r}</p>
+<p>$$</p>
+
+<p>For the current system parameters (with $\Delta R = c / (2B)$ from Eq. (FMCW-19) and CPI duration $T_\text{CPI} = M \cdot T_r$):</p>
+
+<table class="md-table"><thead><tr><th>CPI</th><th>$M$</th><th>$T_\text{CPI}$</th><th>$v_\text{crit}$</th><th>Range Migration Status</th></tr></thead><tbody><tr><td>Current</td><td>32</td><td>$32 \cdot T_r$</td><td>$\Delta R / (32 T_r)$</td><td>Baseline</td></tr><tr><td>2x</td><td>64</td><td>$64 \cdot T_r$</td><td>$\Delta R / (64 T_r)$</td><td>$v_\text{crit}$ halved</td></tr><tr><td>4x</td><td>128</td><td>$128 \cdot T_r$</td><td>$\Delta R / (128 T_r)$</td><td>$v_\text{crit}$ quartered</td></tr><tr><td>8x</td><td>256</td><td>$256 \cdot T_r$</td><td>$\Delta R / (256 T_r)$</td><td>$v_\text{crit}$ reduced 8x</td></tr></tbody></table>
+
+<p><strong>Maximum unambiguous velocity</strong> is also affected by CPI extension. The unambiguous velocity from Eq. (FMCW-22) in <a href="../01_physics/01_fmcw_theory.md"><code>01_physics/01_fmcw_theory.md</code></a> is $v_\text{max} = \lambda / (4 T_r)$, which depends on $T_r$ (PRI) and is independent of $M$. However, the Doppler resolution improves to $\Delta v = \lambda / (2 M T_r)$, and range migration may corrupt the Doppler spectrum for targets near $v_\text{max}$.</p>
+
+<h4 id="keystone-transform">Keystone Transform<a class="ha" href="#keystone-transform" aria-hidden="true">¶</a></h4>
+
+<p>The <strong>Keystone transform</strong> is the primary technique for compensating range migration in the slow-time dimension. It operates by resampling the range-compressed data along the slow-time axis to remove the range-velocity coupling:</p>
+
+<ul><li>Apply range FFT to each pulse (already performed by matched filter, Stage 5)</li><li>For each range-frequency bin, resample the slow-time samples using interpolation to compensate for the range walk term $2 v t / c$</li><li>Apply Doppler FFT on the corrected data</li></ul>
+
+<p>The Keystone transform requires a 2D resampling buffer (all $M$ chirps for all $N_\text{rb}$ range bins) and an interpolation engine. The interpolation is typically linear or sinc-based, requiring multiplier resources.</p>
+
+<h4 id="other-range-migration-compensation-techniques">Other Range Migration Compensation Techniques<a class="ha" href="#other-range-migration-compensation-techniques" aria-hidden="true">¶</a></h4>
+
+<ul><li><strong>Range-velocity decoupling via second-order compensation:</strong> Corrects both first-order (linear) and second-order (acceleration) range migration terms. More resource-intensive than Keystone.</li><li><strong>Hough transform detection:</strong> Detects range migration trajectories directly in the range-slow-time plane. Computationally expensive ($O(N^2)$ or higher) and generally not suitable for real-time FPGA implementation.</li><li><strong>Segmented integration:</strong> Divides the CPI into sub-CPIs short enough to avoid range migration, performs coherent integration within each sub-CPI, then non-coherently integrates across sub-CPIs. This is a practical hybrid approach.</li></ul>
+
+<hr>
+
+<h2 id="3-gap-analysis">3. Gap Analysis<a class="ha" href="#3-gap-analysis" aria-hidden="true">¶</a></h2>
+
+<table class="md-table"><thead><tr><th>Gap</th><th>Current System</th><th>Desired Capability</th><th>Priority</th></tr></thead><tbody><tr><td>Limited coherent integration</td><td>$M = 32$ chirps, fixed</td><td>Configurable $M$ up to 128+</td><td>High</td></tr><tr><td>No non-coherent integration</td><td>Not implemented</td><td>Post-Doppler magnitude-squared accumulation across CPIs</td><td>Medium</td></tr><tr><td>No range migration compensation</td><td>Not implemented</td><td>Keystone transform or segmented integration for extended CPI</td><td>Medium-Low</td></tr><tr><td>No adaptive CPI selection</td><td>Fixed $M = 32$</td><td>Dynamic CPI based on target velocity estimates</td><td>Low</td></tr><tr><td>Fixed Hamming window</td><td>32-point only</td><td>Window length matched to CPI</td><td>Coupled with CPI extension</td></tr></tbody></table>
+
+<p>The primary gap is the fixed CPI of $M = 32$ chirps. Doubling to $M = 64$ provides a meaningful 3 dB SNR improvement with modest BRAM cost. Non-coherent integration across CPIs requires minimal additional logic but provides diminishing returns compared to coherent extension. Range migration compensation is relevant only for CPI extensions beyond $M = 128$, where $v_\text{crit}$ drops low enough to affect practical target velocities.</p>
+
+<hr>
+
+<h2 id="4-feasibility-assessment">4. Feasibility Assessment<a class="ha" href="#4-feasibility-assessment" aria-hidden="true">¶</a></h2>
+
+<p>All resource estimates reference the Artix-7 XC7A100T capacity from <a href="../02_hardware/05_fpga_board.md#22-resource-utilization"><code>02_hardware/05_fpga_board.md</code></a>, Section 2.1:</p>
+
+<table class="md-table"><thead><tr><th>Resource</th><th>Total Available</th><th>Current Est. Usage</th><th>Remaining</th></tr></thead><tbody><tr><td>LUTs</td><td>63,400</td><td>~16,500 (~26%)</td><td>~46,900</td></tr><tr><td>DSP48E1</td><td>240</td><td>~88 (~37%)</td><td>~152</td></tr><tr><td>Block RAM (36 Kb)</td><td>135</td><td>~101 (~75%)</td><td>~34</td></tr><tr><td>Flip-Flops</td><td>126,800</td><td>--</td><td>--</td></tr></tbody></table>
+
+<blockquote><strong>Caution:</strong> Resource utilization is based on theoretical estimates from Phase 3, pending Vivado implementation reports. A 30% overhead margin is assumed for all estimates below.</blockquote>
+
+<h3 id="4-1-coherent-integration-extension-m-64">4.1 Coherent Integration Extension ($M = 64$)<a class="ha" href="#4-1-coherent-integration-extension-m-64" aria-hidden="true">¶</a></h3>
+
+<p>Extending from $M = 32$ to $M = 64$ requires doubling the Doppler accumulation memory and using a 64-point FFT instead of the current 32-point FFT.</p>
+
+<table class="md-table"><thead><tr><th>Property</th><th>Value</th></tr></thead><tbody><tr><td>Algorithm complexity</td><td>$O(M \log M)$ per range bin (FFT)</td></tr><tr><td>Additional BRAMs</td><td>4--6 (doubling Doppler memory from 2048 to 4096 entries at 32-bit)</td></tr><tr><td>Additional DSPs</td><td>4--8 (64-point FFT butterfly operations)</td></tr><tr><td>Additional LUTs</td><td>~500--1,000 (FFT control logic, wider counters)</td></tr><tr><td>Pipeline integration</td><td>Replace <code>xfft_32</code> with <code>xfft_64</code>; update <code>DOPPLER_FFT_SIZE</code>, <code>CHIRPS_PER_FRAME</code></td></tr><tr><td>Window coefficients</td><td>64-point Hamming stored in LUT (minimal cost)</td></tr><tr><td>Verdict</td><td><strong>FEASIBLE</strong> -- BRAM cost within remaining headroom</td></tr></tbody></table>
+
+<h3 id="4-2-coherent-integration-extension-m-128">4.2 Coherent Integration Extension ($M = 128$)<a class="ha" href="#4-2-coherent-integration-extension-m-128" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Property</th><th>Value</th></tr></thead><tbody><tr><td>Algorithm complexity</td><td>$O(M \log M)$ per range bin</td></tr><tr><td>Additional BRAMs</td><td>12--16 (quadrupling Doppler memory from 2048 to 8192 entries)</td></tr><tr><td>Additional DSPs</td><td>8--12 (128-point FFT)</td></tr><tr><td>Additional LUTs</td><td>~1,500--2,500</td></tr><tr><td>Pipeline integration</td><td>Replace <code>xfft_32</code> with <code>xfft_128</code> IP; major Doppler processor redesign</td></tr><tr><td>Range migration concern</td><td>$v_\text{crit}$ quartered -- range migration compensation may be needed for fast targets</td></tr><tr><td>Verdict</td><td><strong>MARGINAL</strong> -- BRAM-constrained; 12--16 additional BRAMs approaches remaining ~34 headroom</td></tr></tbody></table>
+
+<h3 id="4-3-non-coherent-integration-post-doppler-accumulation">4.3 Non-Coherent Integration (Post-Doppler Accumulation)<a class="ha" href="#4-3-non-coherent-integration-post-doppler-accumulation" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Property</th><th>Value</th></tr></thead><tbody><tr><td>Algorithm complexity</td><td>$O(N_\text{rb} \times N_\text{Doppler})$ per CPI (magnitude-squared + accumulate)</td></tr><tr><td>Additional BRAMs</td><td>2--4 (accumulation buffer: $64 \times 32 = 2048$ entries at 32-bit)</td></tr><tr><td>Additional DSPs</td><td>2--4 (magnitude-squared computation: $I^2 + Q^2$)</td></tr><tr><td>Additional LUTs</td><td>~500--1,000 (accumulation control, CPI counter)</td></tr><tr><td>Pipeline integration</td><td>Insert after Doppler output (Stage 7), before threshold detection (Stage 8)</td></tr><tr><td>Accumulation depth</td><td>Configurable $K = 2, 4, 8$ CPIs</td></tr><tr><td>Verdict</td><td><strong>FEASIBLE</strong> -- minimal resource cost, moderate SNR benefit</td></tr></tbody></table>
+
+<h3 id="4-4-range-migration-compensation-keystone-transform">4.4 Range Migration Compensation (Keystone Transform)<a class="ha" href="#4-4-range-migration-compensation-keystone-transform" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Property</th><th>Value</th></tr></thead><tbody><tr><td>Algorithm complexity</td><td>$O(M \times N_\text{rb})$ per CPI (2D resampling with interpolation)</td></tr><tr><td>Additional BRAMs</td><td>15--25 (2D buffer: $M \times N_\text{rb}$ at 32-bit; interpolation coefficients)</td></tr><tr><td>Additional DSPs</td><td>8--16 (interpolation multipliers)</td></tr><tr><td>Additional LUTs</td><td>~3,000--5,000 (resampling controller, address generation)</td></tr><tr><td>Pipeline integration</td><td>Between range FFT output and Doppler FFT input; requires restructuring pipeline</td></tr><tr><td>Verdict</td><td><strong>INFEASIBLE on current BRAM budget</strong> -- 15--25 additional BRAMs exceeds margin when combined with CPI extension</td></tr></tbody></table>
+
+<hr>
+
+<h2 id="5-recommendations">5. Recommendations<a class="ha" href="#5-recommendations" aria-hidden="true">¶</a></h2>
+
+<h3 id="priority-1-coherent-integration-extension-to-m-64">Priority 1: Coherent Integration Extension to $M = 64$<a class="ha" href="#priority-1-coherent-integration-extension-to-m-64" aria-hidden="true">¶</a></h3>
+
+<ul><li><strong>Expected improvement:</strong> $+3.0~\text{dB}$ SNR, 1.19x range extension</li><li><strong>Resource cost:</strong> 4--6 BRAMs, 4--8 DSPs, ~1,000 LUTs</li><li><strong>Risk:</strong> LOW -- straightforward FFT IP core substitution; Xilinx provides <code>xfft_64</code> IP</li><li><strong>Investigation steps:</strong></li><li>Generate Xilinx FFT IP core for 64-point transform and verify resource utilization against estimates</li><li>Extend Hamming window coefficient table to 64 points</li><li>Validate Doppler processor state machine with $M = 64$ chirp accumulation</li><li>Characterize range migration impact at $M = 64$ for expected target velocity range</li><li>Measure end-to-end pipeline latency impact from doubled CPI duration</li></ul>
+
+<h3 id="priority-2-post-doppler-non-coherent-integration">Priority 2: Post-Doppler Non-Coherent Integration<a class="ha" href="#priority-2-post-doppler-non-coherent-integration" aria-hidden="true">¶</a></h3>
+
+<ul><li><strong>Expected improvement:</strong> $\approx +1.5~\text{dB}$ per doubling of $K$ (for $K = 4$ CPIs: $\approx +3~\text{dB}$)</li><li><strong>Resource cost:</strong> 2--4 BRAMs, 2--4 DSPs, ~1,000 LUTs</li><li><strong>Risk:</strong> LOW -- simple magnitude-squared accumulation; does not affect existing pipeline</li><li><strong>Investigation steps:</strong></li><li>Design accumulation buffer for $N_\text{rb} \times N_\text{Doppler}$ magnitude-squared values</li><li>Determine optimal $K$ (number of CPIs to accumulate) based on target dynamics and scan rate constraints</li><li>Evaluate impact on scan update rate (accumulating $K$ CPIs delays target reports by $K \times T_\text{CPI}$)</li><li>Consider exponential moving average as an alternative to fixed-window accumulation for continuous operation</li></ul>
+
+<h3 id="priority-3-range-migration-compensation-research-stage">Priority 3: Range Migration Compensation (Research Stage)<a class="ha" href="#priority-3-range-migration-compensation-research-stage" aria-hidden="true">¶</a></h3>
+
+<ul><li><strong>Expected improvement:</strong> Enables $M &gt; 128$ without target velocity restrictions</li><li><strong>Resource cost:</strong> 15--25 BRAMs, 8--16 DSPs, ~5,000 LUTs -- exceeds current BRAM headroom</li><li><strong>Risk:</strong> HIGH -- BRAM-constrained; requires significant pipeline restructuring</li><li><strong>Investigation steps:</strong></li><li>Quantify the segmented integration alternative: divide $M = 128$ into four sub-CPIs of $M_\text{sub} = 32$, coherently integrate within each, non-coherently combine across sub-CPIs</li><li>Evaluate whether segmented integration achieves sufficient SNR gain without the BRAM cost of Keystone</li><li>If Keystone is required, assess FPGA upgrade path (e.g., Artix UltraScale+ with larger BRAM capacity -- see Phase 6 HWRES-06)</li><li>Characterize target velocity distribution in the AERIS-10 operating environment to determine whether range migration is a practical concern</li></ul>
+
+<hr>
+
+<h2 id="references">References<a class="ha" href="#references" aria-hidden="true">¶</a></h2>
+
+<h3 id="project-documentation">Project Documentation<a class="ha" href="#project-documentation" aria-hidden="true">¶</a></h3>
+<ul><li><a href="../00_notation/symbol_table.md">Symbol Table</a> -- $M$, $N_\text{Doppler}$, $N_\text{rb}$, $N_\text{FFT}$, $T_r$, $\lambda$, $\Delta R$</li><li><a href="../00_notation/parameter_table.md">Parameter Table</a> -- chirp duration, bandwidth, PRF</li><li><a href="../00_notation/conventions.md">Conventions</a> -- equation formatting rules</li><li><a href="../01_physics/01_fmcw_theory.md">FMCW Theory</a> -- radar range equation (Eq. FMCW-11), velocity resolution (Eq. FMCW-21)</li><li><a href="../01_physics/05_noise_analysis.md">Noise Figure Chain</a> -- system noise figure (Eqs. NF-1 through NF-18)</li><li><a href="../01_physics/02_lfm_waveform_model.md">LFM Waveform Model</a> -- processing gain (Eq. LFM-14)</li><li><a href="../03_software/01_fpga_pipeline.md">FPGA Pipeline</a> -- Doppler processor (Stage 7, Eq. SW-6), matched filter (Stage 5)</li><li><a href="../02_hardware/05_fpga_board.md">FPGA Board</a> -- XC7A100T resource capacity (Section 2.1)</li></ul>
+
+<h3 id="external-references">External References<a class="ha" href="#external-references" aria-hidden="true">¶</a></h3>
+<ul><li>Skolnik, M.I., <em>Introduction to Radar Systems</em>, 4th ed., McGraw-Hill, 2008 -- Ch. 2 (radar equation), Ch. 8 (pulse integration)</li><li>Richards, M.A., <em>Fundamentals of Radar Signal Processing</em>, 2nd ed., McGraw-Hill, 2014 -- Ch. 7 (coherent integration), Ch. 9 (non-coherent integration)</li><li>Perry, R.P., DiPietro, R.C., and Fante, R.L., &quot;SAR Imaging of Moving Targets,&quot; <em>IEEE Trans. Aerospace and Electronic Systems</em>, vol. 35, no. 1, pp. 188--200, Jan. 1999 -- Keystone transform</li><li>Xu, J., Yu, J., Peng, Y., and Xia, X., &quot;Radon-Fourier Transform for Radar Target Detection,&quot; <em>IEEE Trans. Aerospace and Electronic Systems</em>, vol. 47, no. 2, pp. 1186--1202, Apr. 2011 -- range migration compensation methods</li><li>Li, Y., Zeng, T., and Long, T., &quot;Range Migration Compensation and Doppler Ambiguity Resolution by Keystone Transform,&quot; <em>Multidimensional Systems and Signal Processing</em>, 2016 -- FPGA-relevant Keystone implementation considerations</li></ul>
+
+</div>
+  </div><!-- main-content -->
+</div><!-- site-shell -->
+<script>
+mermaid.initialize({ startOnLoad: true, theme: 'dark', securityLevel: 'loose' });
+</script>
+</body>
+
+</html>

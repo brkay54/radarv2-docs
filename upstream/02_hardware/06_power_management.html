@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>06_power_management — aros Vault</title>
+<style>
+
+:root {
+  --color-blue:    #007ACC;
+  --color-green:   #2DA44E;
+  --color-yellow:  #D29922;
+  --color-purple:  #8B5CF6;
+  --color-orange:  #F59E0B;
+  --color-red:     #E5534B;
+  --color-cyan:    #0BC5EA;
+  --color-accent:  #7C3AED;
+  --text-normal:   #DCDDDE;
+  --text-muted:    #8E8EA0;
+  --background-primary:         #1E1E2E;
+  --background-secondary:       #181825;
+  --background-modifier-border: #313244;
+  --color-base-30:              #45475A;
+}
+body {
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.6;
+  margin: 0;
+}
+
+</style>
+<!-- Mermaid -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<!-- MathJax -->
+<script>window.MathJax={tex:{inlineMath:[['$','$'],['\\(','\\)']],displayMath:[['$$','$$'],['\\[','\\]']]},options:{skipHtmlTags:['script','noscript','style','textarea','pre']}};</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+<!-- Site CSS -->
+<link rel="stylesheet" href="../../site.css">
+</head>
+<body class="markdown-reading-view">
+<div class="site-shell">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <a href="../../00-Index.html" class="site-title">radarv2 / AERIS-10</a>
+      <div class="site-subtitle">aros Radar Documentation</div>
+    </div>
+    <ul class="nav-list">
+      <li class="nav-section">Core Docs</li>
+      <li><a href="../../09-Concepts-Primer.html">Radar Primer</a></li>
+      <li><a href="../../00-Index.html">Index</a></li>
+      <li><a href="../../01-System-Overview.html">System Overview</a></li>
+      <li><a href="../../02-Physics-and-Waveform.html">Physics &amp; Waveform</a></li>
+      <li><a href="../../03-Beamforming-and-Scan.html">Beamforming &amp; Scan</a></li>
+      <li><a href="../../04-Signal-Processing-Pipeline.html">Signal Processing</a></li>
+      <li><a href="../../05-Node-Architecture.html">Node Architecture</a></li>
+      <li><a href="../../06-Message-Catalog.html">Message Catalog</a></li>
+      <li><a href="../../07-Detection-and-Tracking.html">Detection &amp; Tracking</a></li>
+      <li><a href="../../08-Scenarios-and-Targets.html">Scenarios &amp; Targets</a></li>
+      <li class="nav-section">Advanced</li>
+      <li><a href="../../10-Radar-Model-Library.html">Radar Model Library</a></li>
+      <li><a href="../../11-Multi-Radar-Fusion.html">Multi-Radar Fusion</a></li>
+      <li><a href="../../12-3D-Scene.html">3-D Scene</a></li>
+      <li><a href="../../13-Reference-Tables.html">Reference Tables</a></li>
+      <li><a href="../../FUTURE-DEVELOPMENT.html">Future Development</a></li>
+      <li class="nav-section">Upstream Theory</li>
+      <li><a href="../../upstream/README.html">Upstream README</a></li>
+      <li><a href="../../upstream/00_notation/conventions.html">Notation</a></li>
+      <li><a href="../../upstream/01_physics/01_fmcw_theory.html">FMCW Theory</a></li>
+      <li><a href="../../upstream/01_physics/02_lfm_waveform_model.html">LFM Waveform</a></li>
+      <li><a href="../../upstream/01_physics/03_beamforming_theory.html">Beamforming Theory</a></li>
+      <li><a href="../../upstream/01_physics/04_detection_theory.html">Detection Theory</a></li>
+      <li><a href="../../upstream/01_physics/05_noise_analysis.html">Noise Analysis</a></li>
+      <li><a href="../../upstream/01_physics/06_calibration_theory.html">Calibration</a></li>
+      <li><a href="../../upstream/02_hardware/01_system_overview.html">HW Overview</a></li>
+      <li><a href="../../upstream/04_research/01_cfar_variants.html">CFAR Variants</a></li>
+    </ul>
+    <div class="sidebar-footer">
+      <a href="https://github.com/brkay54/radarv2-docs" target="_blank">GitHub</a>
+    </div>
+  </nav>
+  <div class="main-content">
+
+<div class="markdown-preview-section">
+<h1 id="aeris-10-power-management">AERIS-10 Power Management<a class="ha" href="#aeris-10-power-management" aria-hidden="true">¶</a></h1>
+
+<p class="kv-line"><span class="kv-key">Purpose:</span> <span class="kv-value">Document the complete power management subsystem including voltage rail sequencing, PA gate voltage control, current and temperature monitoring, thermal management, fan control, and emergency stop procedures.</span></p>
+
+<p class="kv-line"><span class="kv-key">Prerequisites:</span> <span class="kv-value">Familiarity with:</span></p>
+<ul><li><a href="../00_notation/symbol_table.md">Symbol Table</a> -- all symbols used herein</li><li><a href="../00_notation/parameter_table.md">Parameter Table</a> -- numerical values for both variants</li><li><a href="../00_notation/conventions.md">Conventions</a> -- equation formatting rules</li><li><a href="01_system_overview.md">System Overview</a> -- system-level power architecture reference</li></ul>
+
+<hr>
+
+<h2 id="1-overview">1. Overview<a class="ha" href="#1-overview" aria-hidden="true">¶</a></h2>
+
+<p>The AERIS-10 power management subsystem is orchestrated by the STM32F746 microcontroller through three control interfaces:</p>
+
+<ul><li><strong>GPIO</strong> -- controls power rail enable pins for sequenced power-up and power-down of all voltage domains</li><li><strong>I2C (DAC5578)</strong> -- two 8-channel DACs set the gate bias voltage $V_g$ for all 16 power amplifiers</li><li><strong>I2C (ADS7830)</strong> -- three 8-channel ADCs monitor PA drain current $I_{dq}$ and board temperatures</li></ul>
+
+<p>The power management architecture ensures safe startup through a defined sequencing order (core rails before I/O, clock before FPGA, analog before RF), continuous health monitoring during operation, and immediate shutdown via hardware emergency stop. The system supports autonomous thermal management through temperature-triggered fan control and overcurrent-triggered emergency stop.</p>
+
+<hr>
+
+<h2 id="2-voltage-rails">2. Voltage Rails<a class="ha" href="#2-voltage-rails" aria-hidden="true">¶</a></h2>
+
+<p>The system uses ten independently controlled voltage rails, each enabled by a dedicated GPIO pin on the STM32F746. The sequencing order is defined by the firmware startup code (<code>main.cpp</code>).</p>
+
+<table class="md-table"><thead><tr><th>#</th><th>Rail</th><th>Voltage</th><th>GPIO Enable Pin</th><th>Purpose</th><th>Sequencing Group</th></tr></thead><tbody><tr><td>1</td><td>1.8V Clock</td><td>1.8 V</td><td><code>EN_P_1V8_CLOCK</code></td><td>AD9523-1 clock distribution IC (1.8V domain)</td><td>Clock</td></tr><tr><td>2</td><td>3.3V Clock</td><td>3.3 V</td><td><code>EN_P_3V3_CLOCK</code></td><td>AD9523-1 clock distribution IC (3.3V domain)</td><td>Clock</td></tr><tr><td>3</td><td>1.0V FPGA Core</td><td>1.0 V</td><td><code>EN_P_1V0_FPGA</code></td><td>XC7A100T Artix-7 core voltage</td><td>FPGA</td></tr><tr><td>4</td><td>1.8V FPGA I/O</td><td>1.8 V</td><td><code>EN_P_1V8_FPGA</code></td><td>XC7A100T I/O bank voltage</td><td>FPGA</td></tr><tr><td>5</td><td>3.3V FPGA</td><td>3.3 V</td><td><code>EN_P_3V3_FPGA</code></td><td>XC7A100T auxiliary and configuration</td><td>FPGA</td></tr><tr><td>6</td><td>3.3V ADAR1000 (1-2)</td><td>3.3 V</td><td><code>EN_P_3V3_ADAR12</code></td><td>ADAR1000 beamformer ICs #1 and #2</td><td>Beamformer</td></tr><tr><td>7</td><td>3.3V ADAR1000 (3-4)</td><td>3.3 V</td><td><code>EN_P_3V3_ADAR34</code></td><td>ADAR1000 beamformer ICs #3 and #4</td><td>Beamformer</td></tr><tr><td>8</td><td>5.0V ADAR1000</td><td>5.0 V</td><td><code>EN_P_5V0_ADAR</code></td><td>ADAR1000 PA bias supply</td><td>Beamformer</td></tr><tr><td>9</td><td>3.3V ADTR1107</td><td>3.3 V</td><td><code>EN_P_3V3_ADTR</code></td><td>ADTR1107 T/R module supply (Nexus)</td><td>RF Front-End</td></tr><tr><td>10</td><td>PA VDD</td><td>22 V</td><td><code>EN_DIS_RFPA_VDD</code></td><td>External RF power amplifier drain supply</td><td>RF Front-End</td></tr></tbody></table>
+
+<p>Additional GPIO-controlled power pins for the T/R module subsystem:</p>
+
+<table class="md-table"><thead><tr><th>Pin</th><th>Purpose</th></tr></thead><tbody><tr><td><code>EN_P_5V0_PA1</code></td><td>PA bank 1 supply enable</td></tr><tr><td><code>EN_P_5V0_PA2</code></td><td>PA bank 2 supply enable</td></tr><tr><td><code>EN_P_5V0_PA3</code></td><td>PA bank 3 supply enable</td></tr><tr><td><code>EN_P_3V3_VDD_SW</code></td><td>T/R switch VDD supply</td></tr><tr><td><code>EN_P_3V3_SW</code></td><td>T/R switch control supply</td></tr></tbody></table>
+
+<p>For canonical voltage and current specifications, see <code>3_Power Management/Power Management V6.xlsx</code>. The firmware (<code>main.cpp</code>) defines the sequencing order and delays; the spreadsheet contains the electrical specifications for each rail.</p>
+
+<hr>
+
+<h2 id="3-power-on-sequence">3. Power-On Sequence<a class="ha" href="#3-power-on-sequence" aria-hidden="true">¶</a></h2>
+
+<p>The complete power-on sequence is implemented in <code>main.cpp</code> (lines 1237--1599) and the <code>systemPowerUpSequence()</code> function. The 17-step process proceeds as follows:</p>
+
+<table class="md-table"><thead><tr><th>Step</th><th>Action</th><th>Delay After</th><th>Firmware Reference</th></tr></thead><tbody><tr><td>1</td><td>Wait for OCXO warm-up</td><td>180 s</td><td><code>HAL_Delay(180000)</code> -- L1237</td></tr><tr><td>2</td><td>Assert AD9523 reset (active low)</td><td>--</td><td><code>AD9523_RESET</code> -&gt; <code>GPIO_PIN_RESET</code> -- L1238</td></tr><tr><td>3</td><td>Enable 1.8V clock rail</td><td>100 ms</td><td><code>EN_P_1V8_CLOCK</code> -&gt; SET -- L1241</td></tr><tr><td>4</td><td>Enable 3.3V clock rail</td><td>100 ms</td><td><code>EN_P_3V3_CLOCK</code> -&gt; SET -- L1243</td></tr><tr><td>5</td><td>Release AD9523 reset</td><td>100 ms</td><td><code>AD9523_RESET</code> -&gt; SET -- L1245</td></tr><tr><td>6</td><td>Configure AD9523 via SPI</td><td>--</td><td><code>configure_ad9523()</code> -- L1265</td></tr><tr><td>7</td><td>Enable 1.0V FPGA core</td><td>100 ms</td><td><code>EN_P_1V0_FPGA</code> -&gt; SET -- L1271</td></tr><tr><td>8</td><td>Enable 1.8V FPGA I/O</td><td>100 ms</td><td><code>EN_P_1V8_FPGA</code> -&gt; SET -- L1273</td></tr><tr><td>9</td><td>Enable 3.3V FPGA</td><td>100 ms</td><td><code>EN_P_3V3_FPGA</code> -&gt; SET -- L1275</td></tr><tr><td>10</td><td>Initialize IMU (GY-85 via I2C3)</td><td>~3 s (10 iterations x 300 ms)</td><td><code>GY85_Init()</code> + complementary filter -- L1280</td></tr><tr><td>11</td><td>Initialize barometer (BMP180)</td><td>~500 ms (5 iterations x 100 ms)</td><td><code>myBMP.getPressure()</code> -- L1391</td></tr><tr><td>12</td><td>Initialize ADF4382 TX/RX LOs, wait for lock</td><td>up to 10 s (100 x 100 ms timeout)</td><td><code>ADF4382A_Manager_Init()</code> -- L1404</td></tr><tr><td>13</td><td>Enable ADAR1000 3.3V (pairs 1-2 and 3-4)</td><td>500 ms</td><td><code>EN_P_3V3_ADAR12/34</code> -&gt; SET -- L1485</td></tr><tr><td>14</td><td>Enable ADAR1000 5.0V</td><td>500 ms</td><td><code>EN_P_5V0_ADAR</code> -&gt; SET -- L1488</td></tr><tr><td>15</td><td>ADTR1107 power sequence + ADAR1000 init + calibration</td><td>--</td><td><code>systemPowerUpSequence()</code> -- L1496</td></tr><tr><td>16</td><td>Initialize DAC5578 (PA gate bias) + set initial $V_g$</td><td>--</td><td><code>DAC5578_Init()</code> -- L1563</td></tr><tr><td>17</td><td>Initialize ADS7830 (PA current monitoring) + PA bias tuning</td><td>--</td><td><code>ADS7830_Init()</code> + Idq loop -- L1603</td></tr></tbody></table>
+
+<h3 id="3-1-sequencing-rationale">3.1 Sequencing Rationale<a class="ha" href="#3-1-sequencing-rationale" aria-hidden="true">¶</a></h3>
+
+<p>The sequencing order follows standard FPGA and mixed-signal power-up practice:</p>
+
+<ul><li><strong>OCXO first</strong> (Step 1): The oven-controlled crystal oscillator requires 180 seconds to stabilize frequency. All downstream clocks depend on this reference.</li><li><strong>Clock rails before clock IC</strong> (Steps 2--5): The AD9523-1 requires stable 1.8V and 3.3V supplies before reset release.</li><li><strong>Clock IC before FPGA</strong> (Step 6): The FPGA requires valid clock signals before configuration.</li><li><strong>FPGA core before I/O</strong> (Steps 7--9): Xilinx Artix-7 requires $V_\text{CCINT}$ (1.0V) before $V_\text{CCAUX}$ (1.8V) before $V_\text{CCO}$ (3.3V) per datasheet sequencing requirements.</li><li><strong>Sensors before RF</strong> (Steps 10--11): IMU and barometer initialization must complete before the main radar loop begins.</li><li><strong>LO lock before beamformer</strong> (Step 12): Frequency synthesizers must achieve phase lock before RF signal path is activated.</li><li><strong>Beamformer before PA</strong> (Steps 13--17): ADAR1000 analog supplies must be stable before enabling the power amplifiers to prevent uncontrolled RF emission.</li></ul>
+
+<h3 id="3-2-clock-tree-setup-step-6">3.2 Clock Tree Setup (Step 6)<a class="ha" href="#3-2-clock-tree-setup-step-6" aria-hidden="true">¶</a></h3>
+
+<p>The AD9523-1 clock tree configuration establishes all system clocks from the 3.6 GHz VCO. See <a href="01_system_overview.md#4-clock-domain-overview">System Overview -- Clock Domain Overview</a> for the complete clock tree, including Eq. (HW-SYS-1) through Eq. (HW-SYS-3).</p>
+
+<p>For frequency synthesis (ADF4382 TX/RX LO) details initiated in Step 12, see <a href="03_frequency_synthesis.md"><code>03_frequency_synthesis.md</code></a>.</p>
+
+<hr>
+
+<h2 id="4-power-down-sequence">4. Power-Down Sequence<a class="ha" href="#4-power-down-sequence" aria-hidden="true">¶</a></h2>
+
+<p>The power-down sequence is implemented in <code>systemPowerDownSequence()</code> (<code>main.cpp</code>, lines 372--410). It reverses the power-on order, disabling RF stages first for safety:</p>
+
+<table class="md-table"><thead><tr><th>Step</th><th>Action</th><th>Delay After</th><th>Firmware Reference</th></tr></thead><tbody><tr><td>1</td><td>Set all ADAR1000 devices to RX mode (safe state)</td><td>10 ms</td><td><code>setAllDevicesRXMode()</code> -- L377</td></tr><tr><td>2</td><td>Disable PA power supplies (all three banks)</td><td>10 ms</td><td><code>EN_P_5V0_PA1/2/3</code> -&gt; RESET -- L381</td></tr><tr><td>3</td><td>Set PA biases to safe values (0x20 on all channels)</td><td>10 ms</td><td><code>REG_PA_CHx_BIAS_ON</code> = 0x20 -- L385</td></tr><tr><td>4</td><td>Disable LNA power supply</td><td>10 ms</td><td><code>EN_P_3V3_ADTR</code> -&gt; RESET -- L394</td></tr><tr><td>5</td><td>Set LNA bias to zero</td><td>10 ms</td><td><code>REG_LNA_BIAS_ON</code> = 0x00 -- L398</td></tr><tr><td>6</td><td>Disable switch power supplies</td><td>10 ms</td><td><code>EN_P_3V3_VDD_SW</code>, <code>EN_P_3V3_SW</code> -&gt; RESET -- L404</td></tr></tbody></table>
+
+<p>The power-down sequence is automatically triggered when the system health monitor detects a critical fault (error count exceeds 10 or emergency state is set). Before power-down, the firmware disables the RF mixer path by resetting GPIO PD11, preventing any RF transmission during shutdown.</p>
+
+<hr>
+
+<h2 id="5-pa-gate-voltage-control">5. PA Gate Voltage Control<a class="ha" href="#5-pa-gate-voltage-control" aria-hidden="true">¶</a></h2>
+
+<h3 id="5-1-dac5578-configuration">5.1 DAC5578 Configuration<a class="ha" href="#5-1-dac5578-configuration" aria-hidden="true">¶</a></h3>
+
+<p>Two Texas Instruments DAC5578 8-bit, 8-channel DACs control the gate bias voltage $V_g$ for all 16 power amplifiers. Each DAC channel drives one PA element through an inverting op-amp circuit.</p>
+
+<table class="md-table"><thead><tr><th>DAC</th><th>I2C Bus</th><th>I2C Address</th><th>Channels</th><th>PA Elements</th></tr></thead><tbody><tr><td><code>hdac1</code></td><td>I2C1</td><td>0x48</td><td>0--7</td><td>PA 1--8</td></tr><tr><td><code>hdac2</code></td><td>I2C1</td><td>0x49</td><td>0--7</td><td>PA 9--16</td></tr></tbody></table>
+
+<p><strong>Key features used:</strong></p>
+<ul><li><code>DAC5578_CMD_WRITE_UPDATE</code> (0x20): Write and immediately update output</li><li>Hardware LDAC pins for simultaneous multi-channel update</li><li>Hardware CLR pins for emergency stop (see Section 8)</li><li>Clear code configured to zero-scale (<code>DAC5578_CLR_CODE_ZERO</code>): CLR pin activation drives all outputs to 0V</li></ul>
+
+<h3 id="5-2-voltage-to-code-conversion">5.2 Voltage-to-Code Conversion<a class="ha" href="#5-2-voltage-to-code-conversion" aria-hidden="true">¶</a></h3>
+
+<p>The DAC5578 output voltage is:</p>
+
+<p>$$</p>
+<p>V_\text{DAC} = \frac{D}{2^8 - 1} \times V_\text{ref} \tag{HW-PWR-1}</p>
+<p>$$</p>
+
+<p>where $D$ is the 8-bit digital code (0--255) and $V_\text{ref}$ is the DAC reference voltage.</p>
+
+<p>The op-amp inverting stage converts $V_\text{DAC}$ to the PA gate voltage $V_g$. The firmware comment indicates that a DAC code of 126 corresponds to a gate voltage of $V_g = -3.98~\text{V}$ (op-amp input $= 1.63058~\text{V}$), establishing the initial bias point.</p>
+
+<h3 id="5-3-pa-bias-tuning-procedure">5.3 PA Bias Tuning Procedure<a class="ha" href="#5-3-pa-bias-tuning-procedure" aria-hidden="true">¶</a></h3>
+
+<p>After initial DAC setup, the firmware performs an automated bias tuning loop for each PA element (<code>main.cpp</code>, lines 1628--1656):</p>
+
+<ul><li>Start at DAC code 126 (most negative $V_g$, PA pinched off)</li><li>Decrease DAC code by 4 per iteration (increasing $V_g$ toward zero, opening the PA)</li><li>Read drain current $I_{dq}$ via ADS7830</li><li>Continue until $I_{dq}$ deviates from the target quiescent point ($1.680~\text{A}$) by more than $0.2~\text{A}$, or DAC code reaches minimum (38)</li><li>Safety counter limits to 50 iterations maximum</li></ul>
+
+<p>This procedure sets each PA to its optimal quiescent operating point, compensating for device-to-device variation.</p>
+
+<hr>
+
+<h2 id="6-current-and-temperature-monitoring">6. Current and Temperature Monitoring<a class="ha" href="#6-current-and-temperature-monitoring" aria-hidden="true">¶</a></h2>
+
+<h3 id="6-1-ads7830-adc-configuration">6.1 ADS7830 ADC Configuration<a class="ha" href="#6-1-ads7830-adc-configuration" aria-hidden="true">¶</a></h3>
+
+<p>Three Texas Instruments ADS7830 8-bit, 8-channel ADCs provide continuous monitoring of PA drain current and board temperatures.</p>
+
+<table class="md-table"><thead><tr><th>ADC</th><th>I2C Bus</th><th>I2C Address</th><th>Mode</th><th>Function</th></tr></thead><tbody><tr><td><code>hadc1</code></td><td>I2C2</td><td>0x48</td><td>Single-ended, internal ref ON</td><td>PA 1--8 drain current ($I_{dq}$)</td></tr><tr><td><code>hadc2</code></td><td>I2C2</td><td>0x4A</td><td>Single-ended, internal ref ON</td><td>PA 9--16 drain current ($I_{dq}$)</td></tr><tr><td><code>hadc3</code></td><td>I2C2</td><td>0x49</td><td>Single-ended, internal ref ON</td><td>8 temperature sensors (TMP37)</td></tr></tbody></table>
+
+<h3 id="6-2-adc-to-current-conversion">6.2 ADC-to-Current Conversion<a class="ha" href="#6-2-adc-to-current-conversion" aria-hidden="true">¶</a></h3>
+
+<p>The PA drain current $I_{dq}$ is measured through a current sense resistor with an INA241A3 current sense amplifier. The ADC reading maps to current by:</p>
+
+<p>$$</p>
+<p>I_{dq} = \frac{V_\text{ADC}}{G \times R_\text{shunt}} = \frac{\displaystyle\frac{3.3}{255} \times D_\text{ADC}}{50 \times 0.005} \tag{HW-PWR-2}</p>
+<p>$$</p>
+
+<p>where:</p>
+<ul><li>$D_\text{ADC}$ is the 8-bit ADC reading (0--255)</li><li>$V_\text{ref} = 3.3~\text{V}$ is the ADC reference voltage</li><li>$G = 50~\text{V/V}$ is the INA241A3 gain (<code>G_INA241A3=50</code> in firmware)</li><li>$R_\text{shunt} = 5~\text{m}\Omega$ is the current sense resistor (<code>Rshunt=5mOhms</code> in firmware)</li></ul>
+
+<p>Simplifying:</p>
+
+<p>$$</p>
+<p>I_{dq} = \frac{3.3 \times D_\text{ADC}}{255 \times 0.25} = \frac{D_\text{ADC}}{19.318} \tag{HW-PWR-3}</p>
+<p>$$</p>
+
+<h3 id="6-3-monitoring-thresholds">6.3 Monitoring Thresholds<a class="ha" href="#6-3-monitoring-thresholds" aria-hidden="true">¶</a></h3>
+
+<p>The firmware (<code>checkSystemHealth()</code> in <code>main.cpp</code>, lines 650--661) checks each PA element against the following thresholds:</p>
+
+<table class="md-table"><thead><tr><th>Condition</th><th>Threshold</th><th>Error Code</th><th>Severity</th></tr></thead><tbody><tr><td>Overcurrent</td><td>$I_{dq} &gt; 2.5~\text{A}$</td><td><code>ERROR_RF_PA_OVERCURRENT</code></td><td>Critical -- triggers <code>Emergency_Stop()</code></td></tr><tr><td>Under-bias (bias fault)</td><td>$I_{dq} &lt; 0.1~\text{A}$</td><td><code>ERROR_RF_PA_BIAS</code></td><td>Critical -- triggers <code>Emergency_Stop()</code></td></tr></tbody></table>
+
+<p>Both conditions trigger the emergency stop procedure (Section 8) via the <code>handleSystemError()</code> function, which calls <code>Emergency_Stop()</code> for any error code in the range <code>ERROR_RF_PA_OVERCURRENT</code> through <code>ERROR_POWER_SUPPLY</code>.</p>
+
+<hr>
+
+<h2 id="7-thermal-management">7. Thermal Management<a class="ha" href="#7-thermal-management" aria-hidden="true">¶</a></h2>
+
+<h3 id="7-1-temperature-monitoring">7.1 Temperature Monitoring<a class="ha" href="#7-1-temperature-monitoring" aria-hidden="true">¶</a></h3>
+
+<p>Eight TMP37 analog temperature sensors are read via <code>hadc3</code> (ADS7830 at I2C address 0x49). The TMP37 has a linear output of 20 mV/C with a 3.3V supply range corresponding to 165C full-scale.</p>
+
+<p>The ADC-to-temperature conversion is:</p>
+
+<p>$$</p>
+<p>T = D_\text{ADC} \times \frac{165}{255} \approx D_\text{ADC} \times 0.64705 \tag{HW-PWR-4}</p>
+<p>$$</p>
+
+<p>where $T$ is temperature in degrees Celsius and $D_\text{ADC}$ is the 8-bit ADC reading. The firmware reads all 8 sensors every 5 seconds (<code>main.cpp</code>, lines 1751--1775).</p>
+
+<h3 id="7-2-temperature-thresholds">7.2 Temperature Thresholds<a class="ha" href="#7-2-temperature-thresholds" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Component</th><th>Threshold</th><th>Action</th><th>Firmware Reference</th></tr></thead><tbody><tr><td>ADAR1000 (on-chip sensor)</td><td>$&gt; 85~\text{C}$</td><td>Error: <code>ERROR_ADAR1000_TEMP</code></td><td><code>readTemperature()</code> -- L614</td></tr><tr><td>System board (TMP37)</td><td>$&gt; 25~\text{C}$ (active cooling threshold)</td><td>Fan ON</td><td>Temperature loop -- L1764</td></tr><tr><td>System (general)</td><td>$&gt; 75~\text{C}$</td><td>Error: <code>ERROR_TEMPERATURE_HIGH</code></td><td><code>checkSystemHealth()</code> -- L664</td></tr></tbody></table>
+
+<p>The ADAR1000 has an internal temperature sensor read via SPI (<code>readTemperature()</code> in <code>ADAR1000_Manager</code>). The QPA2962 operating temperature range is specified as $-40~\text{C}$ to $+85~\text{C}$ (base plate).</p>
+
+<h3 id="7-3-fan-control">7.3 Fan Control<a class="ha" href="#7-3-fan-control" aria-hidden="true">¶</a></h3>
+
+<p>Active cooling is controlled by the <code>EN_DIS_COOLING</code> GPIO pin:</p>
+
+<ul><li><strong>Fan ON:</strong> <code>EN_DIS_COOLING</code> -&gt; <code>GPIO_PIN_SET</code> when any TMP37 sensor exceeds the active cooling threshold</li><li><strong>Fan OFF:</strong> <code>EN_DIS_COOLING</code> -&gt; <code>GPIO_PIN_RESET</code> when all sensors are below threshold</li></ul>
+
+<p>The fan control operates on the same 5-second polling cycle as the temperature monitoring.</p>
+
+<h3 id="7-4-thermal-dissipation">7.4 Thermal Dissipation<a class="ha" href="#7-4-thermal-dissipation" aria-hidden="true">¶</a></h3>
+
+<p>The junction temperature of a power-dissipating component is estimated by:</p>
+
+<p>$$</p>
+<p>T_\text{junction} = T_\text{ambient} + P_\text{diss} \times \theta_{JA} \tag{HW-PWR-5}</p>
+<p>$$</p>
+
+<p>where $P_\text{diss}$ is the component power dissipation (defined in the <a href="../00_notation/symbol_table.md#hardware-and-power">Symbol Table</a>) and $\theta_{JA}$ is the junction-to-ambient thermal resistance. For per-subsystem power dissipation values, see <a href="08_power_budget.md"><code>08_power_budget.md</code></a>.</p>
+
+<hr>
+
+<h2 id="8-emergency-stop">8. Emergency Stop<a class="ha" href="#8-emergency-stop" aria-hidden="true">¶</a></h2>
+
+<p>The <code>Emergency_Stop()</code> function (<code>main.cpp</code>, lines 722--731) provides an immediate hardware-level shutdown of all PA gate voltages.</p>
+
+<h3 id="8-1-procedure">8.1 Procedure<a class="ha" href="#8-1-procedure" aria-hidden="true">¶</a></h3>
+
+<ul><li><strong>Activate CLR pin on DAC1:</strong> <code>DAC5578_ActivateClearPin(&amp;hdac1)</code> -- drives the hardware clear pin low, forcing all 8 DAC outputs to zero-scale (0V) per the pre-configured <code>DAC5578_CLR_CODE_ZERO</code> setting</li><li><strong>Activate CLR pin on DAC2:</strong> <code>DAC5578_ActivateClearPin(&amp;hdac2)</code> -- same for PA elements 9--16</li><li><strong>Hold state:</strong> The function enters an infinite loop, keeping outputs cleared until manual power cycle</li></ul>
+
+<h3 id="8-2-trigger-conditions">8.2 Trigger Conditions<a class="ha" href="#8-2-trigger-conditions" aria-hidden="true">¶</a></h3>
+
+<p>The emergency stop is triggered by <code>handleSystemError()</code> (<code>main.cpp</code>, lines 773--779) when any of the following critical errors is detected:</p>
+
+<table class="md-table"><thead><tr><th>Error</th><th>Code</th><th>Description</th></tr></thead><tbody><tr><td><code>ERROR_RF_PA_OVERCURRENT</code></td><td>9</td><td>Any PA element $I_{dq} &gt; 2.5~\text{A}$</td></tr><tr><td><code>ERROR_RF_PA_BIAS</code></td><td>10</td><td>Any PA element $I_{dq} &lt; 0.1~\text{A}$</td></tr><tr><td><code>ERROR_STEPPER_MOTOR</code></td><td>11</td><td>Stepper motor fault</td></tr><tr><td><code>ERROR_FPGA_COMM</code></td><td>12</td><td>FPGA communication failure</td></tr><tr><td><code>ERROR_POWER_SUPPLY</code></td><td>13</td><td>Power supply fault</td></tr></tbody></table>
+
+<h3 id="8-3-hardware-mechanism">8.3 Hardware Mechanism<a class="ha" href="#8-3-hardware-mechanism" aria-hidden="true">¶</a></h3>
+
+<p>The DAC5578 CLR pin provides a hardware-level safety path independent of I2C communication. When the CLR pin is driven active:</p>
+
+<ul><li>All DAC output registers are immediately loaded with the pre-configured clear code (zero-scale in this system)</li><li>The PA gate voltage is driven to maximum negative bias, pinching off all PAs</li><li>No I2C transaction is required -- the clear is purely hardware-driven</li><li>Response time is limited only by the DAC settling time and CLR pin propagation delay</li></ul>
+
+<p>This ensures PA shutdown even if the I2C bus is faulted or the STM32 is in an error state.</p>
+
+<hr>
+
+<h2 id="9-system-health-monitoring">9. System Health Monitoring<a class="ha" href="#9-system-health-monitoring" aria-hidden="true">¶</a></h2>
+
+<p>The <code>checkSystemHealth()</code> function (<code>main.cpp</code>, lines 586--676) performs comprehensive system monitoring on each main loop iteration. The health checks cover:</p>
+
+<table class="md-table"><thead><tr><th>Check</th><th>Interval</th><th>Condition</th><th>Error Code</th></tr></thead><tbody><tr><td>AD9523 clock status</td><td>5 s</td><td>STATUS0 or STATUS1 pin low</td><td><code>ERROR_AD9523_CLOCK</code></td></tr><tr><td>ADF4382 TX lock</td><td>Every loop</td><td>Lock detect pin low</td><td><code>ERROR_ADF4382_TX_UNLOCK</code></td></tr><tr><td>ADF4382 RX lock</td><td>Every loop</td><td>Lock detect pin low</td><td><code>ERROR_ADF4382_RX_UNLOCK</code></td></tr><tr><td>ADAR1000 communication</td><td>Every loop</td><td>SPI verify fails</td><td><code>ERROR_ADAR1000_COMM</code></td></tr><tr><td>ADAR1000 temperature</td><td>Every loop</td><td>$T &gt; 85~\text{C}$</td><td><code>ERROR_ADAR1000_TEMP</code></td></tr><tr><td>IMU communication</td><td>10 s</td><td>NaN readings</td><td><code>ERROR_IMU_COMM</code></td></tr><tr><td>BMP180 communication</td><td>15 s</td><td>Pressure out of range</td><td><code>ERROR_BMP180_COMM</code></td></tr><tr><td>GPS communication</td><td>30 s</td><td>No fix update</td><td><code>ERROR_GPS_COMM</code></td></tr><tr><td>PA overcurrent</td><td>Every loop</td><td>$I_{dq} &gt; 2.5~\text{A}$</td><td><code>ERROR_RF_PA_OVERCURRENT</code></td></tr><tr><td>PA bias fault</td><td>Every loop</td><td>$I_{dq} &lt; 0.1~\text{A}$</td><td><code>ERROR_RF_PA_BIAS</code></td></tr><tr><td>System temperature</td><td>Every loop</td><td>$T &gt; 75~\text{C}$</td><td><code>ERROR_TEMPERATURE_HIGH</code></td></tr><tr><td>Watchdog</td><td>60 s</td><td>No health check update</td><td><code>ERROR_WATCHDOG_TIMEOUT</code></td></tr></tbody></table>
+
+<p>Non-critical errors trigger automatic recovery attempts. Critical errors (PA overcurrent, PA bias, stepper, FPGA, power supply) trigger emergency stop. If the error count exceeds 10, the system enters safe mode with full power-down.</p>
+
+<hr>
+
+<h2 id="10-references">10. References<a class="ha" href="#10-references" aria-hidden="true">¶</a></h2>
+
+<h3 id="project-documentation">Project Documentation<a class="ha" href="#project-documentation" aria-hidden="true">¶</a></h3>
+<ul><li><a href="../00_notation/symbol_table.md">Symbol Table</a> -- symbols $V_\text{rail}$, $I_\text{rail}$, $P_\text{diss}$, $T_\text{junction}$, $\theta_{JA}$</li><li><a href="../00_notation/parameter_table.md">Parameter Table</a> -- canonical system parameter values</li><li><a href="../00_notation/conventions.md">Conventions</a> -- equation numbering and formatting rules</li><li><a href="01_system_overview.md">System Overview</a> -- system-level block diagram and control path description</li><li><a href="08_power_budget.md">Power Budget</a> -- per-rail current draw and thermal dissipation analysis</li></ul>
+
+<h3 id="firmware-source">Firmware Source<a class="ha" href="#firmware-source" aria-hidden="true">¶</a></h3>
+<ul><li><code>main.cpp</code> -- power sequencing (L1237--1599), <code>systemPowerUpSequence()</code> (L341), <code>systemPowerDownSequence()</code> (L372), <code>Emergency_Stop()</code> (L722), <code>checkSystemHealth()</code> (L586)</li></ul>
+
+<h3 id="component-datasheets">Component Datasheets<a class="ha" href="#component-datasheets" aria-hidden="true">¶</a></h3>
+<ul><li>DAC5578 -- Texas Instruments 8-bit, 8-channel DAC with hardware CLR and LDAC</li><li>ADS7830 -- Texas Instruments 8-bit, 8-channel ADC with I2C interface</li><li>INA241A3 -- Texas Instruments high-side current sense amplifier ($G = 50~\text{V/V}$)</li><li>TMP37 -- Analog Devices low-voltage temperature sensor (20 mV/C)</li><li>ADAR1000 -- Analog Devices X/Ku-band analog beamformer (internal temperature sensor)</li><li>QPA2962 -- Qorvo 6--18 GHz 10 W GaN MMIC PA (Extended variant, $T_\text{base}$ max 85C)</li></ul>
+
+<h3 id="supplementary-data">Supplementary Data<a class="ha" href="#supplementary-data" aria-hidden="true">¶</a></h3>
+<ul><li><code>3_Power Management/Power Management V6.xlsx</code> -- voltage rail specifications, current limits, and power budget data</li></ul>
+
+</div>
+  </div><!-- main-content -->
+</div><!-- site-shell -->
+<script>
+mermaid.initialize({ startOnLoad: true, theme: 'dark', securityLevel: 'loose' });
+</script>
+</body>
+
+</html>

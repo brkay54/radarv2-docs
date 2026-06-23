@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>04_detection_theory — aros Vault</title>
+<style>
+
+:root {
+  --color-blue:    #007ACC;
+  --color-green:   #2DA44E;
+  --color-yellow:  #D29922;
+  --color-purple:  #8B5CF6;
+  --color-orange:  #F59E0B;
+  --color-red:     #E5534B;
+  --color-cyan:    #0BC5EA;
+  --color-accent:  #7C3AED;
+  --text-normal:   #DCDDDE;
+  --text-muted:    #8E8EA0;
+  --background-primary:         #1E1E2E;
+  --background-secondary:       #181825;
+  --background-modifier-border: #313244;
+  --color-base-30:              #45475A;
+}
+body {
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.6;
+  margin: 0;
+}
+
+</style>
+<!-- Mermaid -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<!-- MathJax -->
+<script>window.MathJax={tex:{inlineMath:[['$','$'],['\\(','\\)']],displayMath:[['$$','$$'],['\\[','\\]']]},options:{skipHtmlTags:['script','noscript','style','textarea','pre']}};</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+<!-- Site CSS -->
+<link rel="stylesheet" href="../../site.css">
+</head>
+<body class="markdown-reading-view">
+<div class="site-shell">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <a href="../../00-Index.html" class="site-title">radarv2 / AERIS-10</a>
+      <div class="site-subtitle">aros Radar Documentation</div>
+    </div>
+    <ul class="nav-list">
+      <li class="nav-section">Core Docs</li>
+      <li><a href="../../09-Concepts-Primer.html">Radar Primer</a></li>
+      <li><a href="../../00-Index.html">Index</a></li>
+      <li><a href="../../01-System-Overview.html">System Overview</a></li>
+      <li><a href="../../02-Physics-and-Waveform.html">Physics &amp; Waveform</a></li>
+      <li><a href="../../03-Beamforming-and-Scan.html">Beamforming &amp; Scan</a></li>
+      <li><a href="../../04-Signal-Processing-Pipeline.html">Signal Processing</a></li>
+      <li><a href="../../05-Node-Architecture.html">Node Architecture</a></li>
+      <li><a href="../../06-Message-Catalog.html">Message Catalog</a></li>
+      <li><a href="../../07-Detection-and-Tracking.html">Detection &amp; Tracking</a></li>
+      <li><a href="../../08-Scenarios-and-Targets.html">Scenarios &amp; Targets</a></li>
+      <li class="nav-section">Advanced</li>
+      <li><a href="../../10-Radar-Model-Library.html">Radar Model Library</a></li>
+      <li><a href="../../11-Multi-Radar-Fusion.html">Multi-Radar Fusion</a></li>
+      <li><a href="../../12-3D-Scene.html">3-D Scene</a></li>
+      <li><a href="../../13-Reference-Tables.html">Reference Tables</a></li>
+      <li><a href="../../FUTURE-DEVELOPMENT.html">Future Development</a></li>
+      <li class="nav-section">Upstream Theory</li>
+      <li><a href="../../upstream/README.html">Upstream README</a></li>
+      <li><a href="../../upstream/00_notation/conventions.html">Notation</a></li>
+      <li><a href="../../upstream/01_physics/01_fmcw_theory.html">FMCW Theory</a></li>
+      <li><a href="../../upstream/01_physics/02_lfm_waveform_model.html">LFM Waveform</a></li>
+      <li><a href="../../upstream/01_physics/03_beamforming_theory.html">Beamforming Theory</a></li>
+      <li><a href="../../upstream/01_physics/04_detection_theory.html">Detection Theory</a></li>
+      <li><a href="../../upstream/01_physics/05_noise_analysis.html">Noise Analysis</a></li>
+      <li><a href="../../upstream/01_physics/06_calibration_theory.html">Calibration</a></li>
+      <li><a href="../../upstream/02_hardware/01_system_overview.html">HW Overview</a></li>
+      <li><a href="../../upstream/04_research/01_cfar_variants.html">CFAR Variants</a></li>
+    </ul>
+    <div class="sidebar-footer">
+      <a href="https://github.com/brkay54/radarv2-docs" target="_blank">GitHub</a>
+    </div>
+  </nav>
+  <div class="main-content">
+
+<div class="markdown-preview-section">
+<h1 id="detection-theory">Detection Theory<a class="ha" href="#detection-theory" aria-hidden="true">¶</a></h1>
+
+<p class="kv-line"><span class="kv-key">Purpose:</span> <span class="kv-value">Derive the detection theory chain from binary hypothesis testing through Neyman-Pearson optimality to CA-CFAR threshold computation, including Swerling target models and detection probability curves for the AERIS-10 radar system.</span></p>
+
+<p class="kv-line"><span class="kv-key">Prerequisites:</span> <span class="kv-value">Familiarity with:</span></p>
+<ul><li><a href="../00_notation/symbol_table.md">Symbol Table</a> -- all symbols used herein</li><li><a href="../00_notation/parameter_table.md">Parameter Table</a> -- numerical values for both variants</li><li><a href="../00_notation/conventions.md">Conventions</a> -- equation formatting rules</li><li><a href="01_fmcw_theory.md">FMCW Theory</a> -- radar range equation and SNR</li><li><a href="02_lfm_waveform_model.md">LFM Waveform Model</a> -- matched filter processing gain</li></ul>
+
+<hr>
+
+<h2 id="1-binary-hypothesis-testing">1. Binary Hypothesis Testing<a class="ha" href="#1-binary-hypothesis-testing" aria-hidden="true">¶</a></h2>
+
+<p>Radar detection is fundamentally a binary decision problem: determine whether a target is present in a given range-Doppler cell or whether the cell contains only noise.</p>
+
+<h3 id="hypothesis-formulation">Hypothesis Formulation<a class="ha" href="#hypothesis-formulation" aria-hidden="true">¶</a></h3>
+
+<p>The two hypotheses are:</p>
+
+<p>$$</p>
+<p>\begin{aligned}</p>
+<p>H_0 &amp;: x[n] = w[n] &amp;&amp;\text{(noise only)} \\</p>
+<p>H_1 &amp;: x[n] = A \, s[n] + w[n] &amp;&amp;\text{(signal + noise)}</p>
+<p>\end{aligned}</p>
+<p>\tag{DET-1}</p>
+<p>$$</p>
+
+<p>where $x[n]$ is the observed data in the cell under test, $s[n]$ is the known signal waveform (after matched filtering), $A$ is the signal amplitude (related to SNR), and $w[n]$ is additive noise.</p>
+
+<p>The detection problem is to decide between $H_0$ and $H_1$ based on the observed data $x[n]$, subject to constraints on the error rates:</p>
+
+<ul><li><strong>False alarm:</strong> Deciding $H_1$ when $H_0$ is true, with probability $P_{fa}$ (defined in the <a href="../00_notation/symbol_table.md#detection-and-signal">Symbol Table</a>).</li><li><strong>Detection:</strong> Deciding $H_1$ when $H_1$ is true, with probability $P_d$ (defined in the <a href="../00_notation/symbol_table.md#detection-and-signal">Symbol Table</a>).</li><li><strong>Miss:</strong> Deciding $H_0$ when $H_1$ is true, with probability $1 - P_d$.</li></ul>
+
+<hr>
+
+<h2 id="2-neyman-pearson-lemma">2. Neyman-Pearson Lemma<a class="ha" href="#2-neyman-pearson-lemma" aria-hidden="true">¶</a></h2>
+
+<p>The Neyman-Pearson lemma provides the optimal detection strategy: among all decision rules that satisfy a given false alarm probability constraint, the likelihood ratio test (LRT) maximizes the detection probability.</p>
+
+<h3 id="likelihood-ratio-test">Likelihood Ratio Test<a class="ha" href="#likelihood-ratio-test" aria-hidden="true">¶</a></h3>
+
+<p>The optimal detector forms the likelihood ratio and compares it to a threshold:</p>
+
+<p>$$</p>
+<p>\Lambda(x) = \frac{p(x \mid H_1)}{p(x \mid H_0)} \underset{H_0}{\overset{H_1}{\gtrless}} \gamma \tag{DET-2}</p>
+<p>$$</p>
+
+<p>where $p(x \mid H_i)$ is the probability density of the observation under hypothesis $H_i$, and $\gamma$ is the threshold chosen to achieve the desired $P_{fa}$:</p>
+
+<p>$$</p>
+<p>P_{fa} = \Pr(\Lambda(x) &gt; \gamma \mid H_0) = \alpha_0 \tag{DET-3}</p>
+<p>$$</p>
+
+<p>The Neyman-Pearson lemma guarantees that no other test with $P_{fa} \le \alpha_0$ can achieve a higher $P_d$ than the LRT. This is the <strong>most powerful test</strong> at level $\alpha_0$.</p>
+
+<h3 id="sufficient-statistic">Sufficient Statistic<a class="ha" href="#sufficient-statistic" aria-hidden="true">¶</a></h3>
+
+<p>In practice, the full likelihood ratio need not be computed. Any monotonic function of $\Lambda(x)$ is an equivalent <strong>sufficient statistic</strong> for the test. For the radar detection problem, the sufficient statistic is typically the magnitude-squared of the matched filter output (Section 4).</p>
+
+<hr>
+
+<h2 id="3-gaussian-noise-model">3. Gaussian Noise Model<a class="ha" href="#3-gaussian-noise-model" aria-hidden="true">¶</a></h2>
+
+<p>The standard radar detection model assumes the noise $w[n]$ in Eq. (DET-1) is complex circular Gaussian with zero mean and known variance.</p>
+
+<h3 id="signal-model">Signal Model<a class="ha" href="#signal-model" aria-hidden="true">¶</a></h3>
+
+<p>After matched filtering (see Eq. (LFM-8) in <a href="02_lfm_waveform_model.md#matched-filter-definition"><code>02_lfm_waveform_model.md</code></a>), the output at the target range bin is a single complex sample:</p>
+
+<p>$$</p>
+<p>\begin{aligned}</p>
+<p>H_0 &amp;: x = w, &amp;&amp;w \sim \mathcal{CN}(0, \sigma_n^2) \\</p>
+<p>H_1 &amp;: x = A + w, &amp;&amp;w \sim \mathcal{CN}(0, \sigma_n^2)</p>
+<p>\end{aligned}</p>
+<p>\tag{DET-4}</p>
+<p>$$</p>
+
+<p>where $\mathcal{CN}(0, \sigma_n^2)$ denotes a complex circular Gaussian distribution with variance $\sigma_n^2 = 2\sigma^2$ (where $\sigma^2$ is the per-component variance of the real and imaginary parts), and $A$ is the deterministic signal amplitude.</p>
+
+<h3 id="likelihood-ratio-for-gaussian-case">Likelihood Ratio for Gaussian Case<a class="ha" href="#likelihood-ratio-for-gaussian-case" aria-hidden="true">¶</a></h3>
+
+<p>The probability densities under each hypothesis are:</p>
+
+<p>$$</p>
+<p>\begin{aligned}</p>
+<p>p(x \mid H_0) &amp;= \frac{1}{\pi \sigma_n^2} \exp\!\left(-\frac{|x|^2}{\sigma_n^2}\right) \\</p>
+<p>p(x \mid H_1) &amp;= \frac{1}{\pi \sigma_n^2} \exp\!\left(-\frac{|x - A|^2}{\sigma_n^2}\right)</p>
+<p>\end{aligned}</p>
+<p>\tag{DET-5}</p>
+<p>$$</p>
+
+<p>The log-likelihood ratio simplifies to:</p>
+
+<p>$$</p>
+<p>\ln \Lambda(x) = \frac{2\operatorname{Re}(A^* x) - |A|^2}{\sigma_n^2} \tag{DET-6}</p>
+<p>$$</p>
+
+<p>Since $|A|^2$ and $\sigma_n^2$ are constants, the sufficient statistic is $T(x) = \operatorname{Re}(A^* x)$, which is the real part of the correlation between the received signal and the known signal. When the signal phase is unknown (as in most radar applications), the detector uses the magnitude $|x|$ or equivalently $|x|^2$.</p>
+
+<h3 id="detection-performance">Detection Performance<a class="ha" href="#detection-performance" aria-hidden="true">¶</a></h3>
+
+<p>For the known-signal-in-Gaussian-noise model with the magnitude-squared detector $T(x) = |x|^2$, the false alarm and detection probabilities are:</p>
+
+<p>$$</p>
+<p>P_{fa} = \exp\!\left(-\frac{\gamma}{\sigma_n^2}\right) \tag{DET-7}</p>
+<p>$$</p>
+
+<p>$$</p>
+<p>P_d = Q_1\!\left(\sqrt{2 \cdot \text{SNR}},\; \sqrt{\frac{2\gamma}{\sigma_n^2}}\right) \tag{DET-8}</p>
+<p>$$</p>
+
+<p>where $Q_1(\cdot, \cdot)$ is the Marcum Q-function and $\text{SNR} = |A|^2 / \sigma_n^2$ is the signal-to-noise ratio. The threshold $\gamma$ is set from the desired $P_{fa}$ using Eq. (DET-7):</p>
+
+<p>$$</p>
+<p>\gamma = -\sigma_n^2 \ln(P_{fa}) \tag{DET-9}</p>
+<p>$$</p>
+
+<hr>
+
+<h2 id="4-square-law-detector">4. Square-Law Detector<a class="ha" href="#4-square-law-detector" aria-hidden="true">¶</a></h2>
+
+<p>In radar receivers, the complex baseband signal from the matched filter is converted to a detection statistic by taking the magnitude-squared (square-law detection). This is the sufficient statistic for detection of a signal with unknown phase in Gaussian noise.</p>
+
+<h3 id="test-statistic">Test Statistic<a class="ha" href="#test-statistic" aria-hidden="true">¶</a></h3>
+
+<p>The square-law detector computes:</p>
+
+<p>$$</p>
+<p>T = |x|^2 = (\operatorname{Re}\{x\})^2 + (\operatorname{Im}\{x\})^2 \tag{DET-10}</p>
+<p>$$</p>
+
+<h3 id="distribution-under-h-0-noise-only">Distribution Under $H_0$ (Noise Only)<a class="ha" href="#distribution-under-h-0-noise-only" aria-hidden="true">¶</a></h3>
+
+<p>Under $H_0$, $x \sim \mathcal{CN}(0, \sigma_n^2)$, so $|x|^2$ follows an exponential distribution:</p>
+
+<p>$$</p>
+<p>p(T \mid H_0) = \frac{1}{\sigma_n^2}\exp\!\left(-\frac{T}{\sigma_n^2}\right), \quad T \ge 0 \tag{DET-11}</p>
+<p>$$</p>
+
+<p>This is equivalently a chi-squared distribution with 2 degrees of freedom, scaled by $\sigma^2 = \sigma_n^2/2$.</p>
+
+<h3 id="distribution-under-h-1-signal-noise">Distribution Under $H_1$ (Signal + Noise)<a class="ha" href="#distribution-under-h-1-signal-noise" aria-hidden="true">¶</a></h3>
+
+<p>Under $H_1$, $x \sim \mathcal{CN}(A, \sigma_n^2)$, so $|x|^2$ follows a non-central chi-squared distribution with 2 degrees of freedom and non-centrality parameter $\lambda_\text{nc} = 2|A|^2/\sigma_n^2 = 2\,\text{SNR}$:</p>
+
+<p>$$</p>
+<p>p(T \mid H_1) = \frac{1}{\sigma_n^2}\exp\!\left(-\frac{T + |A|^2}{\sigma_n^2}\right) I_0\!\left(\frac{2|A|\sqrt{T}}{\sigma_n^2}\right) \tag{DET-12}</p>
+<p>$$</p>
+
+<p>where $I_0(\cdot)$ is the modified Bessel function of the first kind, order zero.</p>
+
+<hr>
+
+<h2 id="5-swerling-target-models">5. Swerling Target Models<a class="ha" href="#5-swerling-target-models" aria-hidden="true">¶</a></h2>
+
+<p>The analysis in Sections 2--4 assumes a deterministic (non-fluctuating) target amplitude $A$. Real radar targets have fluctuating radar cross sections (RCS), and the fluctuation statistics significantly affect detection performance. The Swerling models classify target fluctuation into five cases based on two dimensions: the RCS probability distribution and the fluctuation rate.</p>
+
+<h3 id="swerling-cases">Swerling Cases<a class="ha" href="#swerling-cases" aria-hidden="true">¶</a></h3>
+
+<p>$$</p>
+<p>\begin{array}{c|c|c}</p>
+<p> &amp; \textbf{Scan-to-scan} &amp; \textbf{Pulse-to-pulse} \\</p>
+<p>\hline</p>
+<p>\textbf{Rayleigh (exponential)} &amp; \text{Case I} &amp; \text{Case II} \\</p>
+<p>\hline</p>
+<p>\textbf{Chi-squared (4 DOF)} &amp; \text{Case III} &amp; \text{Case IV} \\</p>
+<p>\end{array}</p>
+<p>\tag{DET-13}</p>
+<p>$$</p>
+
+<p>In addition, <strong>Swerling Case 0</strong> (also called Case V or the non-fluctuating case) corresponds to a deterministic target with constant RCS.</p>
+
+<h3 id="rcs-distributions">RCS Distributions<a class="ha" href="#rcs-distributions" aria-hidden="true">¶</a></h3>
+
+<p class="kv-line"><span class="kv-key">Case 0 (Non-fluctuating):</span> <span class="kv-value">The RCS $\sigma$ is constant. This applies to simple targets with a single dominant scatterer (e.g., a sphere or a flat plate at normal incidence).</span></p>
+
+<p class="kv-line"><span class="kv-key">Cases I and II (Rayleigh / Exponential):</span> <span class="kv-value">The RCS follows an exponential distribution:</span></p>
+
+<p>$$</p>
+<p>p(\sigma) = \frac{1}{\bar{\sigma}} \exp\!\left(-\frac{\sigma}{\bar{\sigma}}\right), \quad \sigma \ge 0 \tag{DET-14}</p>
+<p>$$</p>
+
+<p>where $\bar{\sigma}$ is the mean RCS. This model applies to targets composed of many independent scatterers of comparable magnitude (e.g., aircraft, ships). The SNR is also exponentially distributed with mean $\overline{\text{SNR}}$.</p>
+
+<p class="kv-line"><span class="kv-key">Cases III and IV (Chi-squared, 4 DOF):</span> <span class="kv-value">The RCS follows a chi-squared distribution with 4 degrees of freedom:</span></p>
+
+<p>$$</p>
+<p>p(\sigma) = \frac{4\sigma}{\bar{\sigma}^2} \exp\!\left(-\frac{2\sigma}{\bar{\sigma}}\right), \quad \sigma \ge 0 \tag{DET-15}</p>
+<p>$$</p>
+
+<p>This model applies to targets with a single dominant scatterer plus many smaller scatterers (e.g., a vehicle with a large flat surface plus complex structure). The variance of $\sigma$ is smaller than in Cases I/II, so the detection performance falls between Case 0 and Cases I/II.</p>
+
+<h3 id="fluctuation-rate">Fluctuation Rate<a class="ha" href="#fluctuation-rate" aria-hidden="true">¶</a></h3>
+
+<ul><li><strong>Scan-to-scan (Cases I, III):</strong> The RCS is constant within one CPI ($M$ pulses) but varies independently from scan to scan. This models targets whose aspect angle changes slowly relative to the CPI duration.</li><li><strong>Pulse-to-pulse (Cases II, IV):</strong> The RCS varies independently from pulse to pulse within a CPI. This models targets with very rapid aspect changes or very slow scan rates.</li></ul>
+
+<h3 id="detection-performance-impact">Detection Performance Impact<a class="ha" href="#detection-performance-impact" aria-hidden="true">¶</a></h3>
+
+<p>For single-pulse detection, the detection probability for Swerling Case I (exponential fluctuation) has a closed-form expression:</p>
+
+<p>$$</p>
+<p>P_d = P_{fa}^{1/(1 + \overline{\text{SNR}})} \tag{DET-16}</p>
+<p>$$</p>
+
+<p>For Swerling Case 0, $P_d$ must be computed numerically via the Marcum Q-function (Eq. (DET-8)). At high SNR, Case 0 achieves higher $P_d$ than Case I because the non-fluctuating target provides a consistent return. At low SNR, Case I can occasionally exceed Case 0 due to favorable fluctuations, but on average requires higher SNR for a given $P_d$.</p>
+
+<hr>
+
+<h2 id="6-ca-cfar-derivation">6. CA-CFAR Derivation<a class="ha" href="#6-ca-cfar-derivation" aria-hidden="true">¶</a></h2>
+
+<p>The detection threshold in Eqs. (DET-7) and (DET-9) requires knowledge of the noise power $\sigma_n^2$. In practice, the noise power is unknown and varies with range, Doppler, and time due to clutter, interference, and environmental changes. Constant False Alarm Rate (CFAR) detectors estimate the noise power adaptively from the data.</p>
+
+<h3 id="sliding-window-architecture">Sliding Window Architecture<a class="ha" href="#sliding-window-architecture" aria-hidden="true">¶</a></h3>
+
+<p>The Cell-Averaging CFAR (CA-CFAR) detector estimates the noise power from reference cells surrounding the cell under test (CUT). The architecture consists of:</p>
+
+<ul><li><strong>Cell under test (CUT):</strong> The range-Doppler cell being tested for target presence.</li><li><strong>Guard cells:</strong> $N_\text{guard}$ cells (defined in the <a href="../00_notation/symbol_table.md#detection-and-signal">Symbol Table</a>) immediately adjacent to the CUT on each side, excluded from the noise estimate to prevent target energy from biasing the estimate.</li><li><strong>Reference cells:</strong> $N_\text{ref}$ cells (defined in the <a href="../00_notation/symbol_table.md#detection-and-signal">Symbol Table</a>) on each side of the guard band, used to estimate the local noise power.</li></ul>
+
+<p>The total number of reference cells is $N_\text{ref}$ (counting both sides combined).</p>
+
+<h3 id="noise-power-estimate">Noise Power Estimate<a class="ha" href="#noise-power-estimate" aria-hidden="true">¶</a></h3>
+
+<p>The CA-CFAR estimates the noise power as the average of the square-law detector outputs in the reference cells:</p>
+
+<p>$$</p>
+<p>\hat{P}_n = \frac{1}{N_\text{ref}} \sum_{i=1}^{N_\text{ref}} T_i \tag{DET-17}</p>
+<p>$$</p>
+
+<p>where $T_i = |x_i|^2$ is the square-law output of the $i$-th reference cell.</p>
+
+<p class="kv-line"><span class="kv-key">Assumption:</span> <span class="kv-value">The reference cells contain independent, identically distributed (i.i.d.) samples of noise only, each following the exponential distribution of Eq. (DET-11). This is the homogeneous noise environment assumption.</span></p>
+
+<h3 id="threshold-multiplier-derivation">Threshold Multiplier Derivation<a class="ha" href="#threshold-multiplier-derivation" aria-hidden="true">¶</a></h3>
+
+<p>The CFAR detection test compares the CUT power to the scaled noise estimate:</p>
+
+<p>$$</p>
+<p>T_\text{CUT} \underset{H_0}{\overset{H_1}{\gtrless}} \alpha \cdot \hat{P}_n \tag{DET-18}</p>
+<p>$$</p>
+
+<p>where $\alpha$ is the CFAR threshold multiplier (defined in the <a href="../00_notation/symbol_table.md#detection-and-signal">Symbol Table</a>).</p>
+
+<p>To derive $\alpha$, we require $P_{fa} = \Pr(T_\text{CUT} &gt; \alpha \, \hat{P}_n \mid H_0)$.</p>
+
+<p>Under $H_0$, $T_\text{CUT}$ is exponentially distributed with parameter $\sigma_n^2$, and the sum $S = \sum_{i=1}^{N_\text{ref}} T_i$ follows a Gamma distribution $\Gamma(N_\text{ref}, \sigma_n^2)$ (since it is the sum of $N_\text{ref}$ i.i.d. exponential random variables). The test becomes $T_\text{CUT} &gt; \alpha \, S / N_\text{ref}$.</p>
+
+<p>The false alarm probability evaluates to:</p>
+
+<p>$$</p>
+<p>P_{fa} = \left(1 + \frac{\alpha}{N_\text{ref}}\right)^{-N_\text{ref}} \tag{DET-19}</p>
+<p>$$</p>
+
+<p>Solving for the threshold multiplier:</p>
+
+<p>$$</p>
+<p>\boxed{\alpha = N_\text{ref}\!\left(P_{fa}^{-1/N_\text{ref}} - 1\right)} \tag{DET-20}</p>
+<p>$$</p>
+
+<p>This is the standard CA-CFAR threshold multiplier formula (Skolnik, Richards). The derivation rests on two critical assumptions:</p>
+
+<ul><li><strong>I.I.D. exponential reference cells:</strong> The noise samples in the reference cells are independent and identically distributed, each following an exponential distribution (equivalently, the complex noise is i.i.d. circular Gaussian).</li><li><strong>Homogeneous environment:</strong> No targets, clutter edges, or interference sources contaminate the reference window.</li></ul>
+
+<p>When these assumptions hold, the CA-CFAR achieves exactly the designed $P_{fa}$ regardless of the absolute noise power level -- hence &quot;constant false alarm rate.&quot;</p>
+
+<hr>
+
+<h2 id="7-detection-probability-curves">7. Detection Probability Curves<a class="ha" href="#7-detection-probability-curves" aria-hidden="true">¶</a></h2>
+
+<p>The detection probability $P_d$ as a function of SNR, parametric in $P_{fa}$, is the standard performance metric for a radar detector. These curves quantify the SNR required to achieve a specified detection probability at a given false alarm rate.</p>
+
+<h3 id="swerling-case-0-non-fluctuating-target">Swerling Case 0 (Non-Fluctuating Target)<a class="ha" href="#swerling-case-0-non-fluctuating-target" aria-hidden="true">¶</a></h3>
+
+<p>For a non-fluctuating target with the square-law detector, $P_d$ is computed from the Marcum Q-function (Eq. (DET-8)):</p>
+
+<p>$$</p>
+<p>P_d = Q_1\!\left(\sqrt{2 \cdot \text{SNR}},\; \sqrt{-2\ln(P_{fa})}\right) \tag{DET-21}</p>
+<p>$$</p>
+
+<p>where the threshold has been expressed in terms of $P_{fa}$ using Eq. (DET-9). These curves are monotonically increasing in SNR: as SNR increases, $P_d$ approaches unity for any $P_{fa}$.</p>
+
+<p>!<a href="figures/detection_curves_swerling0.svg">Detection probability curves -- Swerling Case 0</a></p>
+
+<p>The figure shows $P_d$ vs. SNR for $P_{fa} \in \{10^{-4}, 10^{-6}, 10^{-8}, 10^{-10}\}$. As the false alarm constraint becomes more stringent (lower $P_{fa}$), a higher SNR is required to achieve the same $P_d$. The curves exhibit a steep transition region: for typical radar requirements ($P_d \ge 0.9$), the required SNR is concentrated in a narrow range determined by $P_{fa}$.</p>
+
+<h3 id="swerling-case-i-scan-to-scan-rayleigh-fluctuation">Swerling Case I (Scan-to-Scan Rayleigh Fluctuation)<a class="ha" href="#swerling-case-i-scan-to-scan-rayleigh-fluctuation" aria-hidden="true">¶</a></h3>
+
+<p>For a Swerling Case I target with single-pulse detection, the closed-form expression of Eq. (DET-16) gives:</p>
+
+<p>$$</p>
+<p>P_d = P_{fa}^{1/(1 + \overline{\text{SNR}})} \tag{DET-22}</p>
+<p>$$</p>
+
+<p>!<a href="figures/detection_curves_swerling1.svg">Detection probability curves -- Swerling Case I</a></p>
+
+<p>Compared to Case 0, Swerling Case I requires significantly higher SNR to achieve the same $P_d$. The exponential RCS fluctuation means the target occasionally presents a very small cross section, making consistent detection more difficult. The SNR penalty for fluctuating targets increases as the required $P_d$ increases.</p>
+
+<h3 id="required-snr-comparison">Required SNR Comparison<a class="ha" href="#required-snr-comparison" aria-hidden="true">¶</a></h3>
+
+<p>At representative operating points, the SNR required for Case I exceeds that for Case 0 by several dB. This difference is the <strong>fluctuation loss</strong> -- the additional SNR required to overcome target RCS fluctuation. The fluctuation loss increases with increasing $P_d$ requirement and is typically in the range of several dB for single-pulse detection.</p>
+
+<hr>
+
+<h2 id="8-cfar-loss">8. CFAR Loss<a class="ha" href="#8-cfar-loss" aria-hidden="true">¶</a></h2>
+
+<p>The CA-CFAR detector estimates noise power from a finite number of reference cells, introducing estimation uncertainty. This uncertainty degrades detection performance relative to an ideal fixed-threshold detector that knows the true noise power exactly.</p>
+
+<h3 id="definition">Definition<a class="ha" href="#definition" aria-hidden="true">¶</a></h3>
+
+<p>The CFAR loss is the SNR penalty (in dB) required by the CA-CFAR detector to achieve the same $(P_d, P_{fa})$ operating point as the ideal Neyman-Pearson detector with known noise power:</p>
+
+<p>$$</p>
+<p>L_\text{CFAR}\,[\text{dB}] = \text{SNR}_\text{CFAR} - \text{SNR}_\text{NP} \tag{DET-23}</p>
+<p>$$</p>
+
+<h3 id="dependence-on-reference-window-size">Dependence on Reference Window Size<a class="ha" href="#dependence-on-reference-window-size" aria-hidden="true">¶</a></h3>
+
+<p>The CFAR loss decreases as the number of reference cells $N_\text{ref}$ increases, because the noise power estimate improves with more samples. The approximate CFAR loss for the CA-CFAR detector is:</p>
+
+<p>$$</p>
+<p>L_\text{CFAR} \approx \frac{1}{N_\text{ref}} \cdot \frac{P_d}{(1 - P_d) \ln(P_{fa})} \tag{DET-24}</p>
+<p>$$</p>
+
+<p>This expression (from Richards) shows that:</p>
+
+<ul><li><strong>More reference cells reduce loss:</strong> $L_\text{CFAR} \propto 1/N_\text{ref}$. Doubling the reference window halves the CFAR loss.</li><li><strong>Higher $P_d$ requirement increases loss:</strong> The penalty grows as the operating point approaches $P_d = 1$.</li><li><strong>Stricter $P_{fa}$ increases loss:</strong> Lower false alarm rates require more precise noise estimation.</li></ul>
+
+<blockquote><strong>Design Guideline:</strong></blockquote>
+<blockquote>| $N_\text{ref}$ | Approximate CFAR Loss |</blockquote>
+<blockquote>|---|---|</blockquote>
+<blockquote>| 16 | ~$1.5~\text{dB}$ |</blockquote>
+<blockquote>| 24 | ~$1.0~\text{dB}$ |</blockquote>
+<blockquote>| 32 | ~$0.8~\text{dB}$ |</blockquote>
+<blockquote>| 64 | ~$0.4~\text{dB}$ |</blockquote>
+<p>&gt;</p>
+<blockquote>These values are representative for $P_d = 0.9$ and $P_{fa} = 10^{-6}$. The actual CFAR loss for the AERIS-10 system depends on the specific $N_\text{ref}$ and $N_\text{guard}$ implemented in the FPGA CFAR module.</blockquote>
+
+<hr>
+
+<h2 id="9-non-homogeneous-environments">9. Non-Homogeneous Environments<a class="ha" href="#9-non-homogeneous-environments" aria-hidden="true">¶</a></h2>
+
+<p>The CA-CFAR derivation in Section 6 assumes a homogeneous noise environment: all reference cells contain i.i.d. samples from the same distribution. When this assumption is violated, the CA-CFAR performance degrades.</p>
+
+<h3 id="failure-modes">Failure Modes<a class="ha" href="#failure-modes" aria-hidden="true">¶</a></h3>
+
+<p class="kv-line"><span class="kv-key">Clutter edges:</span> <span class="kv-value">When the reference window spans the boundary between a clutter region and a clear region, the noise estimate is biased. Reference cells in the clutter region elevate the noise estimate, raising the threshold and masking targets in the clear region. Conversely, reference cells in the clear region underestimate the noise in the clutter region, increasing the false alarm rate.</span></p>
+
+<p class="kv-line"><span class="kv-key">Multiple targets in the reference window:</span> <span class="kv-value">When a second target falls within the reference cells, its energy elevates the noise power estimate, raising the threshold around the cell under test. This phenomenon, called <strong>target masking</strong>, reduces $P_d$ for the primary target. With $k$ interfering targets in the reference window, the noise estimate is biased upward by a factor proportional to $k \cdot \text{SNR}_\text{interferer} / N_\text{ref}$.</span></p>
+
+<h3 id="alternative-cfar-architectures">Alternative CFAR Architectures<a class="ha" href="#alternative-cfar-architectures" aria-hidden="true">¶</a></h3>
+
+<p>Several CFAR variants address the non-homogeneous environment problem:</p>
+
+<ul><li><strong>Greatest-Of CFAR (GO-CFAR):</strong> Computes the noise estimate separately from the leading and lagging reference windows and uses the greater of the two estimates. This prevents false alarms at clutter edges but increases target masking.</li></ul>
+
+<ul><li><strong>Smallest-Of CFAR (SO-CFAR):</strong> Uses the smaller of the two noise estimates. This reduces target masking but can increase false alarms at clutter edges.</li></ul>
+
+<ul><li><strong>Ordered-Statistic CFAR (OS-CFAR):</strong> Ranks the reference cell values and uses the $k$-th order statistic as the noise estimate. This provides robustness against multiple interfering targets (up to $N_\text{ref} - k$ interferers) at the cost of higher CFAR loss and computational complexity.</li></ul>
+
+<p>These CFAR variants and their suitability for the AERIS-10 system are the subject of a dedicated research survey in Phase 5 (SWRES-01). The current FPGA implementation uses a specific CFAR variant that will be documented in Phase 4 (SWDOC-01).</p>
+
+<hr>
+
+<h2 id="references">References<a class="ha" href="#references" aria-hidden="true">¶</a></h2>
+
+<ul><li><a href="../00_notation/symbol_table.md">Symbol Table</a> -- canonical symbol definitions</li><li><a href="../00_notation/parameter_table.md">Parameter Table</a> -- numerical values for both AERIS-10 variants</li><li><a href="../00_notation/conventions.md">Conventions</a> -- equation numbering and formatting rules</li><li><a href="01_fmcw_theory.md">FMCW Theory</a> -- radar range equation and single-pulse SNR</li><li><a href="02_lfm_waveform_model.md">LFM Waveform Model</a> -- matched filter processing gain</li><li>Skolnik, M.I., <em>Introduction to Radar Systems</em>, 4th ed., McGraw-Hill, 2008 -- Detection theory (Ch. 5), CFAR (Ch. 5.7), Swerling models (Ch. 5.5)</li><li>Richards, M.A., <em>Fundamentals of Radar Signal Processing</em>, 2nd ed., McGraw-Hill, 2014 -- Detection and CFAR (Ch. 10), Neyman-Pearson criterion (Ch. 10.2)</li><li>Kay, S.M., <em>Fundamentals of Statistical Signal Processing: Detection Theory</em>, Prentice Hall, 1998 -- Neyman-Pearson lemma (Ch. 3), likelihood ratio test (Ch. 3-4)</li><li>Mahafza, B.R., <em>Radar Systems Analysis and Design Using MATLAB</em>, 3rd ed., CRC Press, 2013 -- CFAR implementation (Ch. 7), detection probability computation (Ch. 6)</li></ul>
+
+</div>
+  </div><!-- main-content -->
+</div><!-- site-shell -->
+<script>
+mermaid.initialize({ startOnLoad: true, theme: 'dark', securityLevel: 'loose' });
+</script>
+</body>
+
+</html>

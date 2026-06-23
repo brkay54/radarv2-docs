@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>06_pulse_compression — aros Vault</title>
+<style>
+
+:root {
+  --color-blue:    #007ACC;
+  --color-green:   #2DA44E;
+  --color-yellow:  #D29922;
+  --color-purple:  #8B5CF6;
+  --color-orange:  #F59E0B;
+  --color-red:     #E5534B;
+  --color-cyan:    #0BC5EA;
+  --color-accent:  #7C3AED;
+  --text-normal:   #DCDDDE;
+  --text-muted:    #8E8EA0;
+  --background-primary:         #1E1E2E;
+  --background-secondary:       #181825;
+  --background-modifier-border: #313244;
+  --color-base-30:              #45475A;
+}
+body {
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.6;
+  margin: 0;
+}
+
+</style>
+<!-- Mermaid -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<!-- MathJax -->
+<script>window.MathJax={tex:{inlineMath:[['$','$'],['\\(','\\)']],displayMath:[['$$','$$'],['\\[','\\]']]},options:{skipHtmlTags:['script','noscript','style','textarea','pre']}};</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+<!-- Site CSS -->
+<link rel="stylesheet" href="../../site.css">
+</head>
+<body class="markdown-reading-view">
+<div class="site-shell">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <a href="../../00-Index.html" class="site-title">radarv2 / AERIS-10</a>
+      <div class="site-subtitle">aros Radar Documentation</div>
+    </div>
+    <ul class="nav-list">
+      <li class="nav-section">Core Docs</li>
+      <li><a href="../../09-Concepts-Primer.html">Radar Primer</a></li>
+      <li><a href="../../00-Index.html">Index</a></li>
+      <li><a href="../../01-System-Overview.html">System Overview</a></li>
+      <li><a href="../../02-Physics-and-Waveform.html">Physics &amp; Waveform</a></li>
+      <li><a href="../../03-Beamforming-and-Scan.html">Beamforming &amp; Scan</a></li>
+      <li><a href="../../04-Signal-Processing-Pipeline.html">Signal Processing</a></li>
+      <li><a href="../../05-Node-Architecture.html">Node Architecture</a></li>
+      <li><a href="../../06-Message-Catalog.html">Message Catalog</a></li>
+      <li><a href="../../07-Detection-and-Tracking.html">Detection &amp; Tracking</a></li>
+      <li><a href="../../08-Scenarios-and-Targets.html">Scenarios &amp; Targets</a></li>
+      <li class="nav-section">Advanced</li>
+      <li><a href="../../10-Radar-Model-Library.html">Radar Model Library</a></li>
+      <li><a href="../../11-Multi-Radar-Fusion.html">Multi-Radar Fusion</a></li>
+      <li><a href="../../12-3D-Scene.html">3-D Scene</a></li>
+      <li><a href="../../13-Reference-Tables.html">Reference Tables</a></li>
+      <li><a href="../../FUTURE-DEVELOPMENT.html">Future Development</a></li>
+      <li class="nav-section">Upstream Theory</li>
+      <li><a href="../../upstream/README.html">Upstream README</a></li>
+      <li><a href="../../upstream/00_notation/conventions.html">Notation</a></li>
+      <li><a href="../../upstream/01_physics/01_fmcw_theory.html">FMCW Theory</a></li>
+      <li><a href="../../upstream/01_physics/02_lfm_waveform_model.html">LFM Waveform</a></li>
+      <li><a href="../../upstream/01_physics/03_beamforming_theory.html">Beamforming Theory</a></li>
+      <li><a href="../../upstream/01_physics/04_detection_theory.html">Detection Theory</a></li>
+      <li><a href="../../upstream/01_physics/05_noise_analysis.html">Noise Analysis</a></li>
+      <li><a href="../../upstream/01_physics/06_calibration_theory.html">Calibration</a></li>
+      <li><a href="../../upstream/02_hardware/01_system_overview.html">HW Overview</a></li>
+      <li><a href="../../upstream/04_research/01_cfar_variants.html">CFAR Variants</a></li>
+    </ul>
+    <div class="sidebar-footer">
+      <a href="https://github.com/brkay54/radarv2-docs" target="_blank">GitHub</a>
+    </div>
+  </nav>
+  <div class="main-content">
+
+<div class="markdown-preview-section">
+<h1 id="pulse-compression-improvements">Pulse Compression Improvements<a class="ha" href="#pulse-compression-improvements" aria-hidden="true">¶</a></h1>
+
+<p class="kv-line"><span class="kv-key">Purpose:</span> <span class="kv-value">Survey NLFM waveform optimization, windowed matched filter techniques, and stretch processing enhancements for improving AERIS-10 pulse compression performance, with DAC feasibility analysis and Artix-7 resource assessments.</span></p>
+
+<p class="kv-line"><span class="kv-key">Prerequisites:</span> <span class="kv-value">Familiarity with:</span></p>
+<ul><li><a href="../00_notation/symbol_table.md">Symbol Table</a> -- all symbols used herein</li><li><a href="../00_notation/parameter_table.md">Parameter Table</a> -- numerical values for both variants</li><li><a href="../00_notation/conventions.md">Conventions</a> -- equation formatting rules</li><li><a href="../01_physics/02_lfm_waveform_model.md">LFM Waveform Model</a> -- chirp signal mathematics, matched filter theory, sidelobe structure</li><li><a href="../03_software/01_fpga_pipeline.md">FPGA Pipeline</a> -- matched filter implementation (Stages 4--5)</li><li><a href="../02_hardware/05_fpga_board.md">FPGA Board</a> -- XC7A100T resource capacity and DAC interface</li></ul>
+
+<hr>
+
+<h2 id="1-current-state">1. Current State<a class="ha" href="#1-current-state" aria-hidden="true">¶</a></h2>
+
+<p>The AERIS-10 system transmits a Linear Frequency Modulated (LFM) chirp waveform defined by Eq. (LFM-1) in <a href="../01_physics/02_lfm_waveform_model.md"><code>01_physics/02_lfm_waveform_model.md</code></a>. The chirp sweeps linearly across bandwidth $B$ during the pulse duration $T_c$, with chirp rate $\mu = B / T_c$ (Eq. (LFM-3)).</p>
+
+<h3 id="current-matched-filter-implementation">Current Matched Filter Implementation<a class="ha" href="#current-matched-filter-implementation" aria-hidden="true">¶</a></h3>
+
+<p>Pulse compression is performed by the matched filter in Stage 5 of the FPGA pipeline (<a href="../03_software/01_fpga_pipeline.md#7-stage-5-matched-filter-pulse-compression"><code>03_software/01_fpga_pipeline.md</code></a>, Sections 7.1--7.3). The implementation uses frequency-domain convolution via the overlap-save method:</p>
+
+<table class="md-table"><thead><tr><th>Parameter</th><th>Value</th><th>Source</th></tr></thead><tbody><tr><td>FFT size</td><td>$N_\text{FFT} = 1024$</td><td><code>BUFFER_SIZE</code> in <code>matched_filter_multi_segment.v</code></td></tr><tr><td>Long chirp samples</td><td>3000</td><td><code>LONG_CHIRP_SAMPLES</code></td></tr><tr><td>Short chirp samples</td><td>50</td><td><code>SHORT_CHIRP_SAMPLES</code></td></tr><tr><td>Segments (long chirp)</td><td>$N_\text{seg} = 4$</td><td>Eq. (SW-4): $\lceil(3000 - 128) / 896\rceil = 4$</td></tr><tr><td>Overlap</td><td>$L_\text{overlap} = 128$</td><td><code>OVERLAP_SAMPLES</code></td></tr><tr><td>Reference format</td><td>16-bit I/Q</td><td>Stored in <code>.mem</code> files</td></tr><tr><td>Processing chain</td><td>Forward FFT, spectral multiply, inverse FFT</td><td><code>matched_filter_processing_chain</code></td></tr></tbody></table>
+
+<p>The reference chirp coefficients are stored in block RAM and loaded by <code>chirp_memory_loader_param</code> (Stage 4). The reference is the complex conjugate of the transmitted chirp spectrum -- the standard matched filter definition per Eq. (LFM-9).</p>
+
+<h3 id="current-sidelobe-performance">Current Sidelobe Performance<a class="ha" href="#current-sidelobe-performance" aria-hidden="true">¶</a></h3>
+
+<p>The current system uses a <strong>rectangular window</strong> (no tapering) on the LFM chirp, resulting in the sinc-like compressed pulse envelope described by Eq. (LFM-20). The peak sidelobe level (PSL) is:</p>
+
+<p>$$</p>
+<p>\text{PSL}_\text{rect} = -13.3~\text{dB} \tag{LFM-21}</p>
+<p>$$</p>
+
+<p>This first sidelobe at $-13.3~\text{dB}$ below the mainlobe peak can mask weak targets adjacent to strong reflectors. The sidelobe structure follows the $\operatorname{sinc}(B\tau)$ pattern from the matched filter output envelope (Eq. (LFM-19)), with sidelobes decaying as $1 / (B\tau)$.</p>
+
+<h3 id="current-waveform-generation">Current Waveform Generation<a class="ha" href="#current-waveform-generation" aria-hidden="true">¶</a></h3>
+
+<p>The transmit chirp waveform is generated from <code>.mem</code> files loaded into FPGA block RAM and output via the 120 MHz DAC interface (<code>dac_interface_single</code>):</p>
+
+<table class="md-table"><thead><tr><th>Parameter</th><th>Value</th><th>Source</th></tr></thead><tbody><tr><td>DAC resolution</td><td>8-bit</td><td><code>dac_interface_single.v</code></td></tr><tr><td>DAC clock</td><td>$f_\text{DAC} = 120~\text{MHz}$</td><td>Eq. (HW-FPGA-2) in <a href="../02_hardware/05_fpga_board.md#32-120-mhz-dac-domain"><code>02_hardware/05_fpga_board.md</code></a></td></tr><tr><td>Waveform storage</td><td><code>.mem</code> files (I/Q)</td><td><code>chirp_memory_loader_param.v</code></td></tr><tr><td>Long chirp segments</td><td>3 segments</td><td>Segment files <code>long_chirp_seg[0-2]_{i,q}.mem</code></td></tr><tr><td>Short chirp segments</td><td>1 segment</td><td><code>short_chirp_{i,q}.mem</code></td></tr></tbody></table>
+
+<p>The 8-bit DAC resolution and 120 MHz sample rate are critical constraints for any waveform modification proposal.</p>
+
+<hr>
+
+<h2 id="2-literature-survey">2. Literature Survey<a class="ha" href="#2-literature-survey" aria-hidden="true">¶</a></h2>
+
+<h3 id="2-1-nlfm-waveform-optimization">2.1 NLFM Waveform Optimization<a class="ha" href="#2-1-nlfm-waveform-optimization" aria-hidden="true">¶</a></h3>
+
+<p><strong>Nonlinear Frequency Modulation (NLFM)</strong> achieves low sidelobe levels without the SNR loss associated with windowed LFM. Instead of applying a window to the matched filter (which reduces the coherent gain), NLFM shapes the frequency modulation function itself so that the matched filter output inherently has low sidelobes.</p>
+
+<h4 id="principle">Principle<a class="ha" href="#principle" aria-hidden="true">¶</a></h4>
+
+<p>In an LFM chirp, the instantaneous frequency sweeps linearly: $f_i(t) = f_c + \mu t$ (Eq. (LFM-4)). In NLFM, the sweep is nonlinear:</p>
+
+<p>$$</p>
+<p>f_i(t) = f_c + g(t)</p>
+<p>$$</p>
+
+<p>where $g(t)$ is a nonlinear frequency function designed such that the matched filter output has sidelobes below a target level (typically $-40$ to $-50~\text{dB}$). The key insight is that the instantaneous bandwidth (local frequency sweep rate) controls the local time-bandwidth product, and by spending more time at the band edges (slower sweep rate), the effective spectral weighting resembles a window function -- but applied in the transmit domain rather than the receive domain, avoiding SNR loss.</p>
+
+<h4 id="optimization-methods">Optimization Methods<a class="ha" href="#optimization-methods" aria-hidden="true">¶</a></h4>
+
+<ul><li><strong>Genetic Algorithm (GA) Optimization:</strong> The frequency function $g(t)$ is parameterized (e.g., as a polynomial or piecewise-linear function) and optimized via genetic algorithms to minimize peak sidelobe level. The 2025 Scientific Reports paper demonstrates GA-optimized NLFM achieving $-45~\text{dB}$ sidelobes with less than $0.1~\text{dB}$ mainlobe widening compared to windowed LFM.</li></ul>
+
+<ul><li><strong>Spline-Based Frequency Functions:</strong> The frequency modulation is represented as a B-spline with control points optimized for sidelobe performance. Spline representations provide smooth frequency transitions that are favorable for DAC generation and Doppler tolerance.</li></ul>
+
+<ul><li><strong>Piecewise-Linear FM (PLFM):</strong> The frequency modulation is divided into segments with different (but constant) sweep rates. Each segment&#x27;s sweep rate and duration are optimized for sidelobe performance. This is the simplest NLFM variant and maps directly to the current <code>.mem</code> file architecture -- each segment&#x27;s samples can be pre-computed and stored.</li></ul>
+
+<h4 id="doppler-tolerance">Doppler Tolerance<a class="ha" href="#doppler-tolerance" aria-hidden="true">¶</a></h4>
+
+<p>A critical consideration for FMCW radar is Doppler tolerance. LFM chirps are inherently Doppler-tolerant because the ambiguity function ridge (Eq. (LFM-24)) runs along $\nu = -\mu\tau$, meaning a Doppler shift simply displaces the range peak without distorting it. NLFM waveforms generally have <strong>reduced Doppler tolerance</strong> because the non-uniform sweep rate causes the ambiguity function to lose the clean ridge structure.</p>
+
+<p>For the AERIS-10 system, Doppler tolerance must be evaluated against the maximum expected Doppler shift to ensure NLFM sidelobe performance is maintained across the target velocity range.</p>
+
+<h4 id="nlfm-sidelobe-performance-summary">NLFM Sidelobe Performance Summary<a class="ha" href="#nlfm-sidelobe-performance-summary" aria-hidden="true">¶</a></h4>
+
+<table class="md-table"><thead><tr><th>Method</th><th>Achievable PSL</th><th>Mainlobe Widening</th><th>SNR Loss</th><th>Doppler Tolerance</th></tr></thead><tbody><tr><td>GA-optimized NLFM</td><td>$-45$ to $-50~\text{dB}$</td><td>$&lt; 5\%$</td><td>$&lt; 0.1~\text{dB}$</td><td>Reduced (design-dependent)</td></tr><tr><td>Spline NLFM</td><td>$-40$ to $-45~\text{dB}$</td><td>$&lt; 10\%$</td><td>$&lt; 0.2~\text{dB}$</td><td>Moderate</td></tr><tr><td>Piecewise-linear FM</td><td>$-35$ to $-40~\text{dB}$</td><td>$&lt; 8\%$</td><td>$&lt; 0.1~\text{dB}$</td><td>Good (closer to LFM)</td></tr></tbody></table>
+
+<h3 id="2-2-windowed-matched-filter-improvements">2.2 Windowed Matched Filter Improvements<a class="ha" href="#2-2-windowed-matched-filter-improvements" aria-hidden="true">¶</a></h3>
+
+<p>An alternative to NLFM is applying a window function to the matched filter reference in the frequency domain. This reduces sidelobes at the cost of SNR loss (processing loss) and mainlobe widening.</p>
+
+<p>The current system uses no window on the matched filter (equivalent to a rectangular window). Applying standard window functions to the reference chirp spectrum before the inverse FFT in the matched filter processing chain would achieve the following:</p>
+
+<table class="md-table"><thead><tr><th>Window</th><th>Peak Sidelobe Level</th><th>Mainlobe Width Factor</th><th>Processing Loss</th></tr></thead><tbody><tr><td>Rectangular (current)</td><td>$-13.3~\text{dB}$</td><td>$1.0 \times (1/B)$</td><td>$0~\text{dB}$</td></tr><tr><td>Hamming</td><td>$-42.8~\text{dB}$</td><td>$1.50 \times (1/B)$</td><td>$1.34~\text{dB}$</td></tr><tr><td>Hanning</td><td>$-31.5~\text{dB}$</td><td>$1.44 \times (1/B)$</td><td>$1.42~\text{dB}$</td></tr><tr><td>Taylor ($\bar{n} = 5$, SLL $= -35~\text{dB}$)</td><td>$-35~\text{dB}$</td><td>$1.28 \times (1/B)$</td><td>$0.76~\text{dB}$</td></tr><tr><td>Taylor ($\bar{n} = 5$, SLL $= -40~\text{dB}$)</td><td>$-40~\text{dB}$</td><td>$1.35 \times (1/B)$</td><td>$1.02~\text{dB}$</td></tr><tr><td>Chebyshev ($-40~\text{dB}$)</td><td>$-40~\text{dB}$</td><td>$1.39 \times (1/B)$</td><td>$1.10~\text{dB}$</td></tr></tbody></table>
+
+<p>These values are consistent with the windowing analysis in Section 5 of <a href="../01_physics/02_lfm_waveform_model.md#5-sidelobe-structure-and-windowing"><code>01_physics/02_lfm_waveform_model.md</code></a>, Eq. (LFM-21).</p>
+
+<p class="kv-line"><span class="kv-key">Implementation approach:</span> <span class="kv-value">The window is applied to the reference chirp spectrum (frequency-domain) before the spectral multiplication in the matched filter processing chain. This requires:</span></p>
+
+<ul><li>Pre-computing window coefficients for the $N_\text{FFT} = 1024$-point frequency domain</li><li>Storing coefficients in a LUT (1024 entries at 16-bit = 2 KBytes, easily fits in BRAM or distributed RAM)</li><li>Multiplying each reference spectrum bin by the window coefficient during the spectral multiply stage</li></ul>
+
+<p class="kv-line"><span class="kv-key">Tradeoff:</span> <span class="kv-value">Windowed matched filtering exchanges SNR for sidelobe suppression. The processing loss column quantifies the coherent gain reduction -- this loss is subtracted from the processing gain $G_p = B T_c$ of Eq. (LFM-14). For the Taylor window at $-35~\text{dB}$ SLL, the $0.76~\text{dB}$ processing loss is modest and provides a $21.7~\text{dB}$ sidelobe improvement over the current rectangular window.</span></p>
+
+<h3 id="2-3-stretch-processing-optimization">2.3 Stretch Processing Optimization<a class="ha" href="#2-3-stretch-processing-optimization" aria-hidden="true">¶</a></h3>
+
+<p>For FMCW radar, the dechirp (stretch processing) operation described in Eq. (FMCW-14) of <a href="../01_physics/01_fmcw_theory.md"><code>01_physics/01_fmcw_theory.md</code></a> is already the baseline signal processing approach. The AERIS-10 DDC (Stage 2) performs digital down-conversion from $f_\text{IF}$ to baseband, and the range FFT resolves targets in the beat frequency domain.</p>
+
+<p>Potential stretch processing improvements include:</p>
+
+<ul><li><strong>Zero-Padding for Interpolated FFT:</strong> Extending the $N_\text{FFT} = 1024$-point FFT with zero-padding to 2048 or 4096 points provides interpolated frequency bins, improving the precision of beat frequency estimation. This does not improve true range resolution (which is set by bandwidth $B$ per Eq. (LFM-18)) but reduces the scalloping loss from discrete FFT bins.</li></ul>
+
+<ul><li><strong>Chirp-Z Transform (CZT) for Fine Resolution:</strong> The CZT computes the DFT over a restricted frequency band with finer frequency spacing than the FFT. For targets of interest at specific range intervals, the CZT can provide sub-bin frequency resolution. Resource cost is higher than the FFT ($O(N \log N)$ but with larger constants due to the complex exponential multiplication).</li></ul>
+
+<ul><li><strong>Frequency Estimation Enhancement:</strong> Parabolic interpolation or Gaussian fitting on the FFT magnitude peak provides sub-bin frequency estimation with negligible additional resource cost (3 multiplications and 1 division per peak).</li></ul>
+
+<hr>
+
+<h2 id="3-gap-analysis">3. Gap Analysis<a class="ha" href="#3-gap-analysis" aria-hidden="true">¶</a></h2>
+
+<table class="md-table"><thead><tr><th>Gap</th><th>Current System</th><th>Desired Capability</th><th>Priority</th></tr></thead><tbody><tr><td>High sidelobes</td><td>$-13.3~\text{dB}$ PSL (rectangular window)</td><td>$-35$ to $-45~\text{dB}$ PSL</td><td>High</td></tr><tr><td>SNR loss from windowing</td><td>Not applicable (no window)</td><td>Low-loss sidelobe reduction</td><td>High</td></tr><tr><td>No NLFM capability</td><td>LFM only; fixed <code>.mem</code> coefficients</td><td>NLFM waveform generation</td><td>Medium</td></tr><tr><td>Fixed matched filter reference</td><td>Reference chirp loaded from <code>.mem</code></td><td>Configurable reference with window options</td><td>Medium</td></tr><tr><td>No sub-bin range estimation</td><td>Nearest-bin FFT only</td><td>Interpolated frequency estimation</td><td>Low</td></tr></tbody></table>
+
+<p>The primary gap is the $-13.3~\text{dB}$ sidelobe level, which limits the system&#x27;s ability to detect weak targets near strong reflectors. A $-35~\text{dB}$ or better PSL would provide adequate masking margin for most scenarios. The windowed matched filter is the lowest-risk approach to address this gap, while NLFM offers superior performance if the DAC precision constraint can be met.</p>
+
+<hr>
+
+<h2 id="4-feasibility-assessment">4. Feasibility Assessment<a class="ha" href="#4-feasibility-assessment" aria-hidden="true">¶</a></h2>
+
+<p>All resource estimates reference the Artix-7 XC7A100T capacity from <a href="../02_hardware/05_fpga_board.md#22-resource-utilization"><code>02_hardware/05_fpga_board.md</code></a>, Section 2.1:</p>
+
+<table class="md-table"><thead><tr><th>Resource</th><th>Total Available</th><th>Current Est. Usage</th><th>Remaining</th></tr></thead><tbody><tr><td>LUTs</td><td>63,400</td><td>~16,500 (~26%)</td><td>~46,900</td></tr><tr><td>DSP48E1</td><td>240</td><td>~88 (~37%)</td><td>~152</td></tr><tr><td>Block RAM (36 Kb)</td><td>135</td><td>~101 (~75%)</td><td>~34</td></tr><tr><td>Flip-Flops</td><td>126,800</td><td>--</td><td>--</td></tr></tbody></table>
+
+<blockquote><strong>Caution:</strong> Resource utilization is based on theoretical estimates from Phase 3, pending Vivado implementation reports. A 30% overhead margin is assumed for all estimates below.</blockquote>
+
+<h3 id="4-1-windowed-matched-filter-taylor-hamming">4.1 Windowed Matched Filter (Taylor/Hamming)<a class="ha" href="#4-1-windowed-matched-filter-taylor-hamming" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Property</th><th>Value</th></tr></thead><tbody><tr><td>Algorithm complexity</td><td>$O(N_\text{FFT})$ -- one additional multiply per frequency bin</td></tr><tr><td>Additional BRAMs</td><td>0--1 (1024 x 16-bit window coefficients = 2 KB; may fit in distributed RAM)</td></tr><tr><td>Additional DSPs</td><td>2 (window coefficient multiply for I and Q channels)</td></tr><tr><td>Additional LUTs</td><td>~200--400 (coefficient addressing, control logic)</td></tr><tr><td>Pipeline integration</td><td>Add window multiply into spectral multiply stage of <code>matched_filter_processing_chain</code></td></tr><tr><td>Configurable windows</td><td>Multiple window coefficient sets can share the same LUT with a select input</td></tr><tr><td>Verdict</td><td><strong>FEASIBLE</strong> -- minimal resource cost; can be integrated into existing spectral multiply</td></tr></tbody></table>
+
+<h3 id="4-2-nlfm-waveform-generation">4.2 NLFM Waveform Generation<a class="ha" href="#4-2-nlfm-waveform-generation" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Property</th><th>Value</th></tr></thead><tbody><tr><td>Algorithm complexity</td><td>Pre-computed offline; FPGA only stores and outputs samples</td></tr><tr><td>Additional BRAMs</td><td>0 (replaces existing <code>.mem</code> files with NLFM coefficients; same sample count)</td></tr><tr><td>Additional DSPs</td><td>0 (no change to DAC output path)</td></tr><tr><td>Additional LUTs</td><td>~100--200 (coefficient addressing unchanged; possible format adaptation)</td></tr><tr><td>Matched filter update</td><td>NLFM reference chirp must replace LFM reference in <code>chirp_memory_loader_param</code></td></tr><tr><td>Pipeline integration</td><td>Transparent -- chirp memory architecture unchanged</td></tr></tbody></table>
+
+<p><strong>DAC Precision Analysis (Open Question 4):</strong></p>
+
+<p>The current DAC is an 8-bit interface operating at $f_\text{DAC} = 120~\text{MHz}$ (Eq. (HW-FPGA-2)). NLFM waveform fidelity is constrained by:</p>
+
+<ul><li><strong>Amplitude quantization:</strong> 8 bits provide $2^8 = 256$ amplitude levels. The NLFM waveform&#x27;s nonlinear phase modulation requires precise amplitude and phase representation. For the I/Q components output to the DAC, each channel has only 256 levels.</li></ul>
+
+<ul><li><strong>Phase quantization impact on sidelobes:</strong> The achievable sidelobe level is limited by the DAC resolution. For an $n$-bit DAC, the quantization noise floor is approximately $-6.02n - 1.76~\text{dB}$ below full scale (Eq. (NF-11) in <a href="../01_physics/05_noise_analysis.md"><code>01_physics/05_noise_analysis.md</code></a>). For $n = 8$ bits, this gives $-49.9~\text{dBFS}$.</li></ul>
+
+<ul><li><strong>NLFM coefficient precision requirement:</strong> To achieve $-45~\text{dB}$ PSL, the waveform samples must be accurate to better than $-45~\text{dB}$ relative to the mainlobe. With an 8-bit DAC providing a $-49.9~\text{dBFS}$ noise floor, the quantization-limited PSL is approximately $-45~\text{dB}$ for well-designed NLFM waveforms, leaving only ~5 dB of margin.</li></ul>
+
+<ul><li><strong>Practical assessment:</strong> Published NLFM implementations on 8-bit DACs report achieving $-35$ to $-40~\text{dB}$ sidelobes in practice, degraded from the theoretical $-45~\text{dB}$ by quantization effects, DAC nonlinearity (DNL/INL), and clock jitter. This is still significantly better than the current $-13.3~\text{dB}$ rectangular window performance.</li></ul>
+
+<table class="md-table"><thead><tr><th>DAC Parameter</th><th>Value</th><th>Impact on NLFM</th></tr></thead><tbody><tr><td>Resolution</td><td>8-bit</td><td>Limits PSL to approximately $-40~\text{dB}$ in practice</td></tr><tr><td>Sample rate</td><td>120 MHz</td><td>Adequate for NLFM (same as LFM baseline)</td></tr><tr><td>SQNR floor</td><td>$-49.9~\text{dBFS}$</td><td>Sets hard limit on achievable PSL</td></tr><tr><td>Practical PSL (8-bit NLFM)</td><td>$-35$ to $-40~\text{dB}$</td><td>Degraded from theoretical by quantization</td></tr></tbody></table>
+
+<p class="kv-line"><span class="kv-key">Verdict:</span> <span class="kv-value"><strong>FEASIBLE with degraded sidelobe performance</strong> -- NLFM can be implemented with no additional FPGA resources (same memory architecture), but the 8-bit DAC limits achievable PSL to approximately $-35$ to $-40~\text{dB}$ rather than the theoretical $-45$ to $-50~\text{dB}$.</span></p>
+
+<h3 id="4-3-stretch-processing-improvements">4.3 Stretch Processing Improvements<a class="ha" href="#4-3-stretch-processing-improvements" aria-hidden="true">¶</a></h3>
+
+<h4 id="zero-padded-fft">Zero-Padded FFT<a class="ha" href="#zero-padded-fft" aria-hidden="true">¶</a></h4>
+
+<table class="md-table"><thead><tr><th>Property</th><th>Value</th></tr></thead><tbody><tr><td>Algorithm complexity</td><td>$O(N \log N)$ for $N = 2048$ or $4096$</td></tr><tr><td>Additional BRAMs</td><td>10--20 (doubled or quadrupled FFT buffer)</td></tr><tr><td>Additional DSPs</td><td>8--16 (larger FFT butterfly)</td></tr><tr><td>Additional LUTs</td><td>~2,000--4,000</td></tr><tr><td>Pipeline integration</td><td>Replace 1024-point FFT with 2048 or 4096-point FFT IP</td></tr><tr><td>Benefit</td><td>Reduced scalloping loss (~0.5 dB improvement); NO true resolution improvement</td></tr><tr><td>Verdict</td><td><strong>MARGINAL</strong> -- high BRAM cost for modest benefit; not recommended unless combined with other FFT changes</td></tr></tbody></table>
+
+<h4 id="parabolic-peak-interpolation">Parabolic Peak Interpolation<a class="ha" href="#parabolic-peak-interpolation" aria-hidden="true">¶</a></h4>
+
+<table class="md-table"><thead><tr><th>Property</th><th>Value</th></tr></thead><tbody><tr><td>Algorithm complexity</td><td>$O(1)$ per detected peak (3 multiplies, 1 divide)</td></tr><tr><td>Additional BRAMs</td><td>0</td></tr><tr><td>Additional DSPs</td><td>1--2 (for division/multiply)</td></tr><tr><td>Additional LUTs</td><td>~200--500</td></tr><tr><td>Pipeline integration</td><td>Post-detection refinement; no impact on main pipeline</td></tr><tr><td>Benefit</td><td>Sub-bin frequency accuracy (~0.1 bin width)</td></tr><tr><td>Verdict</td><td><strong>FEASIBLE</strong> -- minimal cost, useful for range accuracy improvement</td></tr></tbody></table>
+
+<hr>
+
+<h2 id="5-recommendations">5. Recommendations<a class="ha" href="#5-recommendations" aria-hidden="true">¶</a></h2>
+
+<h3 id="priority-1-windowed-matched-filter-immediate-improvement">Priority 1: Windowed Matched Filter (Immediate Improvement)<a class="ha" href="#priority-1-windowed-matched-filter-immediate-improvement" aria-hidden="true">¶</a></h3>
+
+<ul><li><strong>Expected improvement:</strong> Sidelobe reduction from $-13.3~\text{dB}$ to $-35~\text{dB}$ (Taylor, $\bar{n} = 5$) with only $0.76~\text{dB}$ processing loss</li><li><strong>Resource cost:</strong> 0--1 BRAM, 2 DSPs, ~400 LUTs (&lt; 1% of available resources)</li><li><strong>Risk:</strong> LOW -- well-understood technique, minimal pipeline changes, reversible (switch back to rectangular window by loading unity coefficients)</li><li><strong>Investigation steps:</strong></li><li>Pre-compute Taylor window coefficients ($\bar{n} = 5$, SLL $= -35~\text{dB}$) at 1024 points in 16-bit fixed-point</li><li>Integrate window coefficient multiply into <code>matched_filter_processing_chain</code> spectral multiply stage</li><li>Validate sidelobe performance using range profile measurements with known point targets</li><li>Compare Taylor, Hamming, and Chebyshev windows on measured data to select optimal tradeoff</li><li>Evaluate impact of processing loss on detection range (0.76 dB loss reduces range by factor $10^{-0.76/40} \approx 0.957$, or ~4% range reduction)</li></ul>
+
+<h3 id="priority-2-nlfm-waveform-better-sidelobes-dac-validation-required">Priority 2: NLFM Waveform (Better Sidelobes, DAC Validation Required)<a class="ha" href="#priority-2-nlfm-waveform-better-sidelobes-dac-validation-required" aria-hidden="true">¶</a></h3>
+
+<ul><li><strong>Expected improvement:</strong> Sidelobes of $-35$ to $-40~\text{dB}$ with $&lt; 0.1~\text{dB}$ processing loss (vs. $0.76~\text{dB}$ for Taylor window)</li><li><strong>Resource cost:</strong> 0 additional BRAMs, 0 DSPs, ~200 LUTs (replaces existing chirp coefficients)</li><li><strong>Risk:</strong> MEDIUM -- requires DAC feasibility validation for 8-bit/120 MHz constraint; Doppler tolerance must be characterized</li><li><strong>Investigation steps:</strong></li><li>Simulate NLFM waveform with 8-bit quantization to determine achievable PSL with the current DAC resolution</li><li>Compare GA-optimized, spline, and piecewise-linear NLFM approaches for the AERIS-10 bandwidth and chirp duration</li><li>Characterize Doppler tolerance of candidate NLFM waveforms against the maximum expected target velocity</li><li>Generate NLFM <code>.mem</code> files and verify compatibility with <code>chirp_memory_loader_param</code> architecture</li><li>Update matched filter reference coefficients to match the NLFM transmit waveform</li><li>If 8-bit DAC proves insufficient for target PSL, evaluate as part of ADC/DAC upgrade research (Phase 6 HWRES-04)</li></ul>
+
+<h3 id="priority-3-stretch-processing-improvements-low-priority">Priority 3: Stretch Processing Improvements (Low Priority)<a class="ha" href="#priority-3-stretch-processing-improvements-low-priority" aria-hidden="true">¶</a></h3>
+
+<ul><li><strong>Expected improvement:</strong> Sub-bin range accuracy via parabolic interpolation (~0.1 bin width improvement)</li><li><strong>Resource cost:</strong> ~500 LUTs, 1--2 DSPs</li><li><strong>Risk:</strong> LOW -- post-detection processing, does not affect main pipeline</li><li><strong>Investigation steps:</strong></li><li>Implement parabolic peak interpolation as a post-detection refinement stage</li><li>Evaluate whether sub-bin accuracy provides meaningful improvement for the AERIS-10 range resolution</li><li>Zero-padded FFT is NOT recommended due to BRAM cost -- parabolic interpolation achieves similar accuracy at far lower cost</li></ul>
+
+<hr>
+
+<h2 id="references">References<a class="ha" href="#references" aria-hidden="true">¶</a></h2>
+
+<h3 id="project-documentation">Project Documentation<a class="ha" href="#project-documentation" aria-hidden="true">¶</a></h3>
+<ul><li><a href="../00_notation/symbol_table.md">Symbol Table</a> -- $B$, $T_c$, $\mu$, $N_\text{FFT}$, $w[n]$, $\Delta R$</li><li><a href="../00_notation/parameter_table.md">Parameter Table</a> -- chirp bandwidth, pulse duration, DAC specifications</li><li><a href="../00_notation/conventions.md">Conventions</a> -- equation formatting rules</li><li><a href="../01_physics/02_lfm_waveform_model.md">LFM Waveform Model</a> -- LFM chirp (Eq. LFM-1), matched filter (Eqs. LFM-8, LFM-9), pulse compression (Eq. LFM-16), sidelobes (Eq. LFM-21), ambiguity function (Eq. LFM-23)</li><li><a href="../01_physics/05_noise_analysis.md">Noise Figure Chain</a> -- ADC quantization noise (Eq. NF-11)</li><li><a href="../03_software/01_fpga_pipeline.md">FPGA Pipeline</a> -- matched filter (Stage 5, Eqs. SW-4), reference chirp loading (Stage 4)</li><li><a href="../02_hardware/05_fpga_board.md">FPGA Board</a> -- XC7A100T resources (Section 2.1), DAC domain (Section 3.2, Eq. HW-FPGA-2)</li></ul>
+
+<h3 id="external-references">External References<a class="ha" href="#external-references" aria-hidden="true">¶</a></h3>
+<ul><li>Skolnik, M.I., <em>Introduction to Radar Systems</em>, 4th ed., McGraw-Hill, 2008 -- Ch. 8 (pulse compression, sidelobe reduction)</li><li>Richards, M.A., <em>Fundamentals of Radar Signal Processing</em>, 2nd ed., McGraw-Hill, 2014 -- Ch. 6 (matched filtering, windowing), Ch. 4 (waveform design)</li><li>Levanon, N. and Mozeson, E., <em>Radar Signals</em>, Wiley, 2004 -- Ch. 6 (NLFM waveform design), Ch. 7 (mismatched filtering)</li><li>Scientific Reports, &quot;Optimization of Nonlinear Frequency Modulated Waveforms for Radar Applications,&quot; 2025 -- GA-optimized NLFM achieving $-45~\text{dB}$ sidelobes</li><li>Collins, T. and Atkins, P., &quot;Nonlinear Frequency Modulation Chirps for Active Sonar,&quot; <em>IEE Proc. Radar, Sonar &amp; Navigation</em>, vol. 146, no. 6, pp. 312--316, Dec. 1999 -- foundational NLFM design methodology</li><li>Harris, F.J., &quot;On the Use of Windows for Harmonic Analysis with the Discrete Fourier Transform,&quot; <em>Proc. IEEE</em>, vol. 66, no. 1, pp. 51--83, Jan. 1978 -- comprehensive window function comparison</li></ul>
+
+</div>
+  </div><!-- main-content -->
+</div><!-- site-shell -->
+<script>
+mermaid.initialize({ startOnLoad: true, theme: 'dark', securityLevel: 'loose' });
+</script>
+</body>
+
+</html>

@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>radarv2 — Radar Model Library — aros Vault</title>
+<style>
+
+:root {
+  --color-blue:    #007ACC;
+  --color-green:   #2DA44E;
+  --color-yellow:  #D29922;
+  --color-purple:  #8B5CF6;
+  --color-orange:  #F59E0B;
+  --color-red:     #E5534B;
+  --color-cyan:    #0BC5EA;
+  --color-accent:  #7C3AED;
+  --text-normal:   #DCDDDE;
+  --text-muted:    #8E8EA0;
+  --background-primary:         #1E1E2E;
+  --background-secondary:       #181825;
+  --background-modifier-border: #313244;
+  --color-base-30:              #45475A;
+}
+body {
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.6;
+  margin: 0;
+}
+
+</style>
+<!-- Mermaid -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<!-- MathJax -->
+<script>window.MathJax={tex:{inlineMath:[['$','$'],['\\(','\\)']],displayMath:[['$$','$$'],['\\[','\\]']]},options:{skipHtmlTags:['script','noscript','style','textarea','pre']}};</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+<!-- Site CSS -->
+<link rel="stylesheet" href="site.css">
+</head>
+<body class="markdown-reading-view">
+<div class="site-shell">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <a href="00-Index.html" class="site-title">radarv2 / AERIS-10</a>
+      <div class="site-subtitle">aros Radar Documentation</div>
+    </div>
+    <ul class="nav-list">
+      <li class="nav-section">Core Docs</li>
+      <li><a href="09-Concepts-Primer.html">Radar Primer</a></li>
+      <li><a href="00-Index.html">Index</a></li>
+      <li><a href="01-System-Overview.html">System Overview</a></li>
+      <li><a href="02-Physics-and-Waveform.html">Physics &amp; Waveform</a></li>
+      <li><a href="03-Beamforming-and-Scan.html">Beamforming &amp; Scan</a></li>
+      <li><a href="04-Signal-Processing-Pipeline.html">Signal Processing</a></li>
+      <li><a href="05-Node-Architecture.html">Node Architecture</a></li>
+      <li><a href="06-Message-Catalog.html">Message Catalog</a></li>
+      <li><a href="07-Detection-and-Tracking.html">Detection &amp; Tracking</a></li>
+      <li><a href="08-Scenarios-and-Targets.html">Scenarios &amp; Targets</a></li>
+      <li class="nav-section">Advanced</li>
+      <li><a href="10-Radar-Model-Library.html">Radar Model Library</a></li>
+      <li><a href="11-Multi-Radar-Fusion.html">Multi-Radar Fusion</a></li>
+      <li><a href="12-3D-Scene.html">3-D Scene</a></li>
+      <li><a href="13-Reference-Tables.html">Reference Tables</a></li>
+      <li><a href="FUTURE-DEVELOPMENT.html">Future Development</a></li>
+      <li class="nav-section">Upstream Theory</li>
+      <li><a href="upstream/README.html">Upstream README</a></li>
+      <li><a href="upstream/00_notation/conventions.html">Notation</a></li>
+      <li><a href="upstream/01_physics/01_fmcw_theory.html">FMCW Theory</a></li>
+      <li><a href="upstream/01_physics/02_lfm_waveform_model.html">LFM Waveform</a></li>
+      <li><a href="upstream/01_physics/03_beamforming_theory.html">Beamforming Theory</a></li>
+      <li><a href="upstream/01_physics/04_detection_theory.html">Detection Theory</a></li>
+      <li><a href="upstream/01_physics/05_noise_analysis.html">Noise Analysis</a></li>
+      <li><a href="upstream/01_physics/06_calibration_theory.html">Calibration</a></li>
+      <li><a href="upstream/02_hardware/01_system_overview.html">HW Overview</a></li>
+      <li><a href="upstream/04_research/01_cfar_variants.html">CFAR Variants</a></li>
+    </ul>
+    <div class="sidebar-footer">
+      <a href="https://github.com/brkay54/radarv2-docs" target="_blank">GitHub</a>
+    </div>
+  </nav>
+  <div class="main-content">
+
+<div class="markdown-preview-section">
+<h1 id="radar-model-library">Radar Model Library<a class="ha" href="#radar-model-library" aria-hidden="true">¶</a></h1>
+
+<div class="callout" data-callout="abstract"><div class="callout-title">Scope</div><div class="callout-content"><p>How radarv2 generalizes from &quot;model the one AERIS-10 radar&quot; to a <strong>model-driven</strong></p>
+<p>simulation: a library of real, recognizable professional radars — each captured as</p>
+<p>a <strong>radar definition</strong> (a parameter profile, not code) — that the <em>same</em> node graph</p>
+<p>can run as. This is the <span class="wikilink-unresolved">FD-3</span></p>
+<p>design, written up as the reference for that work. Specs are from open literature;</p>
+<p>every value is flagged <strong>published</strong> or <strong>assumed</strong> so the fidelity is auditable.</p></div></div>
+
+<div class="callout" data-callout="success"><div class="callout-title">Status — BUILT (FD-3)</div><div class="callout-content"><p>The library is realized: every radar below is a profile under</p>
+<p><code>examples/radarv2/config/radars/*.profile.yaml</code>, selectable by model name from a</p>
+<p>fleet. <code>spy1 / tpy2 / smartl / gm400 / giraffe / apg81 / fps117 / aeris10</code> (plus the</p>
+<p>ASELSAN fleet models <code>kalkan2 / alp300 / alp100 / eirs</code>) all flatten through the spine</p>
+<p>generator. The <code>library</code> showcase fleet (<code>config/fleets/library.fleet.yaml</code>) runs five</p>
+<p>of them across four bands together; <code>radarv2 list radars</code> enumerates them, and the</p>
+<p><code>RadarProfileLibrary</code> ctest gates every profile&#x27;s schema + instantiability.</p></div></div>
+
+<hr>
+
+<h2 id="1-the-idea-a-radar-is-data-not-code">1. The idea — a radar is data, not code<a class="ha" href="#1-the-idea-a-radar-is-data-not-code" aria-hidden="true">¶</a></h2>
+
+<p>radarv2&#x27;s nodes already read every physical constant they need from parameters and</p>
+<p>from the <code>ScanCommand</code> (waveform, geometry, PRF). Nothing in <code>RxSynthesizer</code>,</p>
+<p><code>DopplerProcessor</code>, or <code>CfarDetector</code> hard-codes 10.5 GHz or a 16-element array. That</p>
+<p>is the whole leverage point: if the band, bandwidth, beamwidth, PRF, scan rate, and</p>
+<p>range all live in a <strong>parameter profile</strong>, then a &quot;radar model&quot; is just a named bundle</p>
+<p>of those values. Swap the bundle and the same pipeline runs as a different radar.</p>
+
+<div class="mermaid">flowchart LR
+  LIB[radar model library<br/>SPY-1 / TPY-2 / SMART-L / ...]:::lib
+  PROF[selected radar definition<br/>parameter profile]:::prof
+  SCAN[ScanController]:::node
+  RX[RxSynthesizer]:::node
+  DOP[DopplerProcessor]:::node
+  CFAR[CfarDetector]:::node
+
+  LIB -->|select by model id| PROF
+  PROF -->|fc, B, beamwidth| SCAN
+  PROF -->|PRF, CPI, array| RX
+  PROF -->|range_res, vel_res| DOP
+  PROF -->|Pfa, Nref, Nguard| CFAR
+
+  classDef lib fill:#9d174d,color:#fff1f2,stroke:#831843
+  classDef prof fill:#0e7490,color:#ecfeff,stroke:#155e75
+  classDef node fill:#1d4ed8,color:#eff6ff,stroke:#1e40af</div>
+
+<div class="callout" data-callout="info"><div class="callout-title">Legend — model-driven wiring</div><div class="callout-content"><p><strong>Pink</strong> = the library of model definitions · <strong>Teal</strong> = the one profile chosen for</p>
+<p>a run · <strong>Blue</strong> = the unchanged radarv2 nodes, each reading the physical constants</p>
+<p>it needs from that profile. Choosing a different model re-parameterizes the entire</p>
+<p>chain with no code change — the <span class="wikilink-unresolved">FD-3</span> design hook.</p></div></div>
+
+<hr>
+
+<h2 id="2-the-radar-definition-schema">2. The radar-definition schema<a class="ha" href="#2-the-radar-definition-schema" aria-hidden="true">¶</a></h2>
+
+<p>A model profile is a flat parameter set grouped by what it drives in the pipeline.</p>
+<p>Each row maps a real-world spec to the equation or node it feeds (cross-references</p>
+<p>into <a href="02-Physics-and-Waveform.html" class="internal-link">02-Physics-and-Waveform</a>).</p>
+
+<table class="md-table"><thead><tr><th>Group</th><th>Field</th><th>Drives</th><th>Equation / consumer</th></tr></thead><tbody><tr><td>RF</td><td><code>band</code>, <code>center_freq</code></td><td>wavelength λ = c/f</td><td>λ → Doppler, beamwidth</td></tr><tr><td>Waveform</td><td><code>bandwidth</code></td><td>range resolution</td><td>ΔR = c/2B (FMCW-19)</td></tr><tr><td>Waveform</td><td><code>pulse_width</code>, <code>prf</code></td><td>ambiguity + duty</td><td>R_ua = cT_r/2, v_ua = λf_r/4</td></tr><tr><td>Waveform</td><td><code>cpi_chirps</code> (M)</td><td>velocity resolution</td><td>Δv = λ/2MT_r (FMCW-21)</td></tr><tr><td>Antenna</td><td><code>array_type</code> (PESA/AESA)</td><td>steering model</td><td><a href="03-Beamforming-and-Scan.html" class="internal-link">03-Beamforming-and-Scan</a></td></tr><tr><td>Antenna</td><td><code>elements</code>, <code>spacing</code></td><td>aperture → beamwidth</td><td>θ ≈ λ/D</td></tr><tr><td>Antenna</td><td><code>beamwidth_az/el</code></td><td>angular resolution</td><td>beam geometry</td></tr><tr><td>Scan</td><td><code>scan_type</code> (mech/elec), <code>rpm</code> or dwell budget</td><td>revisit rate</td><td><a href="03-Beamforming-and-Scan.html" class="internal-link">03-Beamforming-and-Scan</a> timing</td></tr><tr><td>Budget</td><td><code>peak_power</code>, <code>instrumented_range</code></td><td>SNR-limited R_max</td><td>SNR (FMCW-11)</td></tr><tr><td>Detection</td><td><code>pfa</code>, <code>n_ref</code>, <code>n_guard</code></td><td>CFAR threshold</td><td><a href="07-Detection-and-Tracking.html" class="internal-link">07-Detection-and-Tracking</a></td></tr></tbody></table>
+
+<div class="callout" data-callout="tip"><div class="callout-title">Two derivations let beamwidth and resolution fall out of the aperture</div><div class="callout-content"><p>For radars whose beamwidth is published, use it directly; for those where only the</p>
+<p>aperture is known, radarv2 derives θ ≈ λ/D and flags the value <strong>derived</strong>. Same for</p>
+<p>range resolution — published pulse/PRF where available, otherwise an LFM bandwidth</p>
+<p><strong>assumed</strong> from the radar&#x27;s role (search vs. fire-control).</p></div></div>
+
+<div class="callout" data-callout="note"><div class="callout-title">Realized profile fields</div><div class="callout-content"><p>The shipped <code>*.profile.yaml</code> carries the **load-bearing physics the spine generator</p>
+<p>threads into node params** — <code>wavelength</code>, <code>r_max</code>, <code>prf</code>, <code>snr_ref_db</code>,</p>
+<p><code>beam.half_az/half_el</code>, <code>scan.{n_az,n_el,az_base,el_base}</code> — plus descriptive</p>
+<p>metadata (<code>band</code>, <code>array_type</code>, <code>scan_type</code>, <code>role</code>) and per-field provenance</p>
+<p>comments. The richer waveform/antenna fields above (<code>bandwidth</code>, <code>cpi_chirps</code>,</p>
+<p><code>elements</code>…) are the design&#x27;s full vocabulary; they fold in as the nodes grow to</p>
+<p>read them. Adding any field is a one-file edit — a radar stays data, not code.</p></div></div>
+
+<hr>
+
+<h2 id="3-the-library-twelve-real-radars">3. The library — twelve real radars<a class="ha" href="#3-the-library-twelve-real-radars" aria-hidden="true">¶</a></h2>
+
+<p>Specs from open literature (Wikipedia, radartutorial.eu, manufacturer pages, CSIS</p>
+<p>Missile Threat). AERIS-10 (the demo&#x27;s base) is included so the hobby radar sits in</p>
+<p>the same frame as the professional sets. The eight detailed below are the open-source</p>
+<p>reference set; four ASELSAN fleet models (<code>kalkan2</code>, <code>alp300</code>, <code>alp100</code>, <code>eirs</code>) ship as</p>
+<p>additional profiles under <code>config/radars/</code> and crew the <code>multi3</code>/<code>multi5</code> fleets.</p>
+
+<table class="md-table"><thead><tr><th>Radar</th><th>Band</th><th>Freq (GHz)</th><th>Antenna</th><th>Range (km)</th><th>Beamwidth</th><th>Update</th><th>Role</th></tr></thead><tbody><tr><td><strong>AN/SPY-1</strong> (Aegis)</td><td>S</td><td>~3.1–3.5</td><td>PESA, 4 fixed faces</td><td>~324 instr. (~83 vs ASM)</td><td>~1.7°</td><td>electronic; 1/min horizon, 12/min above</td><td>Naval 3D air/missile FC</td></tr><tr><td><strong>AN/TPY-2</strong> (THAAD)</td><td>X</td><td>~8.55–10</td><td>AESA, 25,344 GaAs T/R</td><td>~870–3000 (mode)</td><td>~0.15–0.4°†</td><td>electronic, PRF ~200 Hz†</td><td>Ground BMD surv/discrim</td></tr><tr><td><strong>Thales SMART-L MM/N</strong></td><td>L</td><td>~1–2†</td><td>AESA digital GaN</td><td>&gt;480 air, ~2000 BM</td><td>~2.2°</td><td>~12 rpm + elec elev</td><td>Naval long-range AAW+BMD</td></tr><tr><td><strong>Thales GM400 / α</strong></td><td>S</td><td>~2.9–3.3</td><td>AESA GaN, stacked-beam</td><td>&gt;450 fighter, ~515 (α)</td><td>~3° az</td><td>10 rpm + elec elev</td><td>Ground 3D air defense + TBM</td></tr><tr><td><strong>Saab Giraffe AMB</strong></td><td>C</td><td>~5.4–5.9</td><td>PESA/digital (D=AESA)</td><td>30/60/100 sel.</td><td>derived†</td><td>~60 rpm (1 s revisit)</td><td>C-band GBAD + C-RAM</td></tr><tr><td><strong>AN/APG-81</strong> (F-35)</td><td>X</td><td>~8–12.5†</td><td>AESA, ~1676 T/R</td><td>&gt;150 instr.</td><td>classified†</td><td>electronic (classified)</td><td>Airborne fire-control</td></tr><tr><td><strong>AN/FPS-117 / TPS-77</strong></td><td>L</td><td>1.215–1.4</td><td>AESA, mech-az + elec-elev</td><td>10–470 (~330 @1 m²)</td><td>~0.18° az</td><td>5/6/10/12 rpm</td><td>Ground long-range 3D surv</td></tr><tr><td><strong>AERIS-10</strong> (demo base)</td><td>X</td><td>10.5</td><td>hybrid phased + mech az</td><td>3 (N) / 20 (X)</td><td>~6.3°</td><td>~0.11 Hz full scan</td><td>Hobby pulse-LFM phased array</td></tr></tbody></table>
+
+<p>† = value (partly) <strong>assumed/derived/classified</strong>, not directly published — see §5.</p>
+
+<h3 id="instrumented-range-at-a-glance">Instrumented range at a glance<a class="ha" href="#instrumented-range-at-a-glance" aria-hidden="true">¶</a></h3>
+
+<div class="mermaid">xychart-beta
+  title "Instrumented range by radar model (km)"
+  x-axis [SPY1, TPY2, SMARTL, GM400, Giraffe, APG81, FPS117, AERIS]
+  y-axis "range (km)" 0 --> 1000
+  bar [324, 1000, 480, 450, 100, 150, 470, 20]</div>
+
+<div class="callout" data-callout="info"><div class="callout-title">Reading the range chart</div><div class="callout-content"><p>Bars are the <strong>air-search / instrumented</strong> range per model (TPY-2 clipped at 1000 km</p>
+<p>— its BMD modes reach ~3000 km; AERIS-10&#x27;s 20 km barely registers against the</p>
+<p>professional sets). Range is not a fair single-number ranking — it depends on target</p>
+<p>RCS and mode — but it shows the regime span the one node graph must cover, from a</p>
+<p>20 km hobby array to a 480 km naval AESA. RCS-qualified ranges (§5) are the honest</p>
+<p>comparison.</p></div></div>
+
+<hr>
+
+<h2 id="4-per-radar-notes-key-facts-sources">4. Per-radar notes (key facts + sources)<a class="ha" href="#4-per-radar-notes-key-facts-sources" aria-hidden="true">¶</a></h2>
+
+<ul><li><strong>AN/SPY-1</strong> — Lockheed, US Navy, op. 1983. S-band ~3.1–3.5 GHz. PESA, 4 fixed faces</li></ul>
+<p>  (~4096 radiators/face), no rotation. ~324 km instrumented, ~83 km vs sea-skimmer.</p>
+<p>  ~1.7° beam. Pulse-Doppler multifunction, pulse 6.4–51 µs (compression implied),</p>
+<p>  ~200 targets/array, peak ~4–6 MW.</p>
+<p>  <a href="https://en.wikipedia.org/wiki/AN/SPY-1">wiki</a> ·</p>
+<p>  <a href="https://www.radartutorial.eu/19.kartei/07.naval/karte003.en.html">radartutorial</a></p>
+<ul><li><strong>AN/TPY-2</strong> — Raytheon, op. ~2006. X-band ~8.55–10 GHz. AESA single ~9.2 m² face,</li></ul>
+<p>  25,344 GaAs T/R (GaN variant 2024). Range ~870–3000 km by mode. Beamwidth not</p>
+<p>  published (~0.15–0.4° est). Wideband LFM intrapulse for RV/decoy discrimination</p>
+<p>  (bandwidth classified). <a href="https://missilethreat.csis.org/defsys/tpy-2/">CSIS</a></p>
+<ul><li><strong>SMART-L MM/N</strong> — Thales NL. L-band (exact f not published). MM/N = full digital</li></ul>
+<p>  AESA GaN. &gt;480 km air, ~2000 km BM. ~12 rpm. ~1000 air + 100 surface tracks.</p>
+<p>  <a href="https://en.wikipedia.org/wiki/SMART-L">wiki</a></p>
+<ul><li><strong>GM400 / GM400α</strong> — Thales FR. S-band ~2.9–3.3 GHz. Digital 3D AESA GaN, mech az +</li></ul>
+<p>  elec elev. &gt;450 km fighter, ~515 (α). ~3° az, 0.3° accuracy, 10 rpm.</p>
+<p>  <a href="https://en.wikipedia.org/wiki/Ground_Master_400">wiki</a></p>
+<ul><li><strong>Giraffe AMB</strong> — Saab SE. C-band ~5.4–5.9 GHz. Hybrid elec-elev + mech az, AMB</li></ul>
+<p>  D = AESA. 30/60/100 km selectable. ~60 rpm (1 s revisit). Frequency agility, C-RAM.</p>
+<p>  <a href="https://en.wikipedia.org/wiki/Giraffe_radar">wiki</a></p>
+<ul><li><strong>AN/APG-81</strong> — Northrop, F-35, op. 2015. X-band (exact classified). AESA nose array</li></ul>
+<p>  ~1676 T/R. &gt;150 km instrumented (RCS-qualified range classified). SAR + pulse-Doppler.</p>
+<p>  <a href="https://en.wikipedia.org/wiki/AN/APG-81">wiki</a></p>
+<ul><li><strong>AN/FPS-117 / TPS-77</strong> — Lockheed. L-band 1.215–1.4 GHz, 18-channel agile. AESA</li></ul>
+<p>  mech-az + elec-elev (3D stacked beams). 10–470 km (~330 @ 1 m²). ~0.18° az,</p>
+<p>  5/6/10/12 rpm. <strong>LFM pulse compression, pulses 51.2/409.6 µs, PRF ~241 Hz</strong> — the</p>
+<p>  most fully-published waveform, a good fidelity anchor.</p>
+<p>  <a href="https://en.wikipedia.org/wiki/AN/FPS-117">wiki</a></p>
+<ul><li><strong>AERIS-10</strong> — the demo&#x27;s base; full numbers in <a href="02-Physics-and-Waveform.html" class="internal-link">02-Physics-and-Waveform</a>.</li></ul>
+
+<hr>
+
+<h2 id="5-fidelity-public-vs-assumed">5. Fidelity — public vs. assumed<a class="ha" href="#5-fidelity-public-vs-assumed" aria-hidden="true">¶</a></h2>
+
+<p>The honest part of a model library is labelling which numbers are real. radarv2 keeps</p>
+<p>each profile&#x27;s provenance per field so a reader knows what is being simulated.</p>
+
+<table class="md-table"><thead><tr><th>Dimension</th><th>Published for</th><th>Assumed / derived for</th><th>radarv2 stance</th></tr></thead><tbody><tr><td>Center freq → λ</td><td>all bands published</td><td>SMART-L, APG-81 exact in-band f</td><td>pick mid-band (1.3 / 10 GHz), flag</td></tr><tr><td>Bandwidth → ΔR</td><td>FPS-117 (pulses/PRF), SPY-1 (pulse range)</td><td>TPY-2, APG-81 (classified); rest by role</td><td><strong>mark all but FPS-117/SPY-1 assumed</strong></td></tr><tr><td>Beamwidth → ang. res</td><td>SPY-1, SMART-L, GM400, FPS-117</td><td>TPY-2 (est); Giraffe, APG-81 (derive θ≈λ/D)</td><td>use published; flag derived</td></tr><tr><td>Scan → revisit</td><td>mechanical rotators (Giraffe 1 s; 5–12 rpm)</td><td>SPY-1, TPY-2, APG-81 (electronic)</td><td>rotators clean; electronic = dwell budget, not rpm</td></tr><tr><td>Range → SNR budget</td><td>SPY-1, GM400, FPS-117 (RCS-qualified)</td><td>others normalized to a reference SNR</td><td>use target-qualified R_max where given</td></tr><tr><td>Peak power</td><td>SPY-1, TPY-2, FPS-117</td><td>others</td><td>assume or normalize out (relative SNR)</td></tr></tbody></table>
+
+<div class="callout" data-callout="warning"><div class="callout-title">The two load-bearing assumptions</div><div class="callout-content"><p><strong>Bandwidth</strong> and <strong>peak power</strong> are the hardest specs to source — most fire-control</p>
+<p>and BMD radars classify them. radarv2 keeps both as **explicit, labelled assumptions</p>
+<p>per model**, derived from the radar&#x27;s role (search → 1–5 MHz; fire-control / C-RAM →</p>
+<p>tens of MHz). The simulation runs either way; the label is what keeps it honest. This</p>
+<p>mirrors the <span class="wikilink-unresolved">&quot;bandwidth is the load-bearing TBD&quot;</span></p>
+<p>stance already taken for AERIS-10 itself.</p></div></div>
+
+<hr>
+
+<h2 id="6-how-this-feeds-the-multi-radar-work">6. How this feeds the multi-radar work<a class="ha" href="#6-how-this-feeds-the-multi-radar-work" aria-hidden="true">¶</a></h2>
+
+<p>A model library is the prerequisite for running <strong>several different radars together</strong>:</p>
+<p>once each radar is a selectable profile, a deployment can instantiate the node graph</p>
+<p>once per radar with a different profile and site pose, and fuse the results. That is</p>
+<p><a href="11-Multi-Radar-Fusion.html" class="internal-link">11-Multi-Radar-Fusion</a>. The 3-D view that shows all of them at once is</p>
+<p><a href="12-3D-Scene.html" class="internal-link">12-3D-Scene</a>.</p>
+
+<p>Continue to <a href="11-Multi-Radar-Fusion.html" class="internal-link">11-Multi-Radar-Fusion</a>.</p>
+
+</div>
+  </div><!-- main-content -->
+</div><!-- site-shell -->
+<script>
+mermaid.initialize({ startOnLoad: true, theme: 'dark', securityLevel: 'loose' });
+</script>
+</body>
+
+</html>

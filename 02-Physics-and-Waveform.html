@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>radarv2 — Physics and Waveform — aros Vault</title>
+<style>
+
+:root {
+  --color-blue:    #007ACC;
+  --color-green:   #2DA44E;
+  --color-yellow:  #D29922;
+  --color-purple:  #8B5CF6;
+  --color-orange:  #F59E0B;
+  --color-red:     #E5534B;
+  --color-cyan:    #0BC5EA;
+  --color-accent:  #7C3AED;
+  --text-normal:   #DCDDDE;
+  --text-muted:    #8E8EA0;
+  --background-primary:         #1E1E2E;
+  --background-secondary:       #181825;
+  --background-modifier-border: #313244;
+  --color-base-30:              #45475A;
+}
+body {
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.6;
+  margin: 0;
+}
+
+</style>
+<!-- Mermaid -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<!-- MathJax -->
+<script>window.MathJax={tex:{inlineMath:[['$','$'],['\\(','\\)']],displayMath:[['$$','$$'],['\\[','\\]']]},options:{skipHtmlTags:['script','noscript','style','textarea','pre']}};</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+<!-- Site CSS -->
+<link rel="stylesheet" href="site.css">
+</head>
+<body class="markdown-reading-view">
+<div class="site-shell">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <a href="00-Index.html" class="site-title">radarv2 / AERIS-10</a>
+      <div class="site-subtitle">aros Radar Documentation</div>
+    </div>
+    <ul class="nav-list">
+      <li class="nav-section">Core Docs</li>
+      <li><a href="09-Concepts-Primer.html">Radar Primer</a></li>
+      <li><a href="00-Index.html">Index</a></li>
+      <li><a href="01-System-Overview.html">System Overview</a></li>
+      <li><a href="02-Physics-and-Waveform.html">Physics &amp; Waveform</a></li>
+      <li><a href="03-Beamforming-and-Scan.html">Beamforming &amp; Scan</a></li>
+      <li><a href="04-Signal-Processing-Pipeline.html">Signal Processing</a></li>
+      <li><a href="05-Node-Architecture.html">Node Architecture</a></li>
+      <li><a href="06-Message-Catalog.html">Message Catalog</a></li>
+      <li><a href="07-Detection-and-Tracking.html">Detection &amp; Tracking</a></li>
+      <li><a href="08-Scenarios-and-Targets.html">Scenarios &amp; Targets</a></li>
+      <li class="nav-section">Advanced</li>
+      <li><a href="10-Radar-Model-Library.html">Radar Model Library</a></li>
+      <li><a href="11-Multi-Radar-Fusion.html">Multi-Radar Fusion</a></li>
+      <li><a href="12-3D-Scene.html">3-D Scene</a></li>
+      <li><a href="13-Reference-Tables.html">Reference Tables</a></li>
+      <li><a href="FUTURE-DEVELOPMENT.html">Future Development</a></li>
+      <li class="nav-section">Upstream Theory</li>
+      <li><a href="upstream/README.html">Upstream README</a></li>
+      <li><a href="upstream/00_notation/conventions.html">Notation</a></li>
+      <li><a href="upstream/01_physics/01_fmcw_theory.html">FMCW Theory</a></li>
+      <li><a href="upstream/01_physics/02_lfm_waveform_model.html">LFM Waveform</a></li>
+      <li><a href="upstream/01_physics/03_beamforming_theory.html">Beamforming Theory</a></li>
+      <li><a href="upstream/01_physics/04_detection_theory.html">Detection Theory</a></li>
+      <li><a href="upstream/01_physics/05_noise_analysis.html">Noise Analysis</a></li>
+      <li><a href="upstream/01_physics/06_calibration_theory.html">Calibration</a></li>
+      <li><a href="upstream/02_hardware/01_system_overview.html">HW Overview</a></li>
+      <li><a href="upstream/04_research/01_cfar_variants.html">CFAR Variants</a></li>
+    </ul>
+    <div class="sidebar-footer">
+      <a href="https://github.com/brkay54/radarv2-docs" target="_blank">GitHub</a>
+    </div>
+  </nav>
+  <div class="main-content">
+
+<div class="markdown-preview-section">
+<h1 id="physics-and-waveform">Physics and Waveform<a class="ha" href="#physics-and-waveform" aria-hidden="true">¶</a></h1>
+
+<div class="callout" data-callout="abstract"><div class="callout-title">Scope</div><div class="callout-content"><p>The FMCW/LFM theory that governs AERIS-10, the equations radarv2&#x27;s nodes</p>
+<p>implement, the resolution and ambiguity limits, and the full numerical</p>
+<p>parameter table for both variants. Symbols follow the upstream notation.</p></div></div>
+
+<hr>
+
+<h2 id="1-the-lfm-chirp">1. The LFM chirp<a class="ha" href="#1-the-lfm-chirp" aria-hidden="true">¶</a></h2>
+
+<p>AERIS-10 transmits a <strong>linear frequency-modulated (LFM / &quot;chirp&quot;)</strong> pulse. The</p>
+<p>complex baseband transmit signal over one chirp of duration $T_c$ is</p>
+
+<p>$$s(t) = \text{rect}\!\left(\tfrac{t}{T_c}\right)\exp\!\big(j2\pi(f_c t + \tfrac{\mu}{2}t^2)\big),\qquad \mu = \frac{B}{T_c}$$</p>
+
+<p>where $f_c$ is the center frequency, $B$ the swept bandwidth, and $\mu$ the **chirp</p>
+<p>rate**. The instantaneous frequency sweeps linearly across $f_c \pm B/2$.</p>
+
+<p>AERIS-10 uses <strong>two chirp lengths</strong> per dwell:</p>
+
+<table class="md-table"><thead><tr><th>Mode</th><th>Duration $T_c$</th><th>Samples</th><th>Role</th></tr></thead><tbody><tr><td>Long</td><td>30 µs</td><td>3000</td><td>Maximum SNR / fine Doppler; more range-Doppler coupling</td></tr><tr><td>Short</td><td>0.5 µs</td><td>50</td><td>Weaker coupling, better for fast targets; lower processing gain</td></tr></tbody></table>
+
+<p>The long/short duration ratio is 60, so the long chirp carries 60× the</p>
+<p>time-bandwidth product (≈ +17.8 dB processing gain) and 60× the coupling of the</p>
+<p>short chirp. Both share the same $B$, so both yield the same range resolution.</p>
+
+<div class="mermaid">xychart-beta
+  title "TX chirp vs delayed echo -> constant beat"
+  x-axis "fast time (within one chirp)" 0 --> 10
+  y-axis "instantaneous frequency" 0 --> 10
+  line [1,2,3,4,5,6,7,8,9,10]
+  line [0,1,2,3,4,5,6,7,8,9]</div>
+
+<div class="callout" data-callout="info"><div class="callout-title">How range becomes a frequency</div><div class="callout-content"><p>Upper line = transmitted frequency ramp (slope $\mu = B/T_c$); lower line = the</p>
+<p>echo, the same ramp delayed by $\tau = 2R/c$. Their **constant vertical gap is the</p>
+<p>beat frequency** $f_b = \mu\tau = 2\mu R/c$, so $R = c f_b / 2\mu$ (Eq. FMCW-18).</p>
+<p>The receiver FFTs the beat signal — each FFT bin is a range bin. A teaching-level</p>
+<p>walkthrough is in <span class="wikilink-unresolved">the primer</span>.</p></div></div>
+
+<hr>
+
+<h2 id="2-governing-equations">2. Governing equations<a class="ha" href="#2-governing-equations" aria-hidden="true">¶</a></h2>
+
+<p>These are the relations radarv2&#x27;s RX nodes implement. Tags reference the upstream</p>
+<p>equation numbering.</p>
+
+<table class="md-table"><thead><tr><th>Quantity</th><th>Equation</th><th>Tag</th></tr></thead><tbody><tr><td>Round-trip delay</td><td>$\tau = 2R/c$</td><td>FMCW-2</td></tr><tr><td>Doppler shift ($v&gt;0$ = approaching)</td><td>$f_d = 2v/\lambda = 2v f_c / c$</td><td>FMCW-4</td></tr><tr><td>Beat frequency (range ± Doppler)</td><td>$f_b = \dfrac{2\mu R}{c} \pm \dfrac{2v}{\lambda}$</td><td>FMCW-16</td></tr><tr><td>Range from beat (stationary)</td><td>$R = \dfrac{c\,f_b}{2\mu}$</td><td>FMCW-18</td></tr><tr><td><strong>Range resolution</strong></td><td>$\Delta R = \dfrac{c}{2B}$</td><td>FMCW-19</td></tr><tr><td>Velocity from Doppler</td><td>$v = \dfrac{\lambda f_d}{2}$</td><td>FMCW-20</td></tr><tr><td><strong>Velocity resolution</strong></td><td>$\Delta v = \dfrac{\lambda}{2 M T_r}$</td><td>FMCW-21</td></tr><tr><td>Max unambiguous range</td><td>$R_\text{ua} = \dfrac{c T_r}{2}$</td><td>FMCW-22</td></tr><tr><td>Max unambiguous velocity</td><td>$v_\text{ua} = \dfrac{\lambda f_r}{4}$</td><td>FMCW-23</td></tr><tr><td>Range–velocity tradeoff</td><td>$R_\text{ua}\,v_\text{ua} = \dfrac{c\lambda}{8}$</td><td>FMCW-24</td></tr><tr><td>Two-way radar SNR</td><td>$\text{SNR} = \dfrac{P_t G^2 \lambda^2 \sigma}{(4\pi)^3 R^4 k_B T_0 B_n F L}$</td><td>FMCW-11</td></tr></tbody></table>
+
+<p>Here $T_r$ is the pulse-repetition interval (PRI), $f_r = 1/T_r$ the PRF, $M$ the</p>
+<p>number of chirps integrated per dwell (the coherent processing interval, CPI), and</p>
+<p>$\sigma$ the target radar cross-section.</p>
+
+<div class="callout" data-callout="tip"><div class="callout-title">The two relations radarv2 leans on most</div><div class="callout-content"><p><strong>Range ↔ beat phase</strong> and <strong>velocity ↔ slow-time Doppler phase</strong>. The</p>
+<p><code>RxSynthesizer</code> injects a per-target beat phase (from range) across fast-time</p>
+<p>samples and a Doppler phase (from radial velocity) across the M chirps; the</p>
+<p><code>PulseCompressor</code> recovers range, and the <code>DopplerProcessor</code> recovers velocity.</p></div></div>
+
+<hr>
+
+<h2 id="3-pulse-compression">3. Pulse compression<a class="ha" href="#3-pulse-compression" aria-hidden="true">¶</a></h2>
+
+<p>Matched filtering an LFM chirp against its reference yields a compressed pulse with</p>
+<p><strong>processing gain equal to the time-bandwidth product</strong>:</p>
+
+<p>$$G_p = B\,T_c,\qquad \tau_c \approx \frac{1}{B},\qquad \text{compression ratio} = \frac{T_c}{\tau_c} = B T_c.$$</p>
+
+<p>The matched-filter output magnitude is approximately $T_c\,|\text{sinc}(B\tau)|$ — a</p>
+<p>sinc with first nulls at $\pm 1/B$ and an unweighted <strong>peak sidelobe of −13.3 dB</strong>.</p>
+<p>A window trades mainlobe width and SNR loss for sidelobe suppression:</p>
+
+<table class="md-table"><thead><tr><th>Window</th><th>Peak sidelobe</th><th>Mainlobe width</th><th>Processing loss</th></tr></thead><tbody><tr><td>Rectangular</td><td>−13.3 dB</td><td>1.00 × (1/B)</td><td>0 dB</td></tr><tr><td>Hamming</td><td>−42.8 dB</td><td>1.50 × (1/B)</td><td>1.34 dB</td></tr><tr><td>Taylor (n̄=5, −35 dB)</td><td>−35 dB</td><td>1.28 × (1/B)</td><td>0.76 dB</td></tr></tbody></table>
+
+<p>AERIS-10 applies a <strong>Hamming window</strong> in the Doppler dimension (the</p>
+<p><code>DopplerProcessor</code>); radarv2 does the same.</p>
+
+<div class="callout" data-callout="info"><div class="callout-title">&quot;Processing loss&quot; here is the matched-filter loss</div><div class="callout-content"><p>The loss column above is the <strong>coherent SNR penalty</strong> of windowing the matched filter</p>
+<p>(Hamming ≈ 1.34 dB) — the number that affects detection range. Do <strong>not</strong> confuse it</p>
+<p>with the DFT <em>worst-case process loss</em> (~3 dB) tabulated by Harris 1978, which is a</p>
+<p>spectral-analysis figure that bundles scalloping. Both, side by side, are in</p>
+<p><span class="wikilink-unresolved">appendix R1</span>.</p></div></div>
+
+<h3 id="range-doppler-coupling">Range–Doppler coupling<a class="ha" href="#range-doppler-coupling" aria-hidden="true">¶</a></h3>
+
+<p>The LFM ambiguity function has a tilted ridge along $\nu = -\mu\tau$, i.e. a target</p>
+<p>moving at velocity $v$ produces an apparent range shift</p>
+
+<p>$$\Delta R_\text{Doppler} = \frac{c f_d}{2\mu} = \frac{v\,c\,T_c}{\lambda B}.$$</p>
+
+<p>This is why the long chirp (60× the coupling) is paired with a short chirp: the two</p>
+<p>measurements disambiguate range from Doppler. radarv2 carries the</p>
+<p><code>waveform_type</code> flag end-to-end so detections can be attributed to the right mode.</p>
+
+<hr>
+
+<h2 id="4-parameter-table-both-variants">4. Parameter table — both variants<a class="ha" href="#4-parameter-table-both-variants" aria-hidden="true">¶</a></h2>
+
+<p>Values are shared between Nexus and Extended <strong>except</strong> the RF/antenna rows. <code>TBD</code></p>
+<p>marks values the upstream leaves open (notably chirp bandwidth $B$, which gates the</p>
+<p>numeric range resolution). radarv2 chooses a concrete default $B$ in its parameter</p>
+<p>profile so the demo produces numbers; the doc keeps the upstream <code>TBD</code> honest.</p>
+
+<h3 id="waveform-timing">Waveform &amp; timing<a class="ha" href="#waveform-timing" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Parameter</th><th>Symbol</th><th>Value</th><th>Units</th></tr></thead><tbody><tr><td>Center frequency</td><td>$f_c$</td><td>10.5</td><td>GHz</td></tr><tr><td>Wavelength</td><td>$\lambda$</td><td>0.02857</td><td>m</td></tr><tr><td>Chirp bandwidth</td><td>$B$</td><td>TBD (radarv2 default ≈ 150 MHz)</td><td>Hz</td></tr><tr><td>Long chirp duration</td><td>$T_{c,1}$</td><td>30</td><td>µs</td></tr><tr><td>Short chirp duration</td><td>$T_{c,2}$</td><td>0.5</td><td>µs</td></tr><tr><td>Long chirp PRI</td><td>$T_{r,1}$</td><td>167</td><td>µs</td></tr><tr><td>Short chirp PRI</td><td>$T_{r,2}$</td><td>175</td><td>µs</td></tr><tr><td>Guard time</td><td>$T_\text{guard}$</td><td>175.4</td><td>µs</td></tr><tr><td>Chirps per beam position</td><td>$M$</td><td>32 (16 long + 16 short)</td><td>—</td></tr><tr><td>Elevation positions</td><td>$N_\text{el}$</td><td>31</td><td>—</td></tr><tr><td>Azimuth positions / rev</td><td>$N_\text{az}$</td><td>50</td><td>—</td></tr></tbody></table>
+
+<h3 id="antenna-beamforming">Antenna &amp; beamforming<a class="ha" href="#antenna-beamforming" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Parameter</th><th>Symbol</th><th>Nexus</th><th>Extended</th><th>Units</th></tr></thead><tbody><tr><td>Array elements</td><td>$N$</td><td>16</td><td>16</td><td>—</td></tr><tr><td>Element spacing</td><td>$d$</td><td>λ/2 ≈ 14.3</td><td>λ/2 ≈ 14.3</td><td>mm</td></tr><tr><td>Aperture length</td><td>$L_\text{ap}$</td><td>228.6 ($=N d$)</td><td>228.6</td><td>mm</td></tr><tr><td>Array (Az × El)</td><td>—</td><td>16 × 8</td><td>16 × 32</td><td>—</td></tr><tr><td>Steering range (grating-safe)</td><td>$\theta_0$</td><td>±33</td><td>±33</td><td>deg</td></tr><tr><td>Broadside HPBW</td><td>$\theta_{3\text{dB}}$</td><td>≈ 6.3</td><td>≈ 6.3</td><td>deg</td></tr><tr><td>Phase shifters</td><td>—</td><td>4× ADAR1000, 7-bit (2.8125° step)</td><td>same</td><td>—</td></tr></tbody></table>
+
+<h3 id="signal-processing-fpga-shared">Signal processing (FPGA) — shared<a class="ha" href="#signal-processing-fpga-shared" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Parameter</th><th>Symbol</th><th>Value</th></tr></thead><tbody><tr><td>ADC sample rate</td><td>$f_s$</td><td>400 MHz</td></tr><tr><td>IF frequency</td><td>$f_\text{IF}$</td><td>120 MHz</td></tr><tr><td>ADC width</td><td>—</td><td>8 bits</td></tr><tr><td>CIC stages / decimation</td><td>$N_\text{CIC}$ / $D_\text{CIC}$</td><td>5 / 4 (gain $4^5 = 1024$)</td></tr><tr><td>Matched-filter FFT size</td><td>$N_\text{FFT}$</td><td>1024</td></tr><tr><td>Output range bins</td><td>$N_\text{rb}$</td><td>64</td></tr><tr><td>Range-bin decimation</td><td>$D_\text{rb}$</td><td>16 (1024 → 64, peak-detect)</td></tr><tr><td>Doppler FFT size</td><td>$N_\text{Doppler}$</td><td>32</td></tr><tr><td>Overlap-save segments (long chirp)</td><td>$N_\text{seg}$</td><td>4 (overlap 128, advance 896)</td></tr></tbody></table>
+
+<h3 id="system-level-derived">System-level / derived<a class="ha" href="#system-level-derived" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Parameter</th><th>Symbol</th><th>Nexus</th><th>Extended</th></tr></thead><tbody><tr><td>Max detection range</td><td>$R_\text{max}$</td><td>3 km</td><td>20 km</td></tr><tr><td>Stepper steps / rev</td><td>$S_\text{rev}$</td><td>200</td><td>200</td></tr><tr><td>Azimuth step</td><td>—</td><td>4 steps = 7.2°/position</td><td>same</td></tr><tr><td>Magnetic declination</td><td>$\delta_\text{mag}$</td><td>−0.61°</td><td>same</td></tr><tr><td>Full-scan rate</td><td>—</td><td>≈ 0.112 Hz (~1 rev / 9 s)</td><td>same</td></tr></tbody></table>
+
+<div class="callout" data-callout="warning"><div class="callout-title">Bandwidth is the load-bearing TBD</div><div class="callout-content"><p>$\Delta R = c/2B$, the processing gain in dB, and the range-coupling numbers all</p>
+<p>depend on $B$, which the upstream leaves to the ADF4382 synthesizer</p>
+<p>configuration. radarv2 fixes a default $B$ in its parameter profile (so</p>
+<p>$\Delta R$, the range-bin spacing, and SNR are concrete) and documents it as a</p>
+<p><em>demo choice</em>, not an upstream fact.</p></div></div>
+
+<hr>
+
+<h2 id="5-worked-numbers-radarv2-default-profile">5. Worked numbers (radarv2 default profile)<a class="ha" href="#5-worked-numbers-radarv2-default-profile" aria-hidden="true">¶</a></h2>
+
+<p>With $B = 150$ MHz, $M = 32$, $T_{r,1} = 167$ µs:</p>
+
+<ul><li>Range <strong>resolution cell</strong> $\Delta R = c/2B = 1.0$ m (the matched-filter two-target</li></ul>
+<p>  separation limit). Distinct from the <strong>range-bin spacing</strong>: radarv2&#x27;s 64 decimated</p>
+<p>  bins <em>sample</em> the instrumented window, so <code>range_res</code> carried in the message is</p>
+<p>  $R_\text{max}/64$ — 46.9 m/bin (Nexus, 3 km) or 312.5 m/bin (Extended, 20 km). The</p>
+<p>  bin spacing is therefore coarser than $\Delta R$; the demo is deliberately</p>
+<p>  over-binned (a 1 m resolution cell sampled at ~47 m/bin), and <code>RangeProfile</code> /</p>
+<p>  <code>RangeDopplerMap</code> carry the $R_\text{max}/64$ spacing so consumers convert bins to</p>
+<p>  metres without knowing $B$.</p>
+<ul><li>Velocity resolution $\Delta v = \lambda / (2 M T_r) \approx 2.67$ m/s (radarv2&#x27;s</li></ul>
+<p>  canonical $M=32$ coherent-chirp CPI at $T_{r,1}=167$ µs; see <span class="wikilink-unresolved">the dwell decision</span>).</p>
+<ul><li>Unambiguous velocity $v_\text{ua} = \lambda f_r / 4 \approx 42.8$ m/s (long chirp).</li></ul>
+<p>  The short chirp&#x27;s PRI is actually slightly <em>longer</em> (175 µs vs. 167 µs), so its</p>
+<p>  $v_\text{ua}$ is marginally <em>smaller</em> (≈ 40.8 m/s) — the short chirp does <strong>not</strong></p>
+<p>  help velocity ambiguity. What the short chirp buys for fast targets is **60× less</p>
+<p>  range-Doppler coupling** ($\Delta R_\text{Doppler} \propto T_c$, and</p>
+<p>  $T_{c,2}/T_{c,1} = 1/60$): a fast target&#x27;s range estimate is far less smeared by</p>
+<p>  its Doppler. That is the reason the two waveforms are paired (see §3).</p>
+
+<p>These are the values the <span class="wikilink-unresolved">scenario</span> target speeds and the</p>
+<p><span class="wikilink-unresolved">CFAR</span> cell sizing are checked against.</p>
+
+<p>Continue to <a href="03-Beamforming-and-Scan.html" class="internal-link">03-Beamforming-and-Scan</a>.</p>
+
+</div>
+  </div><!-- main-content -->
+</div><!-- site-shell -->
+<script>
+mermaid.initialize({ startOnLoad: true, theme: 'dark', securityLevel: 'loose' });
+</script>
+</body>
+
+</html>

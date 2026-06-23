@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>conventions — aros Vault</title>
+<style>
+
+:root {
+  --color-blue:    #007ACC;
+  --color-green:   #2DA44E;
+  --color-yellow:  #D29922;
+  --color-purple:  #8B5CF6;
+  --color-orange:  #F59E0B;
+  --color-red:     #E5534B;
+  --color-cyan:    #0BC5EA;
+  --color-accent:  #7C3AED;
+  --text-normal:   #DCDDDE;
+  --text-muted:    #8E8EA0;
+  --background-primary:         #1E1E2E;
+  --background-secondary:       #181825;
+  --background-modifier-border: #313244;
+  --color-base-30:              #45475A;
+}
+body {
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.6;
+  margin: 0;
+}
+
+</style>
+<!-- Mermaid -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<!-- MathJax -->
+<script>window.MathJax={tex:{inlineMath:[['$','$'],['\\(','\\)']],displayMath:[['$$','$$'],['\\[','\\]']]},options:{skipHtmlTags:['script','noscript','style','textarea','pre']}};</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+<!-- Site CSS -->
+<link rel="stylesheet" href="../../site.css">
+</head>
+<body class="markdown-reading-view">
+<div class="site-shell">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <a href="../../00-Index.html" class="site-title">radarv2 / AERIS-10</a>
+      <div class="site-subtitle">aros Radar Documentation</div>
+    </div>
+    <ul class="nav-list">
+      <li class="nav-section">Core Docs</li>
+      <li><a href="../../09-Concepts-Primer.html">Radar Primer</a></li>
+      <li><a href="../../00-Index.html">Index</a></li>
+      <li><a href="../../01-System-Overview.html">System Overview</a></li>
+      <li><a href="../../02-Physics-and-Waveform.html">Physics &amp; Waveform</a></li>
+      <li><a href="../../03-Beamforming-and-Scan.html">Beamforming &amp; Scan</a></li>
+      <li><a href="../../04-Signal-Processing-Pipeline.html">Signal Processing</a></li>
+      <li><a href="../../05-Node-Architecture.html">Node Architecture</a></li>
+      <li><a href="../../06-Message-Catalog.html">Message Catalog</a></li>
+      <li><a href="../../07-Detection-and-Tracking.html">Detection &amp; Tracking</a></li>
+      <li><a href="../../08-Scenarios-and-Targets.html">Scenarios &amp; Targets</a></li>
+      <li class="nav-section">Advanced</li>
+      <li><a href="../../10-Radar-Model-Library.html">Radar Model Library</a></li>
+      <li><a href="../../11-Multi-Radar-Fusion.html">Multi-Radar Fusion</a></li>
+      <li><a href="../../12-3D-Scene.html">3-D Scene</a></li>
+      <li><a href="../../13-Reference-Tables.html">Reference Tables</a></li>
+      <li><a href="../../FUTURE-DEVELOPMENT.html">Future Development</a></li>
+      <li class="nav-section">Upstream Theory</li>
+      <li><a href="../../upstream/README.html">Upstream README</a></li>
+      <li><a href="../../upstream/00_notation/conventions.html">Notation</a></li>
+      <li><a href="../../upstream/01_physics/01_fmcw_theory.html">FMCW Theory</a></li>
+      <li><a href="../../upstream/01_physics/02_lfm_waveform_model.html">LFM Waveform</a></li>
+      <li><a href="../../upstream/01_physics/03_beamforming_theory.html">Beamforming Theory</a></li>
+      <li><a href="../../upstream/01_physics/04_detection_theory.html">Detection Theory</a></li>
+      <li><a href="../../upstream/01_physics/05_noise_analysis.html">Noise Analysis</a></li>
+      <li><a href="../../upstream/01_physics/06_calibration_theory.html">Calibration</a></li>
+      <li><a href="../../upstream/02_hardware/01_system_overview.html">HW Overview</a></li>
+      <li><a href="../../upstream/04_research/01_cfar_variants.html">CFAR Variants</a></li>
+    </ul>
+    <div class="sidebar-footer">
+      <a href="https://github.com/brkay54/radarv2-docs" target="_blank">GitHub</a>
+    </div>
+  </nav>
+  <div class="main-content">
+
+<div class="markdown-preview-section">
+<h1 id="aeris-10-documentation-conventions">AERIS-10 Documentation Conventions<a class="ha" href="#aeris-10-documentation-conventions" aria-hidden="true">¶</a></h1>
+
+<p>This file is the <strong>single source of truth</strong> for how all AERIS-10 project documents format equations, reference other documents, and present mathematical content. Every author contributing to this documentation set must follow these conventions. If a rule is not covered here, propose an addition before deviating.</p>
+
+<p>For canonical symbol definitions, see <a href="symbol_table.md"><code>symbol_table.md</code></a>. For numerical parameter values, see <a href="parameter_table.md"><code>parameter_table.md</code></a>.</p>
+
+<hr>
+
+<h2 id="1-equation-numbering-convention">1. Equation Numbering Convention<a class="ha" href="#1-equation-numbering-convention" aria-hidden="true">¶</a></h2>
+
+<p>All equations are numbered using a <strong>document-prefix scheme</strong> to guarantee uniqueness across the entire project. Each document is assigned a unique prefix; equations within that document are numbered sequentially from 1.</p>
+
+<h3 id="prefix-assignments">Prefix Assignments<a class="ha" href="#prefix-assignments" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Document Topic</th><th>Prefix</th><th>Example Tags</th></tr></thead><tbody><tr><td>FMCW theory</td><td><code>FMCW</code></td><td>Eq. (FMCW-1), Eq. (FMCW-2)</td></tr><tr><td>LFM waveform model</td><td><code>LFM</code></td><td>Eq. (LFM-1), Eq. (LFM-2)</td></tr><tr><td>Beamforming &amp; array factor</td><td><code>BF</code></td><td>Eq. (BF-1), Eq. (BF-2)</td></tr><tr><td>Detection theory (CFAR, Neyman-Pearson)</td><td><code>DET</code></td><td>Eq. (DET-1), Eq. (DET-2)</td></tr><tr><td>Noise figure &amp; calibration</td><td><code>NF</code></td><td>Eq. (NF-1), Eq. (NF-2)</td></tr><tr><td>Calibration procedures</td><td><code>CAL</code></td><td>Eq. (CAL-1), Eq. (CAL-2)</td></tr><tr><td>Hardware documentation</td><td><code>HW</code></td><td>Eq. (HW-1), Eq. (HW-RF-1) for subsections</td></tr><tr><td>Software documentation</td><td><code>SW</code></td><td>Eq. (SW-1), Eq. (SW-2)</td></tr></tbody></table>
+
+<h3 id="syntax">Syntax<a class="ha" href="#syntax" aria-hidden="true">¶</a></h3>
+
+<p>Use the MathJax <code>\tag{}</code> command inside a display-math block:</p>
+
+<pre><code class="language-markdown">$$
+R = \frac{c \cdot f_b}{2\mu} \tag{FMCW-1}
+$$</code></pre>
+
+<p>This renders as:</p>
+
+<p>$$</p>
+<p>R = \frac{c \cdot f_b}{2\mu} \tag{FMCW-1}</p>
+<p>$$</p>
+
+<h3 id="rules">Rules<a class="ha" href="#rules" aria-hidden="true">¶</a></h3>
+
+<ul><li>Every equation that is <strong>referenced anywhere</strong> in the project MUST have a <code>\tag{}</code>.</li><li>Unreferenced display equations MAY omit tags.</li><li>Tags must be unique across the entire project. The prefix scheme guarantees this.</li><li>Number sequentially within each document: <code>FMCW-1</code>, <code>FMCW-2</code>, <code>FMCW-3</code>, etc.</li><li>If a document grows subsections that need independent numbering, use a sub-prefix: <code>HW-RF-1</code>, <code>HW-PWR-1</code>.</li></ul>
+
+<hr>
+
+<h2 id="2-cross-reference-format">2. Cross-Reference Format<a class="ha" href="#2-cross-reference-format" aria-hidden="true">¶</a></h2>
+
+<p>GitHub&#x27;s native MathJax renderer does <strong>NOT</strong> support <code>\ref{}</code>, <code>\eqref{}</code>, or <code>\label{}</code>. All cross-references use plain-text conventions.</p>
+
+<h3 id="within-the-same-document">Within the Same Document<a class="ha" href="#within-the-same-document" aria-hidden="true">¶</a></h3>
+
+<p>Use plain text with the tag in parentheses:</p>
+
+<pre><code class="language-markdown">Substituting the chirp rate into Eq. (FMCW-1), we obtain...</code></pre>
+
+<h3 id="cross-document-references">Cross-Document References<a class="ha" href="#cross-document-references" aria-hidden="true">¶</a></h3>
+
+<p>Include the file path as a Markdown link with a heading anchor for deep linking:</p>
+
+<pre><code class="language-markdown">Using the range equation Eq. (FMCW-1) in [`physics/01_fmcw_theory.md`](../physics/01_fmcw_theory.md#range-equation)...</code></pre>
+
+<h3 id="symbol-references">Symbol References<a class="ha" href="#symbol-references" aria-hidden="true">¶</a></h3>
+
+<p>When introducing a symbol for the first time in a document, link to the symbol table:</p>
+
+<pre><code class="language-markdown">The transmitted power $P_t$ (defined in the [Symbol Table](../00_notation/symbol_table.md#detection-and-signal)) is...</code></pre>
+
+<h3 id="parameter-value-references">Parameter Value References<a class="ha" href="#parameter-value-references" aria-hidden="true">¶</a></h3>
+
+<p>Never embed numerical values inline. Reference the parameter table:</p>
+
+<pre><code class="language-markdown">Using the system parameters from the [Parameter Table](../00_notation/parameter_table.md#waveform-and-timing)...</code></pre>
+
+<hr>
+
+<h2 id="3-mathjax-usage-rules-for-github">3. MathJax Usage Rules for GitHub<a class="ha" href="#3-mathjax-usage-rules-for-github" aria-hidden="true">¶</a></h2>
+
+<h3 id="supported-use-these">Supported (use these)<a class="ha" href="#supported-use-these" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Feature</th><th>Syntax</th><th>Example</th></tr></thead><tbody><tr><td>Inline math</td><td><code>$...$</code></td><td>$f_c = 10.5~\text{GHz}$</td></tr><tr><td>Display math</td><td><code>$$...$$</code></td><td>Block equations</td></tr><tr><td>Manual tags</td><td><code>\tag{LABEL}</code></td><td><code>\tag{FMCW-1}</code></td></tr><tr><td>Text in math</td><td><code>\text{}</code></td><td><code>\text{SNR}</code></td></tr><tr><td>Fractions</td><td><code>\frac{}{}</code></td><td><code>\frac{c}{2B}</code></td></tr><tr><td>Auto-sizing delimiters</td><td><code>\left( \right)</code></td><td><code>\left(\frac{a}{b}\right)</code></td></tr><tr><td>Standard LaTeX math</td><td>Greek, subscripts, superscripts, etc.</td><td>$\lambda$, $f_{r,1}$, $R^4$</td></tr><tr><td>Aligned multi-line</td><td><code>\begin{aligned}...\end{aligned}</code> inside <code>$$</code></td><td>See below</td></tr></tbody></table>
+
+<h3 id="not-supported-never-use-these">NOT Supported (never use these)<a class="ha" href="#not-supported-never-use-these" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Feature</th><th>Why Not</th></tr></thead><tbody><tr><td><code>\ref{}</code></td><td>Not supported -- silently fails or renders literal text</td></tr><tr><td><code>\eqref{}</code></td><td>Not supported -- same as <code>\ref{}</code></td></tr><tr><td><code>\label{}</code></td><td>Not supported -- GitHub does not track labels</td></tr><tr><td>Automatic numbering (<code>tags: &#x27;ams&#x27;</code>)</td><td>Requires MathJax config that GitHub does not expose</td></tr><tr><td><code>\begin{align}</code> with auto-numbering</td><td>Numbers do not render; use <code>aligned</code> inside <code>$$</code> instead</td></tr><tr><td><code>\newcommand</code></td><td>Not supported in GitHub&#x27;s renderer</td></tr><tr><td><code>\DeclareMathOperator</code></td><td>Not supported -- use <code>\operatorname{}</code> instead</td></tr></tbody></table>
+
+<h3 id="unit-formatting-standard">Unit Formatting Standard<a class="ha" href="#unit-formatting-standard" aria-hidden="true">¶</a></h3>
+
+<p>Units are always set in upright text with a non-breaking space (tilde) separating the number from the unit:</p>
+
+<pre><code class="language-markdown">$f_c = 10.5~\text{GHz}$
+$T_c = 30~\mu\text{s}$
+$P_t = 1~\text{W}$</code></pre>
+
+<h3 id="multi-line-equations">Multi-Line Equations<a class="ha" href="#multi-line-equations" aria-hidden="true">¶</a></h3>
+
+<p>Use <code>\begin{aligned}...\end{aligned}</code> inside a <code>$$</code> block with a single <code>\tag{}</code>:</p>
+
+<pre><code class="language-markdown">$$
+\begin{aligned}
+R_\text{max} &amp;= \frac{c \cdot T_r}{2} \\
+&amp;= \frac{c}{2 f_r}
+\end{aligned}
+\tag{FMCW-5}
+$$</code></pre>
+
+<hr>
+
+<h2 id="4-variant-callout-block">4. Variant Callout Block<a class="ha" href="#4-variant-callout-block" aria-hidden="true">¶</a></h2>
+
+<p>The AERIS-10 system has two variants: <strong>Nexus</strong> (AERIS-10N) and <strong>Extended</strong> (AERIS-10X). Whenever a derivation or specification differs between variants, use the following standardized admonition block:</p>
+
+<pre><code class="language-markdown">&gt; **Variant Note:**
+&gt; | | Nexus | Extended |
+&gt; |--|-------|----------|
+&gt; | $P_t$ per element | 1 W | 10 W |
+&gt; | Antenna gain $G$ | ~20 dBi (patch) | ~30 dBi (waveguide) |</code></pre>
+
+<h3 id="rules">Rules<a class="ha" href="#rules" aria-hidden="true">¶</a></h3>
+
+<ul><li>Place the variant callout immediately after the equation or paragraph where the difference matters.</li><li>Include only the parameters that differ -- do not repeat shared values.</li><li>Values in the callout block should match the <a href="parameter_table.md">Parameter Table</a> exactly. If they diverge, the Parameter Table is authoritative.</li></ul>
+
+<hr>
+
+<h2 id="5-anti-patterns">5. Anti-Patterns<a class="ha" href="#5-anti-patterns" aria-hidden="true">¶</a></h2>
+
+<p>The following practices are <strong>prohibited</strong> across all project documents.</p>
+
+<h3 id="5-1-never-inline-parameter-values-in-derivations">5.1 Never Inline Parameter Values in Derivations<a class="ha" href="#5-1-never-inline-parameter-values-in-derivations" aria-hidden="true">¶</a></h3>
+
+<p>Keep derivations symbolic. Numerical values belong only in <code>parameter_table.md</code>.</p>
+
+<ul><li><strong>Wrong:</strong> &quot;The range resolution is $\Delta R = \frac{c}{2B} = \frac{3 \times 10^8}{2 \times 400 \times 10^6} = 0.375~\text{m}$&quot;</li><li><strong>Right:</strong> &quot;The range resolution is $\Delta R = \frac{c}{2B}$&quot; with a reference to the parameter table for numerical evaluation.</li></ul>
+
+<h3 id="5-2-never-define-the-same-parameter-in-two-places">5.2 Never Define the Same Parameter in Two Places<a class="ha" href="#5-2-never-define-the-same-parameter-in-two-places" aria-hidden="true">¶</a></h3>
+
+<p>If a parameter value appears in two documents, one must link to the other. The parameter table is the single source of truth.</p>
+
+<h3 id="5-3-never-use-different-symbols-for-the-same-concept">5.3 Never Use Different Symbols for the Same Concept<a class="ha" href="#5-3-never-use-different-symbols-for-the-same-concept" aria-hidden="true">¶</a></h3>
+
+<p>The <a href="symbol_table.md">Symbol Table</a> is authoritative. Do not use $\tau$ for pulse width in one document and $T_c$ in another.</p>
+
+<h3 id="5-4-never-use-raw-codebase-variable-names-without-the-standard-symbol">5.4 Never Use Raw Codebase Variable Names Without the Standard Symbol<a class="ha" href="#5-4-never-use-raw-codebase-variable-names-without-the-standard-symbol" aria-hidden="true">¶</a></h3>
+
+<p>When referencing firmware or FPGA variables, always provide the standard symbol alongside:</p>
+
+<ul><li><strong>Wrong:</strong> &quot;The firmware sets <code>T1</code> to 30 us&quot;</li><li><strong>Right:</strong> &quot;The firmware sets the long chirp duration $T_{c,1}$ (<code>T1</code> in <code>main.cpp</code>) to $30~\mu\text{s}$&quot;</li></ul>
+
+<h3 id="5-5-never-use-unsupported-mathjax-features">5.5 Never Use Unsupported MathJax Features<a class="ha" href="#5-5-never-use-unsupported-mathjax-features" aria-hidden="true">¶</a></h3>
+
+<p>See Section 3. Using <code>\ref{}</code>, <code>\eqref{}</code>, <code>\label{}</code>, or automatic numbering will silently break on GitHub.</p>
+
+<hr>
+
+<h2 id="6-document-template">6. Document Template<a class="ha" href="#6-document-template" aria-hidden="true">¶</a></h2>
+
+<p>Every project document should follow this structure:</p>
+
+<pre><code class="language-markdown"># [Document Title]
+
+**Purpose:** [One sentence describing what this document covers]
+
+**Prerequisites:** Familiarity with:
+- [Symbol Table](../00_notation/symbol_table.md) -- all symbols used herein
+- [Parameter Table](../00_notation/parameter_table.md) -- numerical values for both variants
+- [Conventions](../00_notation/conventions.md) -- equation formatting rules
+
+---
+
+## 1. [First Section]
+
+[Derivation or content using \tag{PREFIX-N} for all referenced equations]
+
+&gt; **Variant Note:**
+&gt; | | Nexus | Extended |
+&gt; |--|-------|----------|
+&gt; | [parameter] | [value] | [value] |
+
+## 2. [Second Section]
+
+[Continue with sequential tags: PREFIX-N+1, PREFIX-N+2, ...]
+
+---
+
+## References
+
+- [Symbol Table](../00_notation/symbol_table.md)
+- [Parameter Table](../00_notation/parameter_table.md)
+- [Any external references: IEEE standards, textbooks, datasheets]</code></pre>
+
+<h3 id="template-rules">Template Rules<a class="ha" href="#template-rules" aria-hidden="true">¶</a></h3>
+
+<ul><li>The <strong>Prerequisites</strong> section must always link to the symbol table, parameter table, and this conventions file.</li><li>Sections are numbered with Markdown headings (<code>## 1.</code>, <code>## 2.</code>, etc.).</li><li>A <strong>References</strong> section appears at the end of every document.</li><li>The variant callout block is used wherever Nexus and Extended values differ.</li><li>All equations follow the document-prefix <code>\tag{}</code> scheme defined in Section 1 of this file.</li></ul>
+
+</div>
+  </div><!-- main-content -->
+</div><!-- site-shell -->
+<script>
+mermaid.initialize({ startOnLoad: true, theme: 'dark', securityLevel: 'loose' });
+</script>
+</body>
+
+</html>

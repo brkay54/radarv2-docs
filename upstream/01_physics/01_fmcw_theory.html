@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>01_fmcw_theory — aros Vault</title>
+<style>
+
+:root {
+  --color-blue:    #007ACC;
+  --color-green:   #2DA44E;
+  --color-yellow:  #D29922;
+  --color-purple:  #8B5CF6;
+  --color-orange:  #F59E0B;
+  --color-red:     #E5534B;
+  --color-cyan:    #0BC5EA;
+  --color-accent:  #7C3AED;
+  --text-normal:   #DCDDDE;
+  --text-muted:    #8E8EA0;
+  --background-primary:         #1E1E2E;
+  --background-secondary:       #181825;
+  --background-modifier-border: #313244;
+  --color-base-30:              #45475A;
+}
+body {
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.6;
+  margin: 0;
+}
+
+</style>
+<!-- Mermaid -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<!-- MathJax -->
+<script>window.MathJax={tex:{inlineMath:[['$','$'],['\\(','\\)']],displayMath:[['$$','$$'],['\\[','\\]']]},options:{skipHtmlTags:['script','noscript','style','textarea','pre']}};</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+<!-- Site CSS -->
+<link rel="stylesheet" href="../../site.css">
+</head>
+<body class="markdown-reading-view">
+<div class="site-shell">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <a href="../../00-Index.html" class="site-title">radarv2 / AERIS-10</a>
+      <div class="site-subtitle">aros Radar Documentation</div>
+    </div>
+    <ul class="nav-list">
+      <li class="nav-section">Core Docs</li>
+      <li><a href="../../09-Concepts-Primer.html">Radar Primer</a></li>
+      <li><a href="../../00-Index.html">Index</a></li>
+      <li><a href="../../01-System-Overview.html">System Overview</a></li>
+      <li><a href="../../02-Physics-and-Waveform.html">Physics &amp; Waveform</a></li>
+      <li><a href="../../03-Beamforming-and-Scan.html">Beamforming &amp; Scan</a></li>
+      <li><a href="../../04-Signal-Processing-Pipeline.html">Signal Processing</a></li>
+      <li><a href="../../05-Node-Architecture.html">Node Architecture</a></li>
+      <li><a href="../../06-Message-Catalog.html">Message Catalog</a></li>
+      <li><a href="../../07-Detection-and-Tracking.html">Detection &amp; Tracking</a></li>
+      <li><a href="../../08-Scenarios-and-Targets.html">Scenarios &amp; Targets</a></li>
+      <li class="nav-section">Advanced</li>
+      <li><a href="../../10-Radar-Model-Library.html">Radar Model Library</a></li>
+      <li><a href="../../11-Multi-Radar-Fusion.html">Multi-Radar Fusion</a></li>
+      <li><a href="../../12-3D-Scene.html">3-D Scene</a></li>
+      <li><a href="../../13-Reference-Tables.html">Reference Tables</a></li>
+      <li><a href="../../FUTURE-DEVELOPMENT.html">Future Development</a></li>
+      <li class="nav-section">Upstream Theory</li>
+      <li><a href="../../upstream/README.html">Upstream README</a></li>
+      <li><a href="../../upstream/00_notation/conventions.html">Notation</a></li>
+      <li><a href="../../upstream/01_physics/01_fmcw_theory.html">FMCW Theory</a></li>
+      <li><a href="../../upstream/01_physics/02_lfm_waveform_model.html">LFM Waveform</a></li>
+      <li><a href="../../upstream/01_physics/03_beamforming_theory.html">Beamforming Theory</a></li>
+      <li><a href="../../upstream/01_physics/04_detection_theory.html">Detection Theory</a></li>
+      <li><a href="../../upstream/01_physics/05_noise_analysis.html">Noise Analysis</a></li>
+      <li><a href="../../upstream/01_physics/06_calibration_theory.html">Calibration</a></li>
+      <li><a href="../../upstream/02_hardware/01_system_overview.html">HW Overview</a></li>
+      <li><a href="../../upstream/04_research/01_cfar_variants.html">CFAR Variants</a></li>
+    </ul>
+    <div class="sidebar-footer">
+      <a href="https://github.com/brkay54/radarv2-docs" target="_blank">GitHub</a>
+    </div>
+  </nav>
+  <div class="main-content">
+
+<div class="markdown-preview-section">
+<h1 id="fmcw-radar-theory">FMCW Radar Theory<a class="ha" href="#fmcw-radar-theory" aria-hidden="true">¶</a></h1>
+
+<p class="kv-line"><span class="kv-key">Purpose:</span> <span class="kv-value">Derive the fundamental FMCW radar equations from first principles -- electromagnetic wave propagation through the radar range equation, beat frequency with full Doppler coupling, range and velocity measurement, and range-Doppler coupling analysis.</span></p>
+
+<p class="kv-line"><span class="kv-key">Prerequisites:</span> <span class="kv-value">Familiarity with:</span></p>
+<ul><li><a href="../00_notation/symbol_table.md">Symbol Table</a> -- all symbols used herein</li><li><a href="../00_notation/parameter_table.md">Parameter Table</a> -- numerical values for both variants</li><li><a href="../00_notation/conventions.md">Conventions</a> -- equation formatting rules</li></ul>
+
+<hr>
+
+<h2 id="1-electromagnetic-wave-propagation">1. Electromagnetic Wave Propagation<a class="ha" href="#1-electromagnetic-wave-propagation" aria-hidden="true">¶</a></h2>
+
+<p>A radar transmits an electromagnetic wave that propagates through free space, reflects off a target, and returns to the receiver. The transmitted signal is a sinusoidal carrier modulated by the waveform of interest. For a narrowband signal, the transmitted electric field at the antenna can be written as:</p>
+
+<p>$$</p>
+<p>s_t(t) = A_t \cos\!\left(2\pi f_c t + \phi_t(t)\right) \tag{FMCW-1}</p>
+<p>$$</p>
+
+<p>where $f_c$ is the carrier frequency (defined in the <a href="../00_notation/symbol_table.md#waveform-and-timing-parameters">Symbol Table</a>) and $\phi_t(t)$ encodes any frequency modulation applied to the waveform. The signal propagates at the speed of light $c$ and encounters a target at range $R$.</p>
+
+<h3 id="round-trip-delay">Round-Trip Delay<a class="ha" href="#round-trip-delay" aria-hidden="true">¶</a></h3>
+
+<p>The signal travels from transmitter to target and back, covering a total path length of $2R$. The round-trip delay is:</p>
+
+<p>$$</p>
+<p>\tau = \frac{2R}{c} \tag{FMCW-2}</p>
+<p>$$</p>
+
+<p>where $\tau$ is the round-trip delay (defined in the <a href="../00_notation/symbol_table.md#waveform-and-timing-parameters">Symbol Table</a>).</p>
+
+<h3 id="doppler-shift-from-a-moving-target">Doppler Shift from a Moving Target<a class="ha" href="#doppler-shift-from-a-moving-target" aria-hidden="true">¶</a></h3>
+
+<p>If the target has a radial velocity $v$ (defined in the <a href="../00_notation/symbol_table.md#range-and-velocity">Symbol Table</a>) with the convention that $v &gt; 0$ corresponds to an approaching target, the range changes with time as $R(t) = R_0 - vt$. The round-trip delay becomes time-dependent:</p>
+
+<p>$$</p>
+<p>\tau(t) = \frac{2R(t)}{c} = \frac{2(R_0 - vt)}{c} \tag{FMCW-3}</p>
+<p>$$</p>
+
+<p>The received signal is a delayed and frequency-shifted copy of the transmitted signal. The frequency shift due to target motion -- the Doppler frequency -- is:</p>
+
+<p>$$</p>
+<p>f_d = \frac{2v}{\lambda} = \frac{2v f_c}{c} \tag{FMCW-4}</p>
+<p>$$</p>
+
+<p>where $\lambda = c / f_c$ is the wavelength (defined in the <a href="../00_notation/symbol_table.md#range-and-velocity">Symbol Table</a>). The sign convention is that $f_d &gt; 0$ for approaching targets ($v &gt; 0$) and $f_d &lt; 0$ for receding targets.</p>
+
+<hr>
+
+<h2 id="2-radar-range-equation">2. Radar Range Equation<a class="ha" href="#2-radar-range-equation" aria-hidden="true">¶</a></h2>
+
+<p>The radar range equation relates the received signal power to the transmitted power, antenna characteristics, target properties, and propagation losses. It is derived step by step from first principles.</p>
+
+<h3 id="step-1-transmitted-power-density">Step 1: Transmitted Power Density<a class="ha" href="#step-1-transmitted-power-density" aria-hidden="true">¶</a></h3>
+
+<p>A transmitter radiates power $P_t$ (defined in the <a href="../00_notation/symbol_table.md#detection-and-signal">Symbol Table</a>) through an antenna with gain $G$ (defined in the <a href="../00_notation/symbol_table.md#antenna-and-beamforming">Symbol Table</a>). The power density at range $R$ from an isotropic radiator would be $P_t / (4\pi R^2)$. With antenna gain $G$, the power density at the target is:</p>
+
+<p>$$</p>
+<p>S_\text{inc} = \frac{P_t G}{4\pi R^2} \tag{FMCW-5}</p>
+<p>$$</p>
+
+<h3 id="step-2-power-intercepted-by-the-target">Step 2: Power Intercepted by the Target<a class="ha" href="#step-2-power-intercepted-by-the-target" aria-hidden="true">¶</a></h3>
+
+<p>The target intercepts a portion of this incident power proportional to its radar cross section $\sigma$ (defined in the <a href="../00_notation/symbol_table.md#detection-and-signal">Symbol Table</a>), which has units of area. The total power intercepted and re-radiated by the target is:</p>
+
+<p>$$</p>
+<p>P_\text{refl} = S_\text{inc} \cdot \sigma = \frac{P_t G \sigma}{4\pi R^2} \tag{FMCW-6}</p>
+<p>$$</p>
+
+<h3 id="step-3-reflected-power-density-at-the-receiver">Step 3: Reflected Power Density at the Receiver<a class="ha" href="#step-3-reflected-power-density-at-the-receiver" aria-hidden="true">¶</a></h3>
+
+<p>The target re-radiates the intercepted power isotropically (by definition of $\sigma$). The power density of the reflected signal back at the receiver, at range $R$ from the target, is:</p>
+
+<p>$$</p>
+<p>S_\text{ret} = \frac{P_\text{refl}}{4\pi R^2} = \frac{P_t G \sigma}{(4\pi)^2 R^4} \tag{FMCW-7}</p>
+<p>$$</p>
+
+<h3 id="step-4-power-captured-by-the-receive-antenna">Step 4: Power Captured by the Receive Antenna<a class="ha" href="#step-4-power-captured-by-the-receive-antenna" aria-hidden="true">¶</a></h3>
+
+<p>The receive antenna captures the reflected power through its effective aperture $A_e$. For an antenna with gain $G$ (assuming the same antenna is used for transmit and receive -- monostatic radar), the effective aperture is:</p>
+
+<p>$$</p>
+<p>A_e = \frac{G \lambda^2}{4\pi} \tag{FMCW-8}</p>
+<p>$$</p>
+
+<p>The received power is therefore:</p>
+
+<p>$$</p>
+<p>\begin{aligned}</p>
+<p>P_r &amp;= S_\text{ret} \cdot A_e \\</p>
+<p>&amp;= \frac{P_t G \sigma}{(4\pi)^2 R^4} \cdot \frac{G \lambda^2}{4\pi} \\</p>
+<p>&amp;= \frac{P_t G^2 \lambda^2 \sigma}{(4\pi)^3 R^4}</p>
+<p>\end{aligned}</p>
+<p>\tag{FMCW-9}</p>
+<p>$$</p>
+
+<h3 id="step-5-noise-power">Step 5: Noise Power<a class="ha" href="#step-5-noise-power" aria-hidden="true">¶</a></h3>
+
+<p>The receiver has a thermal noise floor determined by the noise bandwidth $B_n$ (defined in the <a href="../00_notation/symbol_table.md#detection-and-signal">Symbol Table</a>), the reference temperature $T_0$, and the system noise figure $F$ (defined in the <a href="../00_notation/symbol_table.md#detection-and-signal">Symbol Table</a>):</p>
+
+<p>$$</p>
+<p>P_n = k_B T_0 B_n F \tag{FMCW-10}</p>
+<p>$$</p>
+
+<p>where $k_B$ is the Boltzmann constant.</p>
+
+<h3 id="step-6-signal-to-noise-ratio">Step 6: Signal-to-Noise Ratio<a class="ha" href="#step-6-signal-to-noise-ratio" aria-hidden="true">¶</a></h3>
+
+<p>Combining the received power from Eq. (FMCW-9) with the noise power from Eq. (FMCW-10) and including total system losses $L$ (defined in the <a href="../00_notation/symbol_table.md#detection-and-signal">Symbol Table</a>), the single-pulse signal-to-noise ratio is:</p>
+
+<p>$$</p>
+<p>\text{SNR} = \frac{P_r}{P_n} = \frac{P_t G^2 \lambda^2 \sigma}{(4\pi)^3 R^4 k_B T_0 B_n F L} \tag{FMCW-11}</p>
+<p>$$</p>
+
+<p>This is the <strong>monostatic radar range equation</strong> in SNR form. It applies to any pulsed or CW radar; the FMCW-specific processing gain from dechirp and FFT is addressed in subsequent sections.</p>
+
+<blockquote><strong>Variant Note:</strong></blockquote>
+<blockquote>| | Nexus | Extended |</blockquote>
+<blockquote>|--|-------|----------|</blockquote>
+<blockquote>| $P_t$ per element | 1 W (ADTR1107) | 10 W (QPA2962 GaN) |</blockquote>
+<blockquote>| Antenna gain $G$ | TBD (8x16 patch array) | TBD (32x16 slotted waveguide) |</blockquote>
+<p>&gt;</p>
+<blockquote>See the <a href="../00_notation/parameter_table.md#rf-front-end">Parameter Table</a> for current values and TBD status.</blockquote>
+
+<hr>
+
+<h2 id="3-fmcw-modulation">3. FMCW Modulation<a class="ha" href="#3-fmcw-modulation" aria-hidden="true">¶</a></h2>
+
+<p>In Frequency-Modulated Continuous Wave (FMCW) radar, the transmitted signal is a linear frequency modulated (LFM) chirp. During each chirp of duration $T_c$ (defined in the <a href="../00_notation/symbol_table.md#waveform-and-timing-parameters">Symbol Table</a>), the instantaneous frequency sweeps linearly across bandwidth $B$ (defined in the <a href="../00_notation/symbol_table.md#waveform-and-timing-parameters">Symbol Table</a>).</p>
+
+<h3 id="transmitted-signal">Transmitted Signal<a class="ha" href="#transmitted-signal" aria-hidden="true">¶</a></h3>
+
+<p>The chirp rate is $\mu = B / T_c$ (defined in the <a href="../00_notation/symbol_table.md#waveform-and-timing-parameters">Symbol Table</a>). Within a single chirp interval $0 \le t \le T_c$, the transmitted signal in complex baseband form is:</p>
+
+<p>$$</p>
+<p>s_t(t) = \exp\!\left(j2\pi\!\left(f_c t + \frac{\mu}{2} t^2\right)\right) \tag{FMCW-12}</p>
+<p>$$</p>
+
+<p>The instantaneous frequency is $f_i(t) = f_c + \mu t$, sweeping from $f_c$ to $f_c + B$ over the chirp duration.</p>
+
+<h3 id="received-signal">Received Signal<a class="ha" href="#received-signal" aria-hidden="true">¶</a></h3>
+
+<p>The signal reflects off a target at range $R$ moving with radial velocity $v$. Using the time-varying delay from Eq. (FMCW-3), the received signal is:</p>
+
+<p>$$</p>
+<p>s_r(t) = A_r \exp\!\left(j2\pi\!\left(f_c(t - \tau(t)) + \frac{\mu}{2}(t - \tau(t))^2\right)\right) \tag{FMCW-13}</p>
+<p>$$</p>
+
+<p>where $A_r$ accounts for the amplitude reduction from path loss, RCS, and antenna gain per the radar range equation (Eq. (FMCW-11)), and $\tau(t)$ is the time-varying round-trip delay from Eq. (FMCW-3).</p>
+
+<h3 id="dechirp-mixing">Dechirp Mixing<a class="ha" href="#dechirp-mixing" aria-hidden="true">¶</a></h3>
+
+<p>The FMCW receiver multiplies the received signal by the conjugate of the transmitted signal -- the <strong>dechirp</strong> or <strong>stretch processing</strong> operation:</p>
+
+<p>$$</p>
+<p>s_\text{IF}(t) = s_r(t) \cdot s_t^*(t) \tag{FMCW-14}</p>
+<p>$$</p>
+
+<p>This operation removes the chirp modulation and produces a constant-frequency tone whose frequency encodes the target range and velocity.</p>
+
+<hr>
+
+<h2 id="4-beat-frequency-derivation-full-form">4. Beat Frequency Derivation (Full Form)<a class="ha" href="#4-beat-frequency-derivation-full-form" aria-hidden="true">¶</a></h2>
+
+<p>This section derives the complete beat frequency including both the range term and the Doppler term. The Doppler contribution is retained throughout -- it is <strong>not</strong> simplified away.</p>
+
+<p>Substituting Eqs. (FMCW-12) and (FMCW-13) into the dechirp operation of Eq. (FMCW-14), the phase of the intermediate frequency (IF) signal is:</p>
+
+<p>$$</p>
+<p>\begin{aligned}</p>
+<p>\phi_\text{IF}(t) &amp;= 2\pi\!\left[f_c(t - \tau(t)) + \frac{\mu}{2}(t - \tau(t))^2\right] - 2\pi\!\left[f_c t + \frac{\mu}{2} t^2\right] \\</p>
+<p>&amp;= 2\pi\!\left[-f_c \tau(t) - \mu t \tau(t) + \frac{\mu}{2}\tau(t)^2\right]</p>
+<p>\end{aligned}</p>
+<p>\tag{FMCW-15}</p>
+<p>$$</p>
+
+<p>Substituting the time-varying delay $\tau(t) = 2(R_0 - vt)/c$ from Eq. (FMCW-3):</p>
+
+<p>$$</p>
+<p>\begin{aligned}</p>
+<p>\phi_\text{IF}(t) &amp;= 2\pi\!\left[-f_c \cdot \frac{2(R_0 - vt)}{c} - \mu t \cdot \frac{2(R_0 - vt)}{c} + \frac{\mu}{2}\!\left(\frac{2(R_0 - vt)}{c}\right)^{\!2}\right]</p>
+<p>\end{aligned}</p>
+<p>$$</p>
+
+<p>Expanding and collecting terms by powers of $t$:</p>
+
+<p>$$</p>
+<p>\begin{aligned}</p>
+<p>\phi_\text{IF}(t) &amp;= -\frac{4\pi f_c R_0}{c}</p>
+<p>+ 2\pi\!\left(\frac{2f_c v}{c} - \frac{2\mu R_0}{c}\right) t</p>
+<p>+ 2\pi\!\left(\frac{2\mu v}{c}\right) t^2</p>
+<p>+ \text{(residual video terms)}</p>
+<p>\end{aligned}</p>
+<p>$$</p>
+
+<p>The instantaneous frequency of the IF signal is $(1/2\pi) \, d\phi_\text{IF}/dt$. Ignoring the $t^2$ term (the <strong>residual video phase</strong>, which is negligible for targets with $v \ll c$), the beat frequency is:</p>
+
+<p>$$</p>
+<p>\boxed{f_b = \frac{2\mu R_0}{c} \pm f_d = \frac{2\mu R_0}{c} \pm \frac{2v}{\lambda}} \tag{FMCW-16}</p>
+<p>$$</p>
+
+<p>This is the <strong>full beat frequency equation</strong> for FMCW radar. It consists of two terms:</p>
+
+<ul><li><strong>Range beat term</strong> $f_R = 2\mu R_0 / c$: proportional to target range, arising from the delay-induced frequency offset between transmitted and received chirps.</li><li><strong>Doppler term</strong> $\pm f_d = \pm 2v/\lambda$: proportional to target radial velocity, arising from the frequency shift of the carrier.</li></ul>
+
+<p>The sign convention is: $+f_d$ for approaching targets ($v &gt; 0$), $-f_d$ for receding targets ($v &lt; 0$), corresponding to the received frequency being shifted higher (approaching) or lower (receding) relative to the transmitted frequency.</p>
+
+<p>The residual video phase term $2\mu v t^2 / c$ is negligible when $2\mu v T_c / c \ll f_b$, which holds for all realistic target velocities at the AERIS-10 operating frequencies. This term is sometimes called <strong>range migration within a chirp</strong> and becomes significant only for very long chirps or very high velocities.</p>
+
+<hr>
+
+<h2 id="5-range-equation">5. Range Equation<a class="ha" href="#5-range-equation" aria-hidden="true">¶</a></h2>
+
+<p>For a <strong>stationary target</strong> ($v = 0$, hence $f_d = 0$), the beat frequency from Eq. (FMCW-16) reduces to the range beat term only:</p>
+
+<p>$$</p>
+<p>f_b \big|_{v=0} = \frac{2\mu R}{c} \tag{FMCW-17}</p>
+<p>$$</p>
+
+<p>Inverting for range:</p>
+
+<p>$$</p>
+<p>R = \frac{c \, f_b}{2\mu} \tag{FMCW-18}</p>
+<p>$$</p>
+
+<blockquote><strong>Stationary-Target Approximation:</strong> Eq. (FMCW-18) is valid only when the Doppler contribution to the beat frequency is negligible compared to the range beat term, i.e., when:</blockquote>
+<p>&gt;</p>
+<blockquote>$$f_d \ll \frac{2\mu R}{c}$$</blockquote>
+<p>&gt;</p>
+<blockquote>For moving targets, the range estimate from Eq. (FMCW-18) is biased by $\pm f_d$. The range-Doppler coupling analysis in Section 9 quantifies this bias for the AERIS-10 chirp parameters.</blockquote>
+
+<hr>
+
+<h2 id="6-range-resolution">6. Range Resolution<a class="ha" href="#6-range-resolution" aria-hidden="true">¶</a></h2>
+
+<p>Two targets at ranges $R_1$ and $R_2$ produce beat frequencies $f_{b,1}$ and $f_{b,2}$. They are resolvable if the frequency difference exceeds the minimum resolvable frequency separation, which for a chirp of duration $T_c$ is $\Delta f_\text{min} = 1/T_c$.</p>
+
+<p>From Eq. (FMCW-17):</p>
+
+<p>$$</p>
+<p>\begin{aligned}</p>
+<p>\Delta f_b &amp;= f_{b,2} - f_{b,1} = \frac{2\mu(R_2 - R_1)}{c} = \frac{2\mu \,\Delta R}{c}</p>
+<p>\end{aligned}</p>
+<p>$$</p>
+
+<p>Setting $\Delta f_b = 1/T_c$ and using $\mu = B / T_c$:</p>
+
+<p>$$</p>
+<p>\begin{aligned}</p>
+<p>\frac{1}{T_c} &amp;= \frac{2 \cdot (B/T_c) \cdot \Delta R}{c} \\</p>
+<p>\Delta R &amp;= \frac{c}{2B}</p>
+<p>\end{aligned}</p>
+<p>\tag{FMCW-19}</p>
+<p>$$</p>
+
+<p>The range resolution $\Delta R$ (defined in the <a href="../00_notation/symbol_table.md#range-and-velocity">Symbol Table</a>) depends only on the chirp bandwidth $B$ and is independent of chirp duration. Wider bandwidth yields finer range resolution.</p>
+
+<blockquote><strong>Note:</strong> The chirp bandwidth $B$ is currently TBD in the <a href="../00_notation/parameter_table.md#waveform-and-timing">Parameter Table</a>. Once resolved from the ADF4382 configuration, the numerical range resolution can be computed.</blockquote>
+
+<hr>
+
+<h2 id="7-velocity-measurement">7. Velocity Measurement<a class="ha" href="#7-velocity-measurement" aria-hidden="true">¶</a></h2>
+
+<p>Target velocity is extracted from the Doppler frequency $f_d$. In FMCW radar, $f_d$ is measured by observing the phase progression of the beat signal across $M$ successive chirps within a coherent processing interval (CPI).</p>
+
+<p>Each chirp produces a complex sample of the beat signal at the target&#x27;s range bin. Across $M$ chirps (defined in the <a href="../00_notation/symbol_table.md#waveform-and-timing-parameters">Symbol Table</a>), the phase of these samples advances by $2\pi f_d T_r$ per chirp, where $T_r$ is the pulse repetition interval (PRI). A Doppler FFT of size $M$ across the slow-time dimension extracts $f_d$.</p>
+
+<p>From the Doppler frequency in Eq. (FMCW-4), the target radial velocity is:</p>
+
+<p>$$</p>
+<p>v = \frac{\lambda f_d}{2} \tag{FMCW-20}</p>
+<p>$$</p>
+
+<p>The velocity resolution is determined by the total CPI duration $M T_r$, which sets the minimum resolvable Doppler frequency $\Delta f_d = 1 / (M T_r)$:</p>
+
+<p>$$</p>
+<p>\Delta v = \frac{\lambda \, \Delta f_d}{2} = \frac{\lambda}{2 M T_r} \tag{FMCW-21}</p>
+<p>$$</p>
+
+<hr>
+
+<h2 id="8-maximum-unambiguous-range-and-velocity">8. Maximum Unambiguous Range and Velocity<a class="ha" href="#8-maximum-unambiguous-range-and-velocity" aria-hidden="true">¶</a></h2>
+
+<h3 id="maximum-unambiguous-range">Maximum Unambiguous Range<a class="ha" href="#maximum-unambiguous-range" aria-hidden="true">¶</a></h3>
+
+<p>A target must produce its echo before the next chirp is transmitted; otherwise, the echo from range $R$ appears indistinguishable from a closer target illuminated by the subsequent chirp. The echo from the maximum unambiguous range must arrive within one PRI:</p>
+
+<p>$$</p>
+<p>\tau_\text{max} = \frac{2 R_\text{max}}{c} \le T_r</p>
+<p>$$</p>
+
+<p>Therefore:</p>
+
+<p>$$</p>
+<p>R_\text{max} = \frac{c \, T_r}{2} = \frac{c}{2 f_r} \tag{FMCW-22}</p>
+<p>$$</p>
+
+<p>where $f_r = 1/T_r$ is the pulse repetition frequency (defined in the <a href="../00_notation/symbol_table.md#waveform-and-timing-parameters">Symbol Table</a>).</p>
+
+<blockquote><strong>Variant Note:</strong></blockquote>
+<blockquote>| | Nexus | Extended |</blockquote>
+<blockquote>|--|-------|----------|</blockquote>
+<blockquote>| Long chirp PRI $T_{r,1}$ | 167 $\mu$s | 167 $\mu$s |</blockquote>
+<blockquote>| Short chirp PRI $T_{r,2}$ | 175 $\mu$s | 175 $\mu$s |</blockquote>
+<p>&gt;</p>
+<blockquote>See the <a href="../00_notation/parameter_table.md#waveform-and-timing">Parameter Table</a> for all PRI values.</blockquote>
+
+<h3 id="maximum-unambiguous-velocity">Maximum Unambiguous Velocity<a class="ha" href="#maximum-unambiguous-velocity" aria-hidden="true">¶</a></h3>
+
+<p>The Doppler frequency is sampled once per chirp at rate $f_r$. By the Nyquist sampling theorem, the maximum unambiguous Doppler frequency is $f_{d,\text{max}} = f_r / 2$. Using Eq. (FMCW-20):</p>
+
+<p>$$</p>
+<p>v_\text{max} = \frac{\lambda \, f_{d,\text{max}}}{2} = \frac{\lambda \, f_r}{4} \tag{FMCW-23}</p>
+<p>$$</p>
+
+<h3 id="range-velocity-tradeoff">Range-Velocity Tradeoff<a class="ha" href="#range-velocity-tradeoff" aria-hidden="true">¶</a></h3>
+
+<p>Equations (FMCW-22) and (FMCW-23) are coupled through the PRF $f_r$. Their product yields the fundamental range-velocity ambiguity constraint:</p>
+
+<p>$$</p>
+<p>R_\text{max} \cdot v_\text{max} = \frac{c \, \lambda}{8} \tag{FMCW-24}</p>
+<p>$$</p>
+
+<p>This product depends only on the carrier frequency (through $\lambda$) and is a fixed constraint of the waveform. Increasing the PRF improves maximum unambiguous velocity at the cost of reduced maximum unambiguous range, and vice versa.</p>
+
+<hr>
+
+<h2 id="9-range-doppler-coupling-analysis">9. Range-Doppler Coupling Analysis<a class="ha" href="#9-range-doppler-coupling-analysis" aria-hidden="true">¶</a></h2>
+
+<p>The full beat frequency in Eq. (FMCW-16) contains both a range term and a Doppler term. If the range is estimated from the beat frequency alone using the stationary-target approximation of Eq. (FMCW-18), the Doppler term introduces a range estimation error. This is <strong>range-Doppler coupling</strong>.</p>
+
+<h3 id="coupling-ratio">Coupling Ratio<a class="ha" href="#coupling-ratio" aria-hidden="true">¶</a></h3>
+
+<p>The severity of the coupling is characterized by the ratio of the Doppler term to the range beat term:</p>
+
+<p>$$</p>
+<p>\kappa = \frac{f_d}{f_R} = \frac{f_d}{\displaystyle\frac{2\mu R}{c}} = \frac{f_d \, c}{2\mu R} \tag{FMCW-25}</p>
+<p>$$</p>
+
+<p>where $\kappa$ is the coupling ratio. Substituting $\mu = B / T_c$ and $f_d = 2v/\lambda$:</p>
+
+<p>$$</p>
+<p>\kappa = \frac{2v \, c}{2 \lambda \cdot (B / T_c) \cdot R} = \frac{v \, c \, T_c}{\lambda \, B \, R} \tag{FMCW-26}</p>
+<p>$$</p>
+
+<p>The coupling is proportional to target velocity $v$ and chirp duration $T_c$, and inversely proportional to bandwidth $B$ and range $R$.</p>
+
+<h3 id="range-error-from-doppler">Range Error from Doppler<a class="ha" href="#range-error-from-doppler" aria-hidden="true">¶</a></h3>
+
+<p>When the Doppler term is neglected, the range estimate from Eq. (FMCW-18) includes an error:</p>
+
+<p>$$</p>
+<p>\Delta R_\text{Doppler} = \frac{c \, f_d}{2\mu} = \frac{c \, f_d \, T_c}{2B} = \frac{v \, T_c}{\lambda} \cdot \frac{c}{2B} \cdot \frac{\lambda}{1} = \frac{v \, T_c}{B} \cdot \frac{c \, f_c}{c} \cdot \frac{1}{f_c}</p>
+<p>$$</p>
+
+<p>Simplifying directly from the beat frequency:</p>
+
+<p>$$</p>
+<p>\Delta R_\text{Doppler} = \frac{c \, f_d}{2\mu} = \frac{v \, c \, T_c}{\lambda \, B} \tag{FMCW-27}</p>
+<p>$$</p>
+
+<p>This range error is independent of the true target range and depends on velocity, chirp duration, bandwidth, and wavelength.</p>
+
+<h3 id="comparison-long-chirp-vs-short-chirp">Comparison: Long Chirp vs. Short Chirp<a class="ha" href="#comparison-long-chirp-vs-short-chirp" aria-hidden="true">¶</a></h3>
+
+<p>The AERIS-10 system operates in two chirp modes with durations $T_{c,1}$ and $T_{c,2}$ (see the <a href="../00_notation/parameter_table.md#waveform-and-timing">Parameter Table</a> for values). The coupling ratio from Eq. (FMCW-26) scales linearly with chirp duration. Taking the ratio of coupling for the two modes at the same range and velocity:</p>
+
+<p>$$</p>
+<p>\frac{\kappa_1}{\kappa_2} = \frac{T_{c,1}}{T_{c,2}} \tag{FMCW-28}</p>
+<p>$$</p>
+
+<p>Using the system values from the <a href="../00_notation/parameter_table.md#waveform-and-timing">Parameter Table</a>:</p>
+
+<blockquote><strong>Variant Note -- Chirp Mode Comparison:</strong></blockquote>
+<blockquote>| | Long Chirp | Short Chirp |</blockquote>
+<blockquote>|--|-----------|-------------|</blockquote>
+<blockquote>| Chirp duration $T_c$ | $T_{c,1} = 30~\mu\text{s}$ | $T_{c,2} = 0.5~\mu\text{s}$ |</blockquote>
+<blockquote>| Duration ratio $T_{c,1} / T_{c,2}$ | 60 | 1 (reference) |</blockquote>
+<blockquote>| Relative coupling $\kappa$ | $60 \times \kappa_2$ | $\kappa_2$ |</blockquote>
+<p>&gt;</p>
+<blockquote>The long chirp has 60 times the coupling ratio of the short chirp. However, the long chirp also provides proportionally more range samples and better SNR through longer integration.</blockquote>
+
+<p>Although $\kappa_1 / \kappa_2 = 60$ shows the long chirp has higher absolute coupling, whether this is operationally significant depends on the chirp bandwidth $B$ (currently TBD). The coupling ratio from Eq. (FMCW-26) also contains $B$ in the denominator -- a large bandwidth reduces coupling for both modes.</p>
+
+<p>For a concrete assessment: at a representative target velocity $v$ and range $R$, the range error from Eq. (FMCW-27) for each chirp mode is:</p>
+
+<p>$$</p>
+<p>\begin{aligned}</p>
+<p>\Delta R_{\text{Doppler},1} &amp;= \frac{v \, c \, T_{c,1}}{\lambda \, B} \\</p>
+<p>\Delta R_{\text{Doppler},2} &amp;= \frac{v \, c \, T_{c,2}}{\lambda \, B}</p>
+<p>\end{aligned}</p>
+<p>\tag{FMCW-29}</p>
+<p>$$</p>
+
+<p>These are to be evaluated numerically once $B$ is resolved in the <a href="../00_notation/parameter_table.md#tbd-tracking">Parameter Table</a> and compared against the range resolution $\Delta R = c / (2B)$ from Eq. (FMCW-19) to determine whether the coupling produces errors exceeding one range bin.</p>
+
+<h3 id="compensation-approaches">Compensation Approaches<a class="ha" href="#compensation-approaches" aria-hidden="true">¶</a></h3>
+
+<p>Two standard approaches compensate for range-Doppler coupling in FMCW radar:</p>
+
+<p><strong>1. Two-Dimensional FFT Processing (Range-Doppler Map)</strong></p>
+
+<p>Rather than estimating range from the beat frequency of a single chirp, the FMCW processor constructs a range-Doppler map by performing:</p>
+<ul><li>A <strong>range FFT</strong> on each chirp&#x27;s IF samples to extract beat frequencies (range bins).</li><li>A <strong>Doppler FFT</strong> across $M$ chirps at each range bin to extract the Doppler frequency.</li></ul>
+
+<p>The 2D FFT naturally separates the range and Doppler contributions to the beat frequency. The range dimension resolves $f_R = 2\mu R / c$, while the Doppler dimension resolves $f_d = 2v / \lambda$. This is the standard processing approach used in the AERIS-10 FPGA pipeline.</p>
+
+<p><strong>2. Range Migration Correction</strong></p>
+
+<p>For targets with high radial velocity, the target echo may shift across range bins during the CPI (a phenomenon called <strong>range migration</strong> or <strong>range walk</strong>). The migration over $M$ chirps is:</p>
+
+<p>$$</p>
+<p>\Delta R_\text{migration} = v \cdot M \cdot T_r \tag{FMCW-30}</p>
+<p>$$</p>
+
+<p>If $\Delta R_\text{migration} &gt; \Delta R$ (the range resolution), the target energy spreads across multiple range bins, degrading detection performance. Range migration correction algorithms (e.g., Keystone transform or range-bin alignment) compensate by re-aligning the range bins before Doppler processing.</p>
+
+<p>For the AERIS-10 system with $M$ chirps per CPI and PRI values $T_{r,1}$ and $T_{r,2}$, the migration distances are to be evaluated numerically once $B$ (and hence $\Delta R$) is determined, using values from the <a href="../00_notation/parameter_table.md#waveform-and-timing">Parameter Table</a>.</p>
+
+<hr>
+
+<h2 id="references">References<a class="ha" href="#references" aria-hidden="true">¶</a></h2>
+
+<ul><li><a href="../00_notation/symbol_table.md">Symbol Table</a> -- canonical symbol definitions</li><li><a href="../00_notation/parameter_table.md">Parameter Table</a> -- numerical values for both AERIS-10 variants</li><li><a href="../00_notation/conventions.md">Conventions</a> -- equation numbering and formatting rules</li><li>Skolnik, M.I., <em>Introduction to Radar Systems</em>, 4th ed., McGraw-Hill, 2008 -- Radar range equation derivation (Ch. 2), noise and detection fundamentals (Ch. 5)</li><li>Richards, M.A., <em>Fundamentals of Radar Signal Processing</em>, 2nd ed., McGraw-Hill, 2014 -- FMCW waveform analysis (Ch. 4), range-Doppler processing (Ch. 7)</li></ul>
+
+</div>
+  </div><!-- main-content -->
+</div><!-- site-shell -->
+<script>
+mermaid.initialize({ startOnLoad: true, theme: 'dark', securityLevel: 'loose' });
+</script>
+</body>
+
+</html>

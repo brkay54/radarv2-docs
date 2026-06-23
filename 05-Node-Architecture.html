@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>radarv2 — Node Architecture — aros Vault</title>
+<style>
+
+:root {
+  --color-blue:    #007ACC;
+  --color-green:   #2DA44E;
+  --color-yellow:  #D29922;
+  --color-purple:  #8B5CF6;
+  --color-orange:  #F59E0B;
+  --color-red:     #E5534B;
+  --color-cyan:    #0BC5EA;
+  --color-accent:  #7C3AED;
+  --text-normal:   #DCDDDE;
+  --text-muted:    #8E8EA0;
+  --background-primary:         #1E1E2E;
+  --background-secondary:       #181825;
+  --background-modifier-border: #313244;
+  --color-base-30:              #45475A;
+}
+body {
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.6;
+  margin: 0;
+}
+
+</style>
+<!-- Mermaid -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<!-- MathJax -->
+<script>window.MathJax={tex:{inlineMath:[['$','$'],['\\(','\\)']],displayMath:[['$$','$$'],['\\[','\\]']]},options:{skipHtmlTags:['script','noscript','style','textarea','pre']}};</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+<!-- Site CSS -->
+<link rel="stylesheet" href="site.css">
+</head>
+<body class="markdown-reading-view">
+<div class="site-shell">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <a href="00-Index.html" class="site-title">radarv2 / AERIS-10</a>
+      <div class="site-subtitle">aros Radar Documentation</div>
+    </div>
+    <ul class="nav-list">
+      <li class="nav-section">Core Docs</li>
+      <li><a href="09-Concepts-Primer.html">Radar Primer</a></li>
+      <li><a href="00-Index.html">Index</a></li>
+      <li><a href="01-System-Overview.html">System Overview</a></li>
+      <li><a href="02-Physics-and-Waveform.html">Physics &amp; Waveform</a></li>
+      <li><a href="03-Beamforming-and-Scan.html">Beamforming &amp; Scan</a></li>
+      <li><a href="04-Signal-Processing-Pipeline.html">Signal Processing</a></li>
+      <li><a href="05-Node-Architecture.html">Node Architecture</a></li>
+      <li><a href="06-Message-Catalog.html">Message Catalog</a></li>
+      <li><a href="07-Detection-and-Tracking.html">Detection &amp; Tracking</a></li>
+      <li><a href="08-Scenarios-and-Targets.html">Scenarios &amp; Targets</a></li>
+      <li class="nav-section">Advanced</li>
+      <li><a href="10-Radar-Model-Library.html">Radar Model Library</a></li>
+      <li><a href="11-Multi-Radar-Fusion.html">Multi-Radar Fusion</a></li>
+      <li><a href="12-3D-Scene.html">3-D Scene</a></li>
+      <li><a href="13-Reference-Tables.html">Reference Tables</a></li>
+      <li><a href="FUTURE-DEVELOPMENT.html">Future Development</a></li>
+      <li class="nav-section">Upstream Theory</li>
+      <li><a href="upstream/README.html">Upstream README</a></li>
+      <li><a href="upstream/00_notation/conventions.html">Notation</a></li>
+      <li><a href="upstream/01_physics/01_fmcw_theory.html">FMCW Theory</a></li>
+      <li><a href="upstream/01_physics/02_lfm_waveform_model.html">LFM Waveform</a></li>
+      <li><a href="upstream/01_physics/03_beamforming_theory.html">Beamforming Theory</a></li>
+      <li><a href="upstream/01_physics/04_detection_theory.html">Detection Theory</a></li>
+      <li><a href="upstream/01_physics/05_noise_analysis.html">Noise Analysis</a></li>
+      <li><a href="upstream/01_physics/06_calibration_theory.html">Calibration</a></li>
+      <li><a href="upstream/02_hardware/01_system_overview.html">HW Overview</a></li>
+      <li><a href="upstream/04_research/01_cfar_variants.html">CFAR Variants</a></li>
+    </ul>
+    <div class="sidebar-footer">
+      <a href="https://github.com/brkay54/radarv2-docs" target="_blank">GitHub</a>
+    </div>
+  </nav>
+  <div class="main-content">
+
+<div class="markdown-preview-section">
+<h1 id="node-architecture">Node Architecture<a class="ha" href="#node-architecture" aria-hidden="true">¶</a></h1>
+
+<div class="callout" data-callout="abstract"><div class="callout-title">Scope</div><div class="callout-content"><p>The aros composition: the eleven nodes of the single-radar spine, how they group</p>
+<p>into executors and DKMs, which transport carries each link, and how the deployment</p>
+<p>is wired. This is the blueprint the implementation follows. (A multi-radar fleet</p>
+<p>instantiates this graph per radar and adds a <code>FusionCenter</code> + <code>ControlCenter</code> per</p>
+<p>radar — see <a href="11-Multi-Radar-Fusion.html" class="internal-link">11-Multi-Radar-Fusion</a>.)</p></div></div>
+
+<div class="callout" data-callout="note"><div class="callout-title">aros primer (see [[ARCHITECTURE|aros architecture]])</div><div class="callout-content"><p>A <strong>node</strong> is a passive flow: it declares <code>advertise&lt;T&gt;</code> / <code>subscribe&lt;T&gt;</code> and</p>
+<p>typed handlers, owns no thread. An <strong>executor</strong> owns one OSAL task + one inbox and</p>
+<p>dispatches its co-located nodes in declared order. A <strong>NodeManager</strong> loads a</p>
+<p>per-DKM deploy manifest, provisions executors, wires topics, and drives the</p>
+<p>5-state lifecycle. Topology is fixed at boot; parameters are runtime.</p></div></div>
+
+<hr>
+
+<h2 id="1-the-eleven-nodes-single-radar-spine">1. The eleven nodes (single-radar spine)<a class="ha" href="#1-the-eleven-nodes-single-radar-spine" aria-hidden="true">¶</a></h2>
+
+<table class="md-table"><thead><tr><th>Node (class)</th><th>type_key</th><th>Subsystem</th><th>Subscribes</th><th>Advertises</th></tr></thead><tbody><tr><td><code>ScanController</code></td><td><code>scan.scan_controller</code></td><td>SCAN</td><td><code>/aros/tick</code></td><td><code>ScanCommand</code></td></tr><tr><td><code>NavSource</code></td><td><code>nav.nav_source</code></td><td>NAV</td><td><code>/aros/tick</code></td><td><code>PlatformNav</code></td></tr><tr><td><code>MapProvider</code></td><td><code>map.map_provider</code></td><td>MAP</td><td><code>/aros/tick</code></td><td><code>MapLayer</code> (latched, once)</td></tr><tr><td><code>RxSynthesizer</code></td><td><code>rx.rx_synthesizer</code></td><td>RX</td><td><code>ScanCommand</code>, <code>PlatformNav</code>, <code>MapLayer</code></td><td><code>IqFrame</code></td></tr><tr><td><code>PulseCompressor</code></td><td><code>rx.pulse_compressor</code></td><td>RX</td><td><code>IqFrame</code></td><td><code>RangeProfile</code></td></tr><tr><td><code>DopplerProcessor</code></td><td><code>rx.doppler_processor</code></td><td>RX</td><td><code>RangeProfile</code></td><td><code>RangeDopplerMap</code></td></tr><tr><td><code>CfarDetector</code></td><td><code>det.cfar_detector</code></td><td>DET</td><td><code>RangeDopplerMap</code>, <code>PlatformNav</code>, <code>MapLayer</code></td><td><code>DetectionReport</code></td></tr><tr><td><code>PlotConditioner</code></td><td><code>trk.plot_conditioner</code></td><td>TRK</td><td><code>DetectionReport</code></td><td>conditioned plots</td></tr><tr><td><code>TrackManager</code></td><td><code>trk.track_manager</code></td><td>TRK</td><td>conditioned plots</td><td>tracks</td></tr><tr><td><code>HostEgress</code></td><td><code>host.host_egress</code></td><td>HOST</td><td><code>DetectionReport</code>, <code>PlatformNav</code>, <code>MapLayer</code>, tracks</td><td><code>TargetReport</code>, track output</td></tr><tr><td><code>TargetSink</code></td><td><code>viz.target_sink</code></td><td>VIZ</td><td><code>TargetReport</code></td><td>terminal/viz sink</td></tr></tbody></table>
+
+<div class="callout" data-callout="note"><div class="callout-title">Tracking is shipped (RT0–6)</div><div class="callout-content"><p>The detection chain no longer ends at <code>CfarDetector</code>: <code>PlotConditioner</code> conditions the</p>
+<p><code>DetectionReport</code> plots and <code>TrackManager</code> runs the tracker (co-located in one <code>trk_dkm</code></p>
+<p>executor, plots handed off same-cycle). <code>HostEgress</code> carries both the per-detection</p>
+<p><code>TargetReport</code> and the track output forward to the viz sink. See</p>
+<p><a href="07-Detection-and-Tracking.html" class="internal-link">07-Detection-and-Tracking</a>. A multi-radar fleet additionally instantiates a</p>
+<p><code>FusionCenter</code> (<code>fusion.fusion_center</code>) and <code>ControlCenter</code> (<code>control.control_center</code>)</p>
+<p>per radar — <a href="11-Multi-Radar-Fusion.html" class="internal-link">11-Multi-Radar-Fusion</a>.</p></div></div>
+
+<div class="callout" data-callout="note"><div class="callout-title">`MapProvider` loads the physical maps (FD-2 → demo)</div><div class="callout-content"><p><code>MapProvider</code> loads real geographic binaries — <strong>DTED</strong> terrain tiles and</p>
+<p><strong>road/coastline</strong> vector maps — at <code>on_configure</code> and publishes them once as a</p>
+<p>latched <span class="wikilink-unresolved">MapLayer</span>. Three consumers use it:</p>
+<p><code>RxSynthesizer</code> (terrain-shaped ground clutter), <code>CfarDetector</code> (terrain</p>
+<p>masking + line-of-sight horizon → occluded targets drop out), and <code>HostEgress</code></p>
+<p>(the physical map rendered under the tracks in Lichtblick). Proper portable</p>
+<p>asset loading is the aros backlog item <strong>ASSET-01</strong>; until it lands <code>MapProvider</code></p>
+<p>uses an interim Linux-only loader, clearly marked non-portable. See</p>
+<p><a href="FUTURE-DEVELOPMENT.html" class="internal-link">FUTURE-DEVELOPMENT</a> FD-2.</p></div></div>
+
+<p>Each node follows the example&#x27;s house pattern (mirrors <code>examples/radar</code>):</p>
+
+<ul><li>two constructors — <code>explicit X(std::string_view path)</code> (test seam) and</li></ul>
+<p>  <code>explicit X(const NodeContext&amp;)</code> (uniform container ctor);</p>
+<ul><li>only <code>on_configure</code> overridden; all <code>advertise</code>/<code>subscribe</code> wiring happens there;</li><li>topics referenced by generated symbol (<code>radarv2::topics::*</code>), never string literals</li></ul>
+<p>  (except the <code>/aros/tick</code> subscription);</p>
+<ul><li>a <strong>pure transform method</strong> (e.g. <code>compress()</code>, <code>detect()</code>) so unit tests call the</li></ul>
+<p>  algorithm directly without booting a manager;</p>
+<ul><li><code>AROS_REGISTER_NODE(class, &quot;type_key&quot;)</code> at file scope.</li></ul>
+
+<hr>
+
+<h2 id="2-executors-and-dkms">2. Executors and DKMs<a class="ha" href="#2-executors-and-dkms" aria-hidden="true">¶</a></h2>
+
+<p>Nodes are grouped into DKMs (deployable processes). The RX DSP chain is</p>
+<p>co-located in one executor so the per-chirp messages hand off in-cycle with no</p>
+<p>queue hop; scan/nav/map, detection, tracking, host, and viz are separate processes to</p>
+<p>exercise the cross-process transports. The diagram below shows the original</p>
+<p>receive-to-host core; the shipped spine adds a <code>trk_dkm</code> (PlotConditioner +</p>
+<p>TrackManager) and a <code>viz_dkm</code> (TargetSink) after it.</p>
+
+<div class="mermaid">flowchart LR
+  SC[ScanController]:::scan
+  NV[NavSource]:::nav
+  MP[MapProvider]:::map
+  RX[RxSynthesizer]:::rx
+  PC[PulseCompressor]:::rx
+  DP[DopplerProcessor]:::rx
+  CF[CfarDetector]:::det
+  HO[HostEgress]:::host
+
+  SC -->|UDP| RX
+  NV -->|UDP| RX
+  NV -->|UDP| CF
+  NV -->|UDP| HO
+  MP -->|SHM| RX
+  MP -->|SHM| CF
+  MP -->|SHM| HO
+  RX -->|DirectHandoff| PC
+  PC -->|DirectHandoff| DP
+  DP -->|SHM| CF
+  CF -->|TCP| HO
+
+  classDef scan fill:#0e7490,color:#ecfeff,stroke:#155e75
+  classDef nav fill:#4d7c0f,color:#f7fee7,stroke:#3f6212
+  classDef map fill:#9d174d,color:#fff1f2,stroke:#831843
+  classDef rx fill:#1d4ed8,color:#eff6ff,stroke:#1e40af
+  classDef det fill:#a16207,color:#fefce8,stroke:#854d0e
+  classDef host fill:#7c3aed,color:#f5f3ff,stroke:#6d28d9</div>
+
+<div class="callout" data-callout="info"><div class="callout-title">Legend — DKM grouping and transports</div><div class="callout-content"><p>Colors group nodes by DKM: <strong>scan_dkm</strong> (teal SCAN + green NAV + pink MAP),</p>
+<p><strong>rx_dkm</strong> (the three blue RX nodes, one executor), <strong>det_dkm</strong> (amber),</p>
+<p><strong>host_dkm</strong> (purple). Arrow labels are the aros transport carrying each link:</p>
+<p>in-process <strong>DirectHandoff</strong> for the hot RX chain, <strong>SHM</strong>/<strong>UDP</strong>/<strong>TCP</strong> across</p>
+<p>processes. <code>MapProvider</code> (pink) publishes the latched <code>MapLayer</code> once over SHM.</p></div></div>
+
+<table class="md-table"><thead><tr><th>DKM</th><th>Nodes</th><th>Executor</th><th>Trigger</th></tr></thead><tbody><tr><td><code>scan_dkm</code></td><td>ScanController, NavSource, MapProvider</td><td>1 executor</td><td><strong>Tick</strong> (drives the scan FSM + nav; MapProvider emits once then idles)</td></tr><tr><td><code>rx_dkm</code></td><td>RxSynthesizer, PulseCompressor, DopplerProcessor</td><td>1 executor</td><td><strong>Event</strong> (the DSP chain, in declared order)</td></tr><tr><td><code>det_dkm</code></td><td>CfarDetector</td><td>1 executor</td><td><strong>Event</strong></td></tr><tr><td><code>trk_dkm</code></td><td>PlotConditioner, TrackManager</td><td>1 executor</td><td><strong>Event</strong> (plots → tracker, same-cycle)</td></tr><tr><td><code>host_dkm</code></td><td>HostEgress</td><td>1 executor</td><td><strong>Event</strong></td></tr><tr><td><code>viz_dkm</code></td><td>TargetSink</td><td>1 executor</td><td><strong>Event</strong></td></tr></tbody></table>
+
+<p>The three RX nodes share one executor so <code>IqFrame</code> and <code>RangeProfile</code> move by</p>
+<p><strong>DirectHandoff</strong> (staged copy-in, drained same cycle, <code>sync: same-cycle</code>).</p>
+<p><code>RangeDopplerMap</code> (~16 KB) crosses to <code>det_dkm</code> over <strong>SHM</strong> (the production</p>
+<p>reflective-memory stand-in). <code>DetectionReport</code> crosses to <code>host_dkm</code> over <strong>TCP</strong></p>
+<p>(the consumer listens; the producer is the reconnecting client). <code>ScanCommand</code> and</p>
+<p><code>PlatformNav</code> fan out over <strong>UDP</strong>.</p>
+
+<div class="callout" data-callout="warning"><div class="callout-title">Stack sizing</div><div class="callout-content"><p>The executors that serialize <code>RangeDopplerMap</code> (16 KB) and <code>TargetReport</code> into a</p>
+<p>stack buffer for the SHM/TCP transports need an enlarged stack</p>
+<p>(<code>stack_bytes ≥ 262144</code>), the same pattern the radar example uses for its 47 KB</p>
+<p>TrackedObjects TCP frame.</p></div></div>
+
+<hr>
+
+<h2 id="3-transport-rationale">3. Transport rationale<a class="ha" href="#3-transport-rationale" aria-hidden="true">¶</a></h2>
+
+<p>radarv2 deliberately uses all four shipped transports so the example documents the</p>
+<p>placement-degenerates-transport rule end-to-end:</p>
+
+<table class="md-table"><thead><tr><th>Link</th><th>Transport</th><th>Why</th></tr></thead><tbody><tr><td>RxSynthesizer → PulseCompressor → DopplerProcessor</td><td><strong>DirectHandoff</strong></td><td>Co-located hot chain; per-chirp; zero-copy same-cycle</td></tr><tr><td>ScanCommand, PlatformNav fan-out</td><td><strong>UDP</strong></td><td>Small control/telemetry, best-effort, multi-consumer</td></tr><tr><td>MapProvider → Rx/Cfar/Host (<code>MapLayer</code>)</td><td><strong>SHM</strong></td><td>Large (~10 KB) static map grid; published once (latched), shared read</td></tr><tr><td>DopplerProcessor → CfarDetector</td><td><strong>SHM</strong></td><td>Large (16 KB) cross-process map; mirrors on-card reflective memory</td></tr><tr><td>CfarDetector → HostEgress</td><td><strong>TCP</strong></td><td>Reliable delivery of the detection report to the &quot;host&quot;</td></tr></tbody></table>
+
+<p>(If two RX nodes were ever split onto different executors, the same-cycle links</p>
+<p>would become <strong>LocalChannel</strong> — a manifest change, not a code change.)</p>
+
+<hr>
+
+<h2 id="4-lifecycle-and-dispatch">4. Lifecycle and dispatch<a class="ha" href="#4-lifecycle-and-dispatch" aria-hidden="true">¶</a></h2>
+
+<p>All nodes are passive. The <code>NodeManager</code> in each DKM drives them through</p>
+<p><code>Unconfigured → Inactive → Active</code>. In <code>on_configure</code> each node reads its parameters</p>
+<p>and sets up its publishers/subscriptions; from <code>Active</code>, the executor dispatches</p>
+<p>inbound messages to the typed handlers in FIFO order.</p>
+
+<p>The <strong>drive clock</strong> is the <code>scan_dkm</code> Tick executor: each tick advances</p>
+<p><code>ScanController</code>&#x27;s scan state machine by one step and <code>NavSource</code>&#x27;s platform model,</p>
+<p>emitting a <code>ScanCommand</code> (and periodically a <code>PlatformNav</code>). Everything downstream is</p>
+<p>event-driven — a node runs only when a message arrives. <code>frame_start</code> on the</p>
+<p>dwell-boundary <code>ScanCommand</code> is the slow-time reset that tells <code>DopplerProcessor</code> a</p>
+<p>new CPI has begun.</p>
+
+<p>For tests, a single node is exercised through its pure transform method (no manager,</p>
+<p>no OS thread), exactly as the radar example does — see <a href="06-Message-Catalog.html" class="internal-link">06-Message-Catalog</a> for the</p>
+<p>message structs the tests build by hand.</p>
+
+<hr>
+
+<h2 id="5-deployment-artifacts">5. Deployment artifacts<a class="ha" href="#5-deployment-artifacts" aria-hidden="true">¶</a></h2>
+
+<p>Following the example conventions, radarv2 ships:</p>
+
+<ul><li><code>topics/radarv2_topics.hpp</code> — hand-authored topic-address constants. Each is a</li></ul>
+<p>  <strong>rootless template</strong> <code>&quot;/&lt;CODE&gt;/&lt;node&gt;/&lt;leaf&gt;&quot;</code>; at runtime a node calls</p>
+<p>  <code>radarv2_utils::nsResolve(path(), topics::X)</code>, which prepends the node&#x27;s radar</p>
+<p>  namespace, so the same template yields a distinct topic per radar instance (no shared</p>
+<p>  root, no codegen step).</p>
+<ul><li><code>packages/&lt;pkg&gt;/launch/&lt;node&gt;.launch.yaml</code> — per-node-type interface fragments</li></ul>
+<p>  (publishes/subscribes + <code>param_schema</code>).</p>
+<ul><li><code>launch/radarv2.launch.yaml</code> — the single-radar deployment spine: includes the node</li></ul>
+<p>  fragments, vars (<code>tick_ms</code>, <code>inbox_depth</code>, <code>scenario</code>, …), the <code>demo</code> variant, the</p>
+<p>  DKMs, executors, and the links with their transport + sync settings.</p>
+<p>  <code>launch/radar.base.launch.yaml</code> is the namespaced single-radar template the multi-radar</p>
+<p>  spine generator includes once per fleet instance.</p>
+<ul><li><code>config/params/&lt;node&gt;.param.yaml</code> — per-node-type parameter schemas (<code>aros.params/v1</code>),</li></ul>
+<p>  in the Autoware-style <code>config/</code> hub alongside <code>config/radars</code>, <code>config/fleets</code>, and</p>
+<p>  <code>config/scenarios</code>.</p>
+
+<p><code>aros launch build</code> flattens the spine into per-DKM <code>.manifest</code> files (executors,</p>
+<p>dispatch order, links, params) that each <code>NodeManager</code> loads at boot. The build needs</p>
+<p>three <code>--msg-dir</code> flags: radarv2 msgs, the aros std catalog, and the param schemas.</p>
+
+<p>Continue to <a href="06-Message-Catalog.html" class="internal-link">06-Message-Catalog</a>.</p>
+
+</div>
+  </div><!-- main-content -->
+</div><!-- site-shell -->
+<script>
+mermaid.initialize({ startOnLoad: true, theme: 'dark', securityLevel: 'loose' });
+</script>
+</body>
+
+</html>

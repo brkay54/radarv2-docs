@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>08_power_budget — aros Vault</title>
+<style>
+
+:root {
+  --color-blue:    #007ACC;
+  --color-green:   #2DA44E;
+  --color-yellow:  #D29922;
+  --color-purple:  #8B5CF6;
+  --color-orange:  #F59E0B;
+  --color-red:     #E5534B;
+  --color-cyan:    #0BC5EA;
+  --color-accent:  #7C3AED;
+  --text-normal:   #DCDDDE;
+  --text-muted:    #8E8EA0;
+  --background-primary:         #1E1E2E;
+  --background-secondary:       #181825;
+  --background-modifier-border: #313244;
+  --color-base-30:              #45475A;
+}
+body {
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.6;
+  margin: 0;
+}
+
+</style>
+<!-- Mermaid -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<!-- MathJax -->
+<script>window.MathJax={tex:{inlineMath:[['$','$'],['\\(','\\)']],displayMath:[['$$','$$'],['\\[','\\]']]},options:{skipHtmlTags:['script','noscript','style','textarea','pre']}};</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+<!-- Site CSS -->
+<link rel="stylesheet" href="../../site.css">
+</head>
+<body class="markdown-reading-view">
+<div class="site-shell">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <a href="../../00-Index.html" class="site-title">radarv2 / AERIS-10</a>
+      <div class="site-subtitle">aros Radar Documentation</div>
+    </div>
+    <ul class="nav-list">
+      <li class="nav-section">Core Docs</li>
+      <li><a href="../../09-Concepts-Primer.html">Radar Primer</a></li>
+      <li><a href="../../00-Index.html">Index</a></li>
+      <li><a href="../../01-System-Overview.html">System Overview</a></li>
+      <li><a href="../../02-Physics-and-Waveform.html">Physics &amp; Waveform</a></li>
+      <li><a href="../../03-Beamforming-and-Scan.html">Beamforming &amp; Scan</a></li>
+      <li><a href="../../04-Signal-Processing-Pipeline.html">Signal Processing</a></li>
+      <li><a href="../../05-Node-Architecture.html">Node Architecture</a></li>
+      <li><a href="../../06-Message-Catalog.html">Message Catalog</a></li>
+      <li><a href="../../07-Detection-and-Tracking.html">Detection &amp; Tracking</a></li>
+      <li><a href="../../08-Scenarios-and-Targets.html">Scenarios &amp; Targets</a></li>
+      <li class="nav-section">Advanced</li>
+      <li><a href="../../10-Radar-Model-Library.html">Radar Model Library</a></li>
+      <li><a href="../../11-Multi-Radar-Fusion.html">Multi-Radar Fusion</a></li>
+      <li><a href="../../12-3D-Scene.html">3-D Scene</a></li>
+      <li><a href="../../13-Reference-Tables.html">Reference Tables</a></li>
+      <li><a href="../../FUTURE-DEVELOPMENT.html">Future Development</a></li>
+      <li class="nav-section">Upstream Theory</li>
+      <li><a href="../../upstream/README.html">Upstream README</a></li>
+      <li><a href="../../upstream/00_notation/conventions.html">Notation</a></li>
+      <li><a href="../../upstream/01_physics/01_fmcw_theory.html">FMCW Theory</a></li>
+      <li><a href="../../upstream/01_physics/02_lfm_waveform_model.html">LFM Waveform</a></li>
+      <li><a href="../../upstream/01_physics/03_beamforming_theory.html">Beamforming Theory</a></li>
+      <li><a href="../../upstream/01_physics/04_detection_theory.html">Detection Theory</a></li>
+      <li><a href="../../upstream/01_physics/05_noise_analysis.html">Noise Analysis</a></li>
+      <li><a href="../../upstream/01_physics/06_calibration_theory.html">Calibration</a></li>
+      <li><a href="../../upstream/02_hardware/01_system_overview.html">HW Overview</a></li>
+      <li><a href="../../upstream/04_research/01_cfar_variants.html">CFAR Variants</a></li>
+    </ul>
+    <div class="sidebar-footer">
+      <a href="https://github.com/brkay54/radarv2-docs" target="_blank">GitHub</a>
+    </div>
+  </nav>
+  <div class="main-content">
+
+<div class="markdown-preview-section">
+<h1 id="aeris-10-power-budget-analysis">AERIS-10 Power Budget Analysis<a class="ha" href="#aeris-10-power-budget-analysis" aria-hidden="true">¶</a></h1>
+
+<p class="kv-line"><span class="kv-key">Purpose:</span> <span class="kv-value">Provide a comprehensive power budget analysis covering per-rail current draw, per-subsystem power consumption, total system power for both variants, and thermal dissipation to ensure reliable system operation within thermal limits.</span></p>
+
+<p class="kv-line"><span class="kv-key">Prerequisites:</span> <span class="kv-value">Familiarity with:</span></p>
+<ul><li><a href="../00_notation/symbol_table.md">Symbol Table</a> -- all symbols used herein</li><li><a href="../00_notation/parameter_table.md">Parameter Table</a> -- numerical values for both variants</li><li><a href="../00_notation/conventions.md">Conventions</a> -- equation formatting rules</li><li><a href="06_power_management.md">Power Management</a> -- rail definitions, sequencing, and monitoring</li></ul>
+
+<hr>
+
+<h2 id="1-overview">1. Overview<a class="ha" href="#1-overview" aria-hidden="true">¶</a></h2>
+
+<p>This document analyzes the power consumption of the AERIS-10 radar system by voltage rail and by functional subsystem. The analysis serves three purposes:</p>
+
+<ul><li><strong>Power supply sizing</strong> -- ensure each voltage rail regulator can supply the required current with adequate margin</li><li><strong>Thermal management</strong> -- determine per-subsystem heat dissipation for cooling system design</li><li><strong>Variant comparison</strong> -- quantify the significant power difference between Nexus (ADTR1107, 1 W/element) and Extended (QPA2962, 10 W/element) configurations</li></ul>
+
+<p>Power values are derived from component datasheet typical specifications. For measured current values via the ADS7830 monitoring ADCs, see <a href="06_power_management.md#6-current-and-temperature-monitoring"><code>06_power_management.md</code></a>. For voltage rail definitions and GPIO enable pins, see <a href="06_power_management.md#2-voltage-rails"><code>06_power_management.md</code></a>.</p>
+
+<hr>
+
+<h2 id="2-per-rail-current-budget">2. Per-Rail Current Budget<a class="ha" href="#2-per-rail-current-budget" aria-hidden="true">¶</a></h2>
+
+<p>The power consumed by each voltage rail is:</p>
+
+<p>$$</p>
+<p>P_\text{rail} = V_\text{rail} \times I_\text{rail} \tag{HW-PB-1}</p>
+<p>$$</p>
+
+<p>where $V_\text{rail}$ and $I_\text{rail}$ are defined in the <a href="../00_notation/symbol_table.md#hardware-and-power">Symbol Table</a>.</p>
+
+<h3 id="2-1-clock-domain-rails">2.1 Clock Domain Rails<a class="ha" href="#2-1-clock-domain-rails" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Rail</th><th>Voltage</th><th>Components</th><th>Estimated Current</th><th>Power</th></tr></thead><tbody><tr><td>1.8V Clock</td><td>1.8 V</td><td>AD9523-1 (1.8V domain)</td><td>~0.15 A</td><td>0.27 W</td></tr><tr><td>3.3V Clock</td><td>3.3 V</td><td>AD9523-1 (3.3V domain), OCXO</td><td>~0.30 A</td><td>0.99 W</td></tr></tbody></table>
+
+<h3 id="2-2-fpga-rails">2.2 FPGA Rails<a class="ha" href="#2-2-fpga-rails" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Rail</th><th>Voltage</th><th>Components</th><th>Estimated Current</th><th>Power</th></tr></thead><tbody><tr><td>1.0V FPGA Core</td><td>1.0 V</td><td>XC7A100T $V_\text{CCINT}$</td><td>~0.80 A</td><td>0.80 W</td></tr><tr><td>1.8V FPGA I/O</td><td>1.8 V</td><td>XC7A100T $V_\text{CCAUX}$</td><td>~0.20 A</td><td>0.36 W</td></tr><tr><td>3.3V FPGA</td><td>3.3 V</td><td>XC7A100T $V_\text{CCO}$, config, FT601</td><td>~0.50 A</td><td>1.65 W</td></tr></tbody></table>
+
+<p>Actual FPGA power consumption depends heavily on design utilization and toggle rates. The values above are representative estimates based on the Artix-7 power model for a design operating at 100--400 MHz with moderate resource utilization. Vivado power estimation reports would provide more precise values (see <a href="../.planning/STATE.md">STATE.md blocker</a> regarding Vivado report availability).</p>
+
+<h3 id="2-3-beamformer-rails">2.3 Beamformer Rails<a class="ha" href="#2-3-beamformer-rails" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Rail</th><th>Voltage</th><th>Components</th><th>Estimated Current</th><th>Power</th></tr></thead><tbody><tr><td>3.3V ADAR1000 (1-2)</td><td>3.3 V</td><td>ADAR1000 #1, #2 (2 ICs)</td><td>~0.30 A</td><td>0.99 W</td></tr><tr><td>3.3V ADAR1000 (3-4)</td><td>3.3 V</td><td>ADAR1000 #3, #4 (2 ICs)</td><td>~0.30 A</td><td>0.99 W</td></tr><tr><td>5.0V ADAR1000</td><td>5.0 V</td><td>ADAR1000 PA bias (x4 ICs)</td><td>~0.40 A</td><td>2.00 W</td></tr></tbody></table>
+
+<p>Each ADAR1000 draws approximately 150 mA on its 3.3V supply (typical, all channels active in TX/RX mode).</p>
+
+<h3 id="2-4-rf-front-end-rails">2.4 RF Front-End Rails<a class="ha" href="#2-4-rf-front-end-rails" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Rail</th><th>Voltage</th><th>Components</th><th>Estimated Current (Nexus)</th><th>Estimated Current (Extended)</th><th>Power (Nexus)</th><th>Power (Extended)</th></tr></thead><tbody><tr><td>3.3V ADTR1107</td><td>3.3 V</td><td>T/R modules (x16)</td><td>~2.4 A</td><td>N/A</td><td>7.92 W</td><td>N/A</td></tr><tr><td>PA VDD (22V)</td><td>22 V</td><td>External PA drain</td><td>N/A</td><td>~7.3 A</td><td>N/A</td><td>~160 W</td></tr><tr><td>5.0V PA banks</td><td>5.0 V</td><td>PA bias supply</td><td>~0.5 A</td><td>~1.0 A</td><td>2.5 W</td><td>5.0 W</td></tr></tbody></table>
+
+<blockquote><strong>Variant Note:</strong></blockquote>
+<blockquote>| | Nexus (AERIS-10N) | Extended (AERIS-10X) |</blockquote>
+<blockquote>|--|-------|----------|</blockquote>
+<blockquote>| PA type | ADTR1107 (integrated T/R) | QPA2962 (GaN MMIC) |</blockquote>
+<blockquote>| $P_t$ per element | 1 W | 10 W |</blockquote>
+<blockquote>| PA supply voltage | 3.3 V (integrated) | 22 V (external drain) |</blockquote>
+<blockquote>| Total PA power (16 elements) | ~16 W | ~160 W |</blockquote>
+<blockquote>| PA efficiency (typical) | ~25% | ~30% |</blockquote>
+
+<h3 id="2-5-control-and-sensor-rails">2.5 Control and Sensor Rails<a class="ha" href="#2-5-control-and-sensor-rails" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Rail</th><th>Voltage</th><th>Components</th><th>Estimated Current</th><th>Power</th></tr></thead><tbody><tr><td>3.3V Digital</td><td>3.3 V</td><td>STM32F746, DAC5578 (x2), ADS7830 (x3), level shifters</td><td>~0.25 A</td><td>0.83 W</td></tr><tr><td>5.0V Sensors</td><td>5.0 V</td><td>TMP37 (x8), GY-85 IMU, BMP180, GPS module</td><td>~0.10 A</td><td>0.50 W</td></tr></tbody></table>
+
+<hr>
+
+<h2 id="3-per-subsystem-power">3. Per-Subsystem Power<a class="ha" href="#3-per-subsystem-power" aria-hidden="true">¶</a></h2>
+
+<p>Grouping power by functional subsystem provides a clearer view of where energy is consumed:</p>
+
+<p>$$</p>
+<p>P_\text{subsystem} = \sum_{k} V_{\text{rail},k} \times I_{\text{rail},k} \tag{HW-PB-2}</p>
+<p>$$</p>
+
+<h3 id="3-1-subsystem-power-summary">3.1 Subsystem Power Summary<a class="ha" href="#3-1-subsystem-power-summary" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Subsystem</th><th>Rails Used</th><th>Power (Nexus)</th><th>Power (Extended)</th></tr></thead><tbody><tr><td>Clock Distribution</td><td>1.8V Clock, 3.3V Clock</td><td>1.26 W</td><td>1.26 W</td></tr><tr><td>FPGA</td><td>1.0V Core, 1.8V I/O, 3.3V FPGA</td><td>2.81 W</td><td>2.81 W</td></tr><tr><td>Beamformer (ADAR1000 x4)</td><td>3.3V ADAR (x2), 5.0V ADAR</td><td>3.98 W</td><td>3.98 W</td></tr><tr><td>RF Front-End / PA</td><td>3.3V ADTR / 22V PA VDD, 5.0V PA</td><td>~26.4 W</td><td>~165 W</td></tr><tr><td>Digital Control</td><td>3.3V Digital, 5.0V Sensors</td><td>1.33 W</td><td>1.33 W</td></tr><tr><td>ADF4382 (x2)</td><td>Fed from 3.3V rails</td><td>~1.0 W</td><td>~1.0 W</td></tr><tr><td><strong>Total</strong></td><td></td><td><strong>~37 W</strong></td><td><strong>~175 W</strong></td></tr></tbody></table>
+
+<h3 id="3-2-power-distribution">3.2 Power Distribution<a class="ha" href="#3-2-power-distribution" aria-hidden="true">¶</a></h3>
+
+<p>For the Nexus variant, the RF front-end consumes approximately 71% of total system power. For the Extended variant, the PA subsystem dominates at approximately 94% of total power. This has direct implications for cooling system design.</p>
+
+<hr>
+
+<h2 id="4-total-system-power">4. Total System Power<a class="ha" href="#4-total-system-power" aria-hidden="true">¶</a></h2>
+
+<p>The total system power is the sum of all subsystem contributions:</p>
+
+<p>$$</p>
+<p>P_\text{total} = \sum_{i} P_{\text{subsystem},i} \tag{HW-PB-3}</p>
+<p>$$</p>
+
+<h3 id="4-1-variant-comparison">4.1 Variant Comparison<a class="ha" href="#4-1-variant-comparison" aria-hidden="true">¶</a></h3>
+
+<blockquote><strong>Variant Note:</strong></blockquote>
+<blockquote>| | Nexus (AERIS-10N) | Extended (AERIS-10X) |</blockquote>
+<blockquote>|--|-------|----------|</blockquote>
+<blockquote>| Total system power $P_\text{total}$ | ~37 W | ~175 W |</blockquote>
+<blockquote>| Total PA power (16 elements) | ~16 W | ~160 W |</blockquote>
+<blockquote>| Non-PA power | ~21 W | ~15 W |</blockquote>
+<blockquote>| Power supply recommendation | 50 W (35% margin) | 250 W (43% margin) |</blockquote>
+
+<p>The non-PA power differs slightly between variants because the Nexus uses the 3.3V-supplied ADTR1107 integrated T/R module while the Extended uses the 22V-supplied QPA2962 with a separate LNA, resulting in different loss distribution.</p>
+
+<hr>
+
+<h2 id="5-thermal-dissipation-analysis">5. Thermal Dissipation Analysis<a class="ha" href="#5-thermal-dissipation-analysis" aria-hidden="true">¶</a></h2>
+
+<h3 id="5-1-power-to-heat-conversion">5.1 Power-to-Heat Conversion<a class="ha" href="#5-1-power-to-heat-conversion" aria-hidden="true">¶</a></h3>
+
+<p>For most components, nearly all consumed power is dissipated as heat. For power amplifiers, the dissipated power is the difference between DC input power and RF output power:</p>
+
+<p>$$</p>
+<p>P_\text{diss,PA} = P_\text{DC} - P_\text{RF} = P_\text{DC} \times (1 - \eta) \tag{HW-PB-4}</p>
+<p>$$</p>
+
+<p>where $\eta$ is the PA power-added efficiency (PAE).</p>
+
+<h3 id="5-2-per-subsystem-thermal-dissipation">5.2 Per-Subsystem Thermal Dissipation<a class="ha" href="#5-2-per-subsystem-thermal-dissipation" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Subsystem</th><th>Power In</th><th>Efficiency</th><th>Heat Dissipated (Nexus)</th><th>Heat Dissipated (Extended)</th></tr></thead><tbody><tr><td>Clock Distribution</td><td>1.26 W</td><td>~0% (all heat)</td><td>1.26 W</td><td>1.26 W</td></tr><tr><td>FPGA</td><td>2.81 W</td><td>~0% (all heat)</td><td>2.81 W</td><td>2.81 W</td></tr><tr><td>Beamformer</td><td>3.98 W</td><td>~0% (all heat)</td><td>3.98 W</td><td>3.98 W</td></tr><tr><td>PA (per element)</td><td>1.65 W / 10 W</td><td>~25% / ~30%</td><td>1.24 W</td><td>7.0 W</td></tr><tr><td>PA (16 elements total)</td><td>26.4 W / 160 W</td><td>~25% / ~30%</td><td>19.8 W</td><td>112 W</td></tr><tr><td>Digital Control</td><td>1.33 W</td><td>~0% (all heat)</td><td>1.33 W</td><td>1.33 W</td></tr><tr><td><strong>Total Heat</strong></td><td></td><td></td><td><strong>~29 W</strong></td><td><strong>~121 W</strong></td></tr></tbody></table>
+
+<h3 id="5-3-thermal-thresholds">5.3 Thermal Thresholds<a class="ha" href="#5-3-thermal-thresholds" aria-hidden="true">¶</a></h3>
+
+<p>Cross-referencing the thermal management section in <a href="06_power_management.md#7-thermal-management"><code>06_power_management.md</code></a>:</p>
+
+<table class="md-table"><thead><tr><th>Component</th><th>Max Operating Temp</th><th>Monitoring Method</th><th>Threshold Action</th></tr></thead><tbody><tr><td>ADAR1000</td><td>85 C (junction)</td><td>On-chip SPI sensor</td><td><code>ERROR_ADAR1000_TEMP</code></td></tr><tr><td>QPA2962</td><td>85 C (base plate)</td><td>TMP37 via ADS7830</td><td>Fan ON at 25 C, error at 75 C</td></tr><tr><td>FPGA (XC7A100T)</td><td>100 C (junction)</td><td>Not directly monitored</td><td>--</td></tr><tr><td>STM32F746</td><td>105 C (junction)</td><td>Not directly monitored</td><td>--</td></tr></tbody></table>
+
+<h3 id="5-4-cooling-requirements">5.4 Cooling Requirements<a class="ha" href="#5-4-cooling-requirements" aria-hidden="true">¶</a></h3>
+
+<p>The junction temperature of any component must satisfy Eq. (HW-PWR-5) from <a href="06_power_management.md#74-thermal-dissipation"><code>06_power_management.md</code></a>:</p>
+
+<p>$$</p>
+<p>T_\text{junction} = T_\text{ambient} + P_\text{diss} \times \theta_{JA} &lt; T_\text{max} \tag{HW-PB-5}</p>
+<p>$$</p>
+
+<p>For the Extended variant, the PA subsystem dissipates approximately 112 W across 16 elements (7 W per element). With a typical $\theta_{JA}$ of 10 C/W for a well-heatsinked GaN device, this requires:</p>
+
+<p>$$</p>
+<p>T_\text{ambient,max} = T_\text{max} - P_\text{diss} \times \theta_{JA} \tag{HW-PB-6}</p>
+<p>$$</p>
+
+<p>Active cooling (fan controlled by <code>EN_DIS_COOLING</code> GPIO) is mandatory for the Extended variant during TX operation. The Nexus variant generates approximately 29 W total heat, which may be manageable with passive cooling depending on enclosure design.</p>
+
+<hr>
+
+<h2 id="6-pa-power-analysis">6. PA Power Analysis<a class="ha" href="#6-pa-power-analysis" aria-hidden="true">¶</a></h2>
+
+<h3 id="6-1-per-pa-power-consumption">6.1 Per-PA Power Consumption<a class="ha" href="#6-1-per-pa-power-consumption" aria-hidden="true">¶</a></h3>
+
+<p>Each PA element&#x27;s power consumption is monitored in real time via the ADS7830 current sense ADCs. The per-element DC power is:</p>
+
+<p>$$</p>
+<p>P_\text{PA,element} = V_\text{DD} \times I_{dq} \tag{HW-PB-7}</p>
+<p>$$</p>
+
+<p>where $V_\text{DD}$ is the PA drain supply voltage and $I_{dq}$ is the quiescent drain current measured by the ADS7830 (see Eq. (HW-PWR-2) in <a href="06_power_management.md#62-adc-to-current-conversion"><code>06_power_management.md</code></a>).</p>
+
+<p>The firmware targets a quiescent current of $I_{dq} \approx 1.680~\text{A}$ per element during the bias tuning procedure (<code>main.cpp</code>, lines 1640, 1655).</p>
+
+<h3 id="6-2-total-pa-power">6.2 Total PA Power<a class="ha" href="#6-2-total-pa-power" aria-hidden="true">¶</a></h3>
+
+<p>For 16 active elements, the total PA power is:</p>
+
+<p>$$</p>
+<p>P_\text{PA,total} = \sum_{n=1}^{16} V_\text{DD} \times I_{dq,n} \tag{HW-PB-8}</p>
+<p>$$</p>
+
+<blockquote><strong>Variant Note:</strong></blockquote>
+<blockquote>| | Nexus (AERIS-10N) | Extended (AERIS-10X) |</blockquote>
+<blockquote>|--|-------|----------|</blockquote>
+<blockquote>| PA device | ADTR1107 | QPA2962 |</blockquote>
+<blockquote>| $V_\text{DD}$ | 3.3 V (integrated) | 22 V (external) |</blockquote>
+<blockquote>| Target $I_{dq}$ per element | ~1.68 A | ~1.68 A |</blockquote>
+<blockquote>| $P_t$ per element | 1 W | 10 W |</blockquote>
+<blockquote>| DC input per element | ~5.5 W | ~37 W |</blockquote>
+<blockquote>| PAE (typical) | ~25% | ~30% |</blockquote>
+<blockquote>| Heat per element | ~4.5 W | ~27 W |</blockquote>
+<blockquote>| Total PA DC power (16 elements) | ~88 W | ~592 W |</blockquote>
+<blockquote>| Total PA RF output | ~16 W | ~160 W |</blockquote>
+<blockquote>| Total PA heat (16 elements) | ~72 W | ~432 W |</blockquote>
+
+<p class="kv-line"><span class="kv-key">Note:</span> <span class="kv-value">The $I_{dq}$ target of 1.68 A is from firmware. For the ADTR1107, the actual operating point at 3.3V supply with 1.68 A yields ~5.5 W DC per element, which is higher than the 1 W RF output, consistent with ~25% efficiency. For the QPA2962 at 22V supply, the same 1.68 A yields ~37 W DC per element. These values should be verified against the Power Management V6.xlsx spreadsheet for precise per-element budgets.</span></p>
+
+<h3 id="6-3-overcurrent-protection">6.3 Overcurrent Protection<a class="ha" href="#6-3-overcurrent-protection" aria-hidden="true">¶</a></h3>
+
+<p>The firmware monitors each PA element against the 2.5 A overcurrent threshold (see <a href="06_power_management.md#63-monitoring-thresholds"><code>06_power_management.md</code></a>). At the maximum monitored current:</p>
+
+<ul><li><strong>Nexus:</strong> $P_\text{max} = 3.3 \times 2.5 = 8.25~\text{W}$ per element</li><li><strong>Extended:</strong> $P_\text{max} = 22 \times 2.5 = 55~\text{W}$ per element</li></ul>
+
+<p>These represent fault conditions that trigger emergency stop before thermal damage occurs.</p>
+
+<hr>
+
+<h2 id="7-references">7. References<a class="ha" href="#7-references" aria-hidden="true">¶</a></h2>
+
+<h3 id="project-documentation">Project Documentation<a class="ha" href="#project-documentation" aria-hidden="true">¶</a></h3>
+<ul><li><a href="../00_notation/symbol_table.md">Symbol Table</a> -- symbols $V_\text{rail}$, $I_\text{rail}$, $P_\text{diss}$, $T_\text{junction}$, $\theta_{JA}$</li><li><a href="../00_notation/parameter_table.md">Parameter Table</a> -- canonical system parameter values</li><li><a href="../00_notation/conventions.md">Conventions</a> -- equation numbering and formatting rules</li><li><a href="06_power_management.md">Power Management</a> -- rail definitions, sequencing, monitoring thresholds, emergency stop</li><li><a href="01_system_overview.md">System Overview</a> -- system-level architecture and variant comparison</li></ul>
+
+<h3 id="component-datasheets">Component Datasheets<a class="ha" href="#component-datasheets" aria-hidden="true">¶</a></h3>
+<ul><li>XC7A100T -- Xilinx Artix-7 FPGA power estimation (DS181)</li><li>AD9523-1 -- Analog Devices clock distribution IC power consumption</li><li>ADAR1000 -- Analog Devices beamformer power consumption per channel</li><li>ADTR1107 -- Analog Devices integrated T/R module (Nexus variant)</li><li>QPA2962 -- Qorvo GaN PA power consumption and thermal resistance (Extended variant)</li><li>ADF4382 -- Analog Devices synthesizer power consumption</li><li>TMP37 -- Analog Devices temperature sensor specifications</li><li>INA241A3 -- Texas Instruments current sense amplifier</li></ul>
+
+<h3 id="supplementary-data">Supplementary Data<a class="ha" href="#supplementary-data" aria-hidden="true">¶</a></h3>
+<ul><li><code>3_Power Management/Power Management V6.xlsx</code> -- measured voltage rail specifications, current limits, and detailed power budget data</li></ul>
+
+</div>
+  </div><!-- main-content -->
+</div><!-- site-shell -->
+<script>
+mermaid.initialize({ startOnLoad: true, theme: 'dark', securityLevel: 'loose' });
+</script>
+</body>
+
+</html>

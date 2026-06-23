@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>radarv2 — 3D Scene Visualization (Lichtblick) — aros Vault</title>
+<style>
+
+:root {
+  --color-blue:    #007ACC;
+  --color-green:   #2DA44E;
+  --color-yellow:  #D29922;
+  --color-purple:  #8B5CF6;
+  --color-orange:  #F59E0B;
+  --color-red:     #E5534B;
+  --color-cyan:    #0BC5EA;
+  --color-accent:  #7C3AED;
+  --text-normal:   #DCDDDE;
+  --text-muted:    #8E8EA0;
+  --background-primary:         #1E1E2E;
+  --background-secondary:       #181825;
+  --background-modifier-border: #313244;
+  --color-base-30:              #45475A;
+}
+body {
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.6;
+  margin: 0;
+}
+
+</style>
+<!-- Mermaid -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<!-- MathJax -->
+<script>window.MathJax={tex:{inlineMath:[['$','$'],['\\(','\\)']],displayMath:[['$$','$$'],['\\[','\\]']]},options:{skipHtmlTags:['script','noscript','style','textarea','pre']}};</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+<!-- Site CSS -->
+<link rel="stylesheet" href="site.css">
+</head>
+<body class="markdown-reading-view">
+<div class="site-shell">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <a href="00-Index.html" class="site-title">radarv2 / AERIS-10</a>
+      <div class="site-subtitle">aros Radar Documentation</div>
+    </div>
+    <ul class="nav-list">
+      <li class="nav-section">Core Docs</li>
+      <li><a href="09-Concepts-Primer.html">Radar Primer</a></li>
+      <li><a href="00-Index.html">Index</a></li>
+      <li><a href="01-System-Overview.html">System Overview</a></li>
+      <li><a href="02-Physics-and-Waveform.html">Physics &amp; Waveform</a></li>
+      <li><a href="03-Beamforming-and-Scan.html">Beamforming &amp; Scan</a></li>
+      <li><a href="04-Signal-Processing-Pipeline.html">Signal Processing</a></li>
+      <li><a href="05-Node-Architecture.html">Node Architecture</a></li>
+      <li><a href="06-Message-Catalog.html">Message Catalog</a></li>
+      <li><a href="07-Detection-and-Tracking.html">Detection &amp; Tracking</a></li>
+      <li><a href="08-Scenarios-and-Targets.html">Scenarios &amp; Targets</a></li>
+      <li class="nav-section">Advanced</li>
+      <li><a href="10-Radar-Model-Library.html">Radar Model Library</a></li>
+      <li><a href="11-Multi-Radar-Fusion.html">Multi-Radar Fusion</a></li>
+      <li><a href="12-3D-Scene.html">3-D Scene</a></li>
+      <li><a href="13-Reference-Tables.html">Reference Tables</a></li>
+      <li><a href="FUTURE-DEVELOPMENT.html">Future Development</a></li>
+      <li class="nav-section">Upstream Theory</li>
+      <li><a href="upstream/README.html">Upstream README</a></li>
+      <li><a href="upstream/00_notation/conventions.html">Notation</a></li>
+      <li><a href="upstream/01_physics/01_fmcw_theory.html">FMCW Theory</a></li>
+      <li><a href="upstream/01_physics/02_lfm_waveform_model.html">LFM Waveform</a></li>
+      <li><a href="upstream/01_physics/03_beamforming_theory.html">Beamforming Theory</a></li>
+      <li><a href="upstream/01_physics/04_detection_theory.html">Detection Theory</a></li>
+      <li><a href="upstream/01_physics/05_noise_analysis.html">Noise Analysis</a></li>
+      <li><a href="upstream/01_physics/06_calibration_theory.html">Calibration</a></li>
+      <li><a href="upstream/02_hardware/01_system_overview.html">HW Overview</a></li>
+      <li><a href="upstream/04_research/01_cfar_variants.html">CFAR Variants</a></li>
+    </ul>
+    <div class="sidebar-footer">
+      <a href="https://github.com/brkay54/radarv2-docs" target="_blank">GitHub</a>
+    </div>
+  </nav>
+  <div class="main-content">
+
+<div class="markdown-preview-section">
+<h1 id="3d-scene-visualization-lichtblick">3D Scene Visualization (Lichtblick)<a class="ha" href="#3d-scene-visualization-lichtblick" aria-hidden="true">¶</a></h1>
+
+<div class="callout" data-callout="abstract"><div class="callout-title">Scope</div><div class="callout-content"><p>The design for a rich <strong>3-D scene</strong> in Lichtblick showing the whole engagement —</p>
+<p>radar <strong>sites</strong>, steered <strong>beams</strong>, live <strong>detections</strong>, <strong>predicted tracks</strong>, and</p>
+<p><strong>target meshes</strong> (fighters, helicopters, …) for <strong>multiple radars at once</strong>, over a</p>
+<p>terrain ground layer. This is the <span class="wikilink-unresolved">FD-5</span></p>
+<p>design. It consumes the <span class="wikilink-unresolved">CommonPicture</span> and renders it</p>
+<p>through the same Foxglove bridge the base demo already uses.</p></div></div>
+
+<div class="callout" data-callout="note"><div class="callout-title">Status — PENDING (the last open FD item)</div><div class="callout-content"><p>Everything this scene consumes is **already shipped and published as world-frame</p>
+<p>messages**: the base pipeline, tracking, the <span class="wikilink-unresolved">model library (FD-3)</span>,</p>
+<p>multi-radar <span class="wikilink-unresolved">fusion + control (FD-4)</span>, and the</p>
+<p><span class="wikilink-unresolved">DTED MapLayer (FD-2)</span>.</p>
+<p>The 3-D Lichtblick scene builder itself is the remaining work; a native Foxglove schema</p>
+<p>bridge is tracked as <span class="wikilink-unresolved">FD-6</span>.</p></div></div>
+
+<hr>
+
+<h2 id="1-why-a-3-d-scene">1. Why a 3-D scene<a class="ha" href="#1-why-a-3-d-scene" aria-hidden="true">¶</a></h2>
+
+<p>Two flat panels (a PPI sweep and a range-Doppler heatmap) tell you <em>that</em> a radar</p>
+<p>detected something. They do not show <strong>where in the world</strong>, <strong>which beam saw it</strong>,</p>
+<p><strong>where it is going</strong>, or <strong>how three radars&#x27; coverage overlaps</strong>. A 3-D scene does:</p>
+<p>beams sweep as translucent cones, returns light up along them, tracks extend arrows</p>
+<p>toward their predicted positions, target meshes show vehicle class, and the whole</p>
+<p>multi-radar network is legible at a glance over real terrain. &quot;See the objects in 3-D&quot;</p>
+<p>is the payoff of the FD-3/4/5 arc.</p>
+
+<hr>
+
+<h2 id="2-the-rendering-path">2. The rendering path<a class="ha" href="#2-the-rendering-path" aria-hidden="true">¶</a></h2>
+
+<p>The scene is built by a Lichtblick <strong>User Script</strong> — the same mechanism</p>
+<p><code>examples/radar</code> uses for <code>tracks_scene.user.ts</code> — that converts typed aros messages</p>
+<p>into one <code>foxglove.SceneUpdate</code>. Nothing in the scene builder holds hidden state: it is</p>
+<p>a pure transform from the world-frame messages to scene primitives, driven over the</p>
+<p><code>aros-foxglove-bridge</code>.</p>
+
+<div class="mermaid">flowchart LR
+  CP[CommonPicture<br/>fused tracks]:::msg
+  RS[per-radar state<br/>site pose + beam az/el]:::msg
+  DET[DetectionReport<br/>per radar]:::msg
+  MAP[MapLayer<br/>DTED + roads]:::msg
+  SB[scene builder<br/>Lichtblick User Script]:::calc
+  SU[foxglove.SceneUpdate]:::out
+  LB[Lichtblick 3D panel]:::view
+
+  CP --> SB
+  RS --> SB
+  DET --> SB
+  MAP --> SB
+  SB --> SU --> LB
+
+  classDef msg fill:#1d4ed8,color:#eff6ff,stroke:#1e40af
+  classDef calc fill:#a16207,color:#fefce8,stroke:#854d0e
+  classDef out fill:#0e7490,color:#ecfeff,stroke:#155e75
+  classDef view fill:#7c3aed,color:#f5f3ff,stroke:#6d28d9</div>
+
+<div class="callout" data-callout="info"><div class="callout-title">Legend — scene pipeline</div><div class="callout-content"><p><strong>Blue</strong> = the world-frame aros messages the scene needs (fused picture, per-radar</p>
+<p>beam state, raw detections, terrain map) · <strong>Amber</strong> = the User Script that maps them</p>
+<p>to primitives · <strong>Teal</strong> = the emitted <code>SceneUpdate</code> · <strong>Purple</strong> = the Lichtblick</p>
+<p>panel. Because every input is already a typed message in a world frame, the builder</p>
+<p>is stateless — the <span class="wikilink-unresolved">FD-5</span> design hook.</p></div></div>
+
+<hr>
+
+<h2 id="3-what-gets-drawn">3. What gets drawn<a class="ha" href="#3-what-gets-drawn" aria-hidden="true">¶</a></h2>
+
+<p>Each scene element maps a message field to a Foxglove <code>SceneEntity</code> primitive:</p>
+
+<table class="md-table"><thead><tr><th>Scene element</th><th>Foxglove primitive</th><th>Driven by</th></tr></thead><tbody><tr><td>Radar site</td><td>model / cube + label</td><td>per-radar site pose</td></tr><tr><td>Steered beam</td><td>translucent cone / wedge</td><td>beam az/el + HPBW from <code>ScanCommand</code></td></tr><tr><td>Detection</td><td>sphere / point, sized by SNR</td><td><code>DetectionReport</code> cells</td></tr><tr><td>Track</td><td>arrow + label, coloured by quality</td><td><code>CommonPicture</code> fused track</td></tr><tr><td>Predicted position</td><td>dashed line / trail ahead of track</td><td>track predicted state</td></tr><tr><td>Target body</td><td>mesh keyed by vehicle class</td><td>track class (jet/heli/airliner/drone)</td></tr><tr><td>Ground</td><td>textured height mesh + road lines</td><td><code>MapLayer</code> (DTED + roads)</td></tr><tr><td>Radar coverage</td><td>translucent coverage volume</td><td>per-radar range + sector</td></tr></tbody></table>
+
+<div class="callout" data-callout="tip"><div class="callout-title">Beams are the most informative primitive</div><div class="callout-content"><p>A steered beam drawn as a translucent cone oriented by the live `(azimuth,</p>
+<p>elevation)` and opened to the half-power beamwidth makes the <strong>scan itself</strong> visible —</p>
+<p>you watch the volume being searched, and a detection appears <em>inside</em> the cone that</p>
+<p>found it. Multiple radars&#x27; cones in different colours show how the network&#x27;s coverage</p>
+<p>interleaves.</p></div></div>
+
+<h3 id="multiple-radars-one-scene">Multiple radars, one scene<a class="ha" href="#multiple-radars-one-scene" aria-hidden="true">¶</a></h3>
+
+<p>Each radar&#x27;s primitives live under its own <code>SceneEntity</code> namespace (its diagtree id),</p>
+<p>coloured per radar, so three different models render together without collision —</p>
+<p>distinct beam colours, distinct site markers, and a shared fused-track layer on top.</p>
+<p>The terrain (<span class="wikilink-unresolved">FD-2</span></p>
+<p>/ <a href="05-Node-Architecture.html" class="internal-link">MapProvider</a>) is the common ground layer beneath all of them.</p>
+
+<div class="mermaid">flowchart LR
+  GND[ground layer<br/>DTED + roads]:::gnd
+  A[Radar A beams + dets<br/>teal namespace]:::a
+  B[Radar B beams + dets<br/>blue namespace]:::b
+  C[Radar C beams + dets<br/>green namespace]:::c
+  TRK[fused tracks + meshes<br/>shared layer]:::trk
+
+  GND --> A
+  GND --> B
+  GND --> C
+  A --> TRK
+  B --> TRK
+  C --> TRK
+
+  classDef gnd fill:#1f2937,color:#e5e7eb,stroke:#374151
+  classDef a fill:#0e7490,color:#ecfeff,stroke:#155e75
+  classDef b fill:#1d4ed8,color:#eff6ff,stroke:#1e40af
+  classDef c fill:#4d7c0f,color:#f7fee7,stroke:#3f6212
+  classDef trk fill:#7c3aed,color:#f5f3ff,stroke:#6d28d9</div>
+
+<div class="callout" data-callout="info"><div class="callout-title">Legend — scene layering</div><div class="callout-content"><p><strong>Slate</strong> = the shared terrain ground layer · <strong>Teal / Blue / Green</strong> = each radar&#x27;s</p>
+<p>own beam + detection primitives in its own namespace and colour · <strong>Purple</strong> = the</p>
+<p>single fused-track + vehicle-mesh layer that sits above all radars. This layering is</p>
+<p>what lets three radar models be on screen at once and still be readable.</p></div></div>
+
+<hr>
+
+<h2 id="4-build-order-and-dependencies">4. Build order and dependencies<a class="ha" href="#4-build-order-and-dependencies" aria-hidden="true">¶</a></h2>
+
+<p>The scene is the <strong>last</strong> piece of the FD arc because it consumes everything else:</p>
+
+<ul><li>Base single-radar pipeline (v1) gives <code>DetectionReport</code> + beam state → a minimal</li></ul>
+<p>   scene (one site, its beam, its detections) is already buildable on v1. <strong>(shipped)</strong></p>
+<ul><li><span class="wikilink-unresolved">FD-3</span> makes radars selectable → multiple distinct models. <strong>(shipped)</strong></li><li><span class="wikilink-unresolved">FD-4</span> gives <code>CommonPicture</code> → the fused-track layer. <strong>(shipped)</strong></li><li><span class="wikilink-unresolved">FD-1</span> gives</li></ul>
+<p>   vehicle class + kinematics → meshes and credible predicted trails. <em>(partial: <code>dynamic</code> motion shipped; vehicle meshes pending)</em></p>
+<ul><li><span class="wikilink-unresolved">FD-2</span></li></ul>
+<p>   gives <code>MapLayer</code> → the terrain ground layer. <strong>(shipped; live Lichtblick render pending)</strong></p>
+
+<div class="callout" data-callout="note"><div class="callout-title">A minimal scene ships with v1</div><div class="callout-content"><p>Even before fusion and vehicles, the base pipeline can drive a one-radar scene (site +</p>
+<p>live beam + detections over a flat ground), reusing <code>examples/radar</code>&#x27;s</p>
+<p><code>tracks_scene.user.ts</code> pattern. The rich multi-radar scene is the FD-5 endpoint; the</p>
+<p>seam — <em>publish everything the scene needs as typed world-frame messages</em> — is</p>
+<p>established from v1 so the builder stays a pure transform.</p></div></div>
+
+<p>This closes the radarv2 documentation set. Back to <a href="00-Index.html" class="internal-link">00-Index</a>.</p>
+
+</div>
+  </div><!-- main-content -->
+</div><!-- site-shell -->
+<script>
+mermaid.initialize({ startOnLoad: true, theme: 'dark', securityLevel: 'loose' });
+</script>
+</body>
+
+</html>

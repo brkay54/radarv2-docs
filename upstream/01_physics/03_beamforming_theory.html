@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>03_beamforming_theory — aros Vault</title>
+<style>
+
+:root {
+  --color-blue:    #007ACC;
+  --color-green:   #2DA44E;
+  --color-yellow:  #D29922;
+  --color-purple:  #8B5CF6;
+  --color-orange:  #F59E0B;
+  --color-red:     #E5534B;
+  --color-cyan:    #0BC5EA;
+  --color-accent:  #7C3AED;
+  --text-normal:   #DCDDDE;
+  --text-muted:    #8E8EA0;
+  --background-primary:         #1E1E2E;
+  --background-secondary:       #181825;
+  --background-modifier-border: #313244;
+  --color-base-30:              #45475A;
+}
+body {
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.6;
+  margin: 0;
+}
+
+</style>
+<!-- Mermaid -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<!-- MathJax -->
+<script>window.MathJax={tex:{inlineMath:[['$','$'],['\\(','\\)']],displayMath:[['$$','$$'],['\\[','\\]']]},options:{skipHtmlTags:['script','noscript','style','textarea','pre']}};</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+<!-- Site CSS -->
+<link rel="stylesheet" href="../../site.css">
+</head>
+<body class="markdown-reading-view">
+<div class="site-shell">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <a href="../../00-Index.html" class="site-title">radarv2 / AERIS-10</a>
+      <div class="site-subtitle">aros Radar Documentation</div>
+    </div>
+    <ul class="nav-list">
+      <li class="nav-section">Core Docs</li>
+      <li><a href="../../09-Concepts-Primer.html">Radar Primer</a></li>
+      <li><a href="../../00-Index.html">Index</a></li>
+      <li><a href="../../01-System-Overview.html">System Overview</a></li>
+      <li><a href="../../02-Physics-and-Waveform.html">Physics &amp; Waveform</a></li>
+      <li><a href="../../03-Beamforming-and-Scan.html">Beamforming &amp; Scan</a></li>
+      <li><a href="../../04-Signal-Processing-Pipeline.html">Signal Processing</a></li>
+      <li><a href="../../05-Node-Architecture.html">Node Architecture</a></li>
+      <li><a href="../../06-Message-Catalog.html">Message Catalog</a></li>
+      <li><a href="../../07-Detection-and-Tracking.html">Detection &amp; Tracking</a></li>
+      <li><a href="../../08-Scenarios-and-Targets.html">Scenarios &amp; Targets</a></li>
+      <li class="nav-section">Advanced</li>
+      <li><a href="../../10-Radar-Model-Library.html">Radar Model Library</a></li>
+      <li><a href="../../11-Multi-Radar-Fusion.html">Multi-Radar Fusion</a></li>
+      <li><a href="../../12-3D-Scene.html">3-D Scene</a></li>
+      <li><a href="../../13-Reference-Tables.html">Reference Tables</a></li>
+      <li><a href="../../FUTURE-DEVELOPMENT.html">Future Development</a></li>
+      <li class="nav-section">Upstream Theory</li>
+      <li><a href="../../upstream/README.html">Upstream README</a></li>
+      <li><a href="../../upstream/00_notation/conventions.html">Notation</a></li>
+      <li><a href="../../upstream/01_physics/01_fmcw_theory.html">FMCW Theory</a></li>
+      <li><a href="../../upstream/01_physics/02_lfm_waveform_model.html">LFM Waveform</a></li>
+      <li><a href="../../upstream/01_physics/03_beamforming_theory.html">Beamforming Theory</a></li>
+      <li><a href="../../upstream/01_physics/04_detection_theory.html">Detection Theory</a></li>
+      <li><a href="../../upstream/01_physics/05_noise_analysis.html">Noise Analysis</a></li>
+      <li><a href="../../upstream/01_physics/06_calibration_theory.html">Calibration</a></li>
+      <li><a href="../../upstream/02_hardware/01_system_overview.html">HW Overview</a></li>
+      <li><a href="../../upstream/04_research/01_cfar_variants.html">CFAR Variants</a></li>
+    </ul>
+    <div class="sidebar-footer">
+      <a href="https://github.com/brkay54/radarv2-docs" target="_blank">GitHub</a>
+    </div>
+  </nav>
+  <div class="main-content">
+
+<div class="markdown-preview-section">
+<h1 id="beamforming-and-array-factor-theory">Beamforming and Array Factor Theory<a class="ha" href="#beamforming-and-array-factor-theory" aria-hidden="true">¶</a></h1>
+
+<p class="kv-line"><span class="kv-key">Purpose:</span> <span class="kv-value">Derive the array factor for a uniform linear array (ULA), beam steering, grating lobe conditions, amplitude tapering for sidelobe control, and the extension to two-dimensional planar arrays. These results form the ideal-array foundation referenced by the calibration theory document.</span></p>
+
+<p class="kv-line"><span class="kv-key">Prerequisites:</span> <span class="kv-value">Familiarity with:</span></p>
+<ul><li><a href="../00_notation/symbol_table.md">Symbol Table</a> -- all symbols used herein</li><li><a href="../00_notation/parameter_table.md">Parameter Table</a> -- numerical values for both variants</li><li><a href="../00_notation/conventions.md">Conventions</a> -- equation formatting rules</li><li><a href="01_fmcw_theory.md">FMCW Theory</a> -- wavelength and carrier frequency definitions</li></ul>
+
+<hr>
+
+<h2 id="1-uniform-linear-array-geometry">1. Uniform Linear Array Geometry<a class="ha" href="#1-uniform-linear-array-geometry" aria-hidden="true">¶</a></h2>
+
+<p>A uniform linear array (ULA) consists of $N$ identical antenna elements (defined in the <a href="../00_notation/symbol_table.md#antenna-and-beamforming">Symbol Table</a>) arranged along a straight line with constant inter-element spacing $d$ (defined in the <a href="../00_notation/symbol_table.md#antenna-and-beamforming">Symbol Table</a>). Element positions are indexed $n = 0, 1, \ldots, N-1$, with element $n$ located at position $x_n = nd$ along the array axis.</p>
+
+<p>A plane wave arriving from angle $\theta$ (measured from the broadside direction, i.e., normal to the array axis) reaches each successive element with a path length difference of $d\sin\theta$ relative to its neighbor. This additional path introduces a phase delay of $kd\sin\theta$ between adjacent elements, where $k = 2\pi/\lambda$ is the wavenumber (defined in the <a href="../00_notation/symbol_table.md#antenna-and-beamforming">Symbol Table</a>) and $\lambda = c/f_c$ is the wavelength from <a href="01_fmcw_theory.md">FMCW Theory</a>.</p>
+
+<p>The inter-element phase difference due to the signal arriving at angle $\theta$ is therefore:</p>
+
+<p>$$</p>
+<p>\Delta\phi_\text{prop} = kd\sin\theta \tag{BF-1}</p>
+<p>$$</p>
+
+<p>The <strong>far-field assumption</strong> requires that the target range $R$ satisfies $R \gg 2(Nd)^2/\lambda$, ensuring the wavefront curvature across the array aperture is negligible and the plane-wave model of Eq. (BF-1) is valid.</p>
+
+<blockquote><strong>Variant Note:</strong></blockquote>
+<blockquote>| | Nexus | Extended |</blockquote>
+<blockquote>|--|-------|----------|</blockquote>
+<blockquote>| Array configuration | 8x16 patch array | 32x16 slotted waveguide |</blockquote>
+<blockquote>| Elements per ULA column | 16 (8x2 subarrays) | 16 (cascaded) |</blockquote>
+<p>&gt;</p>
+<blockquote>See the <a href="../00_notation/parameter_table.md#antenna-and-beamforming">Parameter Table</a> for element count and spacing.</blockquote>
+
+<hr>
+
+<h2 id="2-array-factor">2. Array Factor<a class="ha" href="#2-array-factor" aria-hidden="true">¶</a></h2>
+
+<p>The array factor $AF(\theta)$ (defined in the <a href="../00_notation/symbol_table.md#antenna-and-beamforming">Symbol Table</a>) is the spatial response of the array to a plane wave arriving from angle $\theta$. Each element $n$ has an amplitude weight $w_n$ (defined in the <a href="../00_notation/symbol_table.md#antenna-and-beamforming">Symbol Table</a>) and receives a progressive phase shift $\Delta\phi$ applied by the beamformer. The total electrical angle per element is:</p>
+
+<p>$$</p>
+<p>\psi = kd\sin\theta + \Delta\phi \tag{BF-2}</p>
+<p>$$</p>
+
+<p>where $\psi$ is the electrical angle (defined in the <a href="../00_notation/symbol_table.md#antenna-and-beamforming">Symbol Table</a>).</p>
+
+<p>The array factor is the weighted sum of the element responses:</p>
+
+<p>$$</p>
+<p>AF(\theta) = \sum_{n=0}^{N-1} w_n \, e^{jn\psi} \tag{BF-3}</p>
+<p>$$</p>
+
+<p>Each term $w_n e^{jn\psi}$ represents the contribution of element $n$: the amplitude weight $w_n$ controls how much that element contributes, and the phase $n\psi$ accounts for both the signal&#x27;s angle of arrival (through $kd\sin\theta$) and the applied phase shift ($\Delta\phi$). The array factor is a polynomial in $e^{j\psi}$ of degree $N-1$, and its zeros determine the null positions of the beam pattern.</p>
+
+<hr>
+
+<h2 id="3-beam-steering">3. Beam Steering<a class="ha" href="#3-beam-steering" aria-hidden="true">¶</a></h2>
+
+<p>To steer the main beam toward a desired angle $\theta_0$ (defined in the <a href="../00_notation/symbol_table.md#antenna-and-beamforming">Symbol Table</a>), the beamformer applies a progressive phase shift that compensates the propagation phase at that angle:</p>
+
+<p>$$</p>
+<p>\Delta\phi = -kd\sin\theta_0 \tag{BF-4}</p>
+<p>$$</p>
+
+<p>Substituting Eq. (BF-4) into Eq. (BF-2):</p>
+
+<p>$$</p>
+<p>\psi = kd\sin\theta - kd\sin\theta_0 = kd(\sin\theta - \sin\theta_0) \tag{BF-5}</p>
+<p>$$</p>
+
+<p>At the steering direction $\theta = \theta_0$, the electrical angle becomes $\psi = 0$. Every element contributes in phase ($e^{jn \cdot 0} = 1$), producing constructive interference and maximum array response. The array factor at $\theta = \theta_0$ with uniform weights ($w_n = 1$) evaluates to $AF(\theta_0) = N$.</p>
+
+<hr>
+
+<h2 id="4-closed-form-array-factor-uniform-weights">4. Closed-Form Array Factor (Uniform Weights)<a class="ha" href="#4-closed-form-array-factor-uniform-weights" aria-hidden="true">¶</a></h2>
+
+<p>For uniform weights ($w_n = 1$ for all $n$), the array factor in Eq. (BF-3) becomes a geometric series:</p>
+
+<p>$$</p>
+<p>AF(\theta) = \sum_{n=0}^{N-1} e^{jn\psi} \tag{BF-6}</p>
+<p>$$</p>
+
+<p>Applying the geometric series identity $\sum_{n=0}^{N-1} z^n = (1 - z^N)/(1 - z)$ with $z = e^{j\psi}$:</p>
+
+<p>$$</p>
+<p>\begin{aligned}</p>
+<p>AF(\theta) &amp;= \frac{1 - e^{jN\psi}}{1 - e^{j\psi}} \\</p>
+<p>&amp;= e^{j(N-1)\psi/2} \cdot \frac{\sin(N\psi/2)}{\sin(\psi/2)}</p>
+<p>\end{aligned}</p>
+<p>\tag{BF-7}</p>
+<p>$$</p>
+
+<p>The magnitude of the array factor, which determines the beam pattern, is:</p>
+
+<p>$$</p>
+<p>AF(\theta)| = \left| \frac{\sin(N\psi/2)}{\sin(\psi/2)}\right| \tag{BF-8}</p>
+<p>$$</p>
+
+<p>The normalized power pattern, expressed as the ratio of actual power to peak power, is:</p>
+
+<p>$$</p>
+<p>P_n(\theta) = \frac{|AF(\theta)|^2}{N^2} = \frac{1}{N^2}\left(\frac{\sin(N\psi/2)}{\sin(\psi/2)}\right)^{\!2} \tag{BF-9}</p>
+<p>$$</p>
+
+<p>This closed-form expression has the following properties:</p>
+<ul><li><strong>Main beam peak:</strong> $P_n = 1$ (0 dB) at $\psi = 0$, i.e., $\theta = \theta_0$.</li><li><strong>Nulls:</strong> $P_n = 0$ at $\psi = 2\pi m / N$ for integer $m \neq 0$.</li><li><strong>First sidelobe:</strong> approximately $-13.3$ dB below the main beam for any $N$ (a property of the sinc-like pattern).</li></ul>
+
+<p>!<a href="figures/beam_pattern_N16_uniform.svg">Beam pattern -- N=16 ULA, uniform weights</a></p>
+
+<p>The figure above shows the normalized power pattern for a 16-element ULA with uniform weights at three steering angles. The main beam broadens and peak sidelobes shift as the beam is steered away from broadside, consistent with the $\cos\theta_0$ dependence derived in the next section.</p>
+
+<hr>
+
+<h2 id="5-half-power-beamwidth">5. Half-Power Beamwidth<a class="ha" href="#5-half-power-beamwidth" aria-hidden="true">¶</a></h2>
+
+<p>The half-power beamwidth $\theta_{3\text{dB}}$ (defined in the <a href="../00_notation/symbol_table.md#antenna-and-beamforming">Symbol Table</a>) is the angular width between the two directions where the normalized power pattern drops to half its peak value ($-3$ dB).</p>
+
+<p>For a broadside beam ($\theta_0 = 0$), the $-3$ dB points of the $\sin(N\psi/2)/\sin(\psi/2)$ pattern occur at $\psi_{3\text{dB}} \approx \pm 0.886 \cdot 2\pi / N$ (the exact coefficient depends on $N$ but converges to 0.886 for large $N$, analogous to the Rayleigh criterion). Converting from $\psi$ back to $\theta$ using Eq. (BF-5) with $\theta_0 = 0$ and the small-angle approximation $\sin\theta \approx \theta$:</p>
+
+<p>$$</p>
+<p>\theta_{3\text{dB}} \approx \frac{0.886\lambda}{Nd} \tag{BF-10}</p>
+<p>$$</p>
+
+<p>For a beam steered to angle $\theta_0$, the effective aperture projected onto the wavefront direction is reduced by $\cos\theta_0$. The beamwidth broadens accordingly:</p>
+
+<p>$$</p>
+<p>\theta_{3\text{dB}}(\theta_0) \approx \frac{0.886\lambda}{Nd\cos\theta_0} \tag{BF-11}</p>
+<p>$$</p>
+
+<p>Physical interpretation: as the beam steers away from broadside, the array&#x27;s projected aperture (the aperture seen by the incoming wave) shrinks, reducing the effective array length and producing a wider beam. At endfire ($\theta_0 = 90°$), $\cos\theta_0 \to 0$ and the beamwidth diverges -- the ULA cannot form a narrow beam at endfire.</p>
+
+<hr>
+
+<h2 id="6-grating-lobe-conditions">6. Grating Lobe Conditions<a class="ha" href="#6-grating-lobe-conditions" aria-hidden="true">¶</a></h2>
+
+<h3 id="general-condition">General Condition<a class="ha" href="#general-condition" aria-hidden="true">¶</a></h3>
+
+<p>Grating lobes are secondary main-beam-level maxima that occur when the electrical angle $\psi$ reaches integer multiples of $2\pi$ (other than $\psi = 0$). From Eq. (BF-5), a grating lobe appears at angle $\theta_\text{GL}$ when:</p>
+
+<p>$$</p>
+<p>kd(\sin\theta_\text{GL} - \sin\theta_0) = 2\pi m, \quad m = \pm 1, \pm 2, \ldots \tag{BF-12}</p>
+<p>$$</p>
+
+<p>Substituting $k = 2\pi/\lambda$:</p>
+
+<p>$$</p>
+<p>\frac{d}{\lambda}(\sin\theta_\text{GL} - \sin\theta_0) = m \tag{BF-13}</p>
+<p>$$</p>
+
+<p>Rearranging for the grating lobe angle:</p>
+
+<p>$$</p>
+<p>\sin\theta_\text{GL} = \sin\theta_0 + \frac{m\lambda}{d} \tag{BF-14}</p>
+<p>$$</p>
+
+<p>A grating lobe is <strong>visible</strong> (i.e., radiates into real space) only if $|\sin\theta_\text{GL}| \le 1$. The condition for the first grating lobe ($m = \pm 1$) to enter visible space is:</p>
+
+<p>$$</p>
+<p>\left|\sin\theta_0 \pm \frac{\lambda}{d}\right| \le 1 \tag{BF-15}</p>
+<p>$$</p>
+
+<h3 id="half-wavelength-spacing-analysis">Half-Wavelength Spacing Analysis<a class="ha" href="#half-wavelength-spacing-analysis" aria-hidden="true">¶</a></h3>
+
+<p>For the standard spacing $d = \lambda/2$, Eq. (BF-14) becomes:</p>
+
+<p>$$</p>
+<p>\sin\theta_\text{GL} = \sin\theta_0 + 2m</p>
+<p>$$</p>
+
+<p>For $m = +1$: $\sin\theta_\text{GL} = \sin\theta_0 + 2$. Since $\sin\theta_0 \ge -1$, the minimum value is $\sin\theta_\text{GL} = 1$, occurring at $\theta_0 = -90°$ (endfire). For broadside ($\theta_0 = 0$), $\sin\theta_\text{GL} = 2$, which is outside visible space ($|\sin\theta| \le 1$). Thus, with $d = \lambda/2$, grating lobes never enter visible space for any scan angle -- the $\lambda/2$ spacing is the universal grating-lobe-free condition.</p>
+
+<h3 id="relaxed-spacing-for-limited-scan-range">Relaxed Spacing for Limited Scan Range<a class="ha" href="#relaxed-spacing-for-limited-scan-range" aria-hidden="true">¶</a></h3>
+
+<p>The preceding analysis shows that $d = \lambda/2$ prevents grating lobes for <strong>all</strong> scan angles up to endfire. However, the AERIS-10 system has a limited scan range of approximately $\pm 33°$ (derived from the $\pm 160°$ phase shift range of the ADAR1000; see the <a href="../00_notation/parameter_table.md#antenna-and-beamforming">Parameter Table</a>). For a restricted scan range $|\theta_0| \le \theta_\text{max}$, the grating-lobe-free condition from Eq. (BF-15) for $m = -1$ (the most restrictive case when steering toward positive angles) requires:</p>
+
+<p>$$</p>
+<p>\sin\theta_\text{max} + \frac{\lambda}{d} &gt; 1</p>
+<p>$$</p>
+
+<p>Rearranging for the maximum allowable spacing:</p>
+
+<p>$$</p>
+<p>\frac{d}{\lambda} &lt; \frac{1}{1 + \sin\theta_\text{max}} \tag{BF-16}</p>
+<p>$$</p>
+
+<p>For $\theta_\text{max} = 33°$, this evaluates to $d/\lambda &lt; 1/(1 + \sin 33°) \approx 1/(1 + 0.545) \approx 0.649$. The element spacing could be as large as $0.649\lambda$ (approximately $30\%$ larger than $\lambda/2$) without producing grating lobes within the $\pm 33°$ scan range. The AERIS-10 uses $d = \lambda/2 = 0.5\lambda$, which provides substantial margin against grating lobes at all scan angles within its operational range.</p>
+
+<hr>
+
+<h2 id="7-element-pattern-and-mutual-coupling">7. Element Pattern and Mutual Coupling<a class="ha" href="#7-element-pattern-and-mutual-coupling" aria-hidden="true">¶</a></h2>
+
+<p>The total radiation pattern of an array is the product of the array factor and the element pattern:</p>
+
+<p>$$</p>
+<p>F_\text{total}(\theta) = AF(\theta) \cdot F_e(\theta) \tag{BF-17}</p>
+<p>$$</p>
+
+<p>where $F_e(\theta)$ is the radiation pattern of a single isolated element. This <strong>pattern multiplication</strong> principle holds exactly when all elements have identical radiation patterns and the array factor accounts for the inter-element phasing.</p>
+
+<p>In practice, mutual coupling between elements modifies each element&#x27;s radiation pattern. The <strong>active element pattern</strong> (AEP) differs from the isolated element pattern because currents induced on neighboring elements alter the boundary conditions. The total pattern becomes:</p>
+
+<p>$$</p>
+<p>F_\text{total}(\theta) = \sum_{n=0}^{N-1} w_n \, F_{e,n}^\text{active}(\theta) \, e^{jn\psi}</p>
+<p>$$</p>
+
+<p>where $F_{e,n}^\text{active}(\theta)$ is the active element pattern of element $n$ in the array environment. For interior elements of a large ULA, the AEPs are approximately identical by symmetry, and pattern multiplication remains a good approximation. Edge elements experience different coupling environments and exhibit modified patterns.</p>
+
+<p>The impact of mutual coupling on beam pattern fidelity and the correction procedure using a coupling matrix are addressed in detail in <a href="06_calibration_theory.md">Calibration Theory</a>.</p>
+
+<hr>
+
+<h2 id="8-amplitude-tapering-for-sidelobe-control">8. Amplitude Tapering for Sidelobe Control<a class="ha" href="#8-amplitude-tapering-for-sidelobe-control" aria-hidden="true">¶</a></h2>
+
+<p>The uniform-weight array factor of Eq. (BF-9) has a first sidelobe level of approximately $-13.3$ dB. Many applications require lower sidelobes to reject clutter and interference. Amplitude tapering -- applying non-uniform weights $w_n$ -- trades main beam width for reduced sidelobes.</p>
+
+<h3 id="taylor-weighting">Taylor Weighting<a class="ha" href="#taylor-weighting" aria-hidden="true">¶</a></h3>
+
+<p>The Taylor window provides a controlled tradeoff: the first $\bar{n} - 1$ sidelobes are held at a nearly constant level (the design SLL), while sidelobes farther from the main beam decay naturally. The Taylor weights are computed from the design parameters $\bar{n}$ (number of nearly-equal sidelobes) and the desired sidelobe level.</p>
+
+<p>The weighted array factor from Eq. (BF-3) with Taylor weights $w_n$ replaces the uniform-weight closed form. The main beam broadens by a factor called the <strong>beam broadening factor</strong> $\beta_\text{BB}$, which depends on the sidelobe level:</p>
+
+<p>$$</p>
+<p>\theta_{3\text{dB}}^\text{tapered} = \beta_\text{BB} \cdot \theta_{3\text{dB}}^\text{uniform} \tag{BF-18}</p>
+<p>$$</p>
+
+<p>For a $-30$ dB Taylor taper with $\bar{n} = 5$, the beam broadening factor is approximately $\beta_\text{BB} \approx 1.25$, meaning the beam is $25\%$ wider than the uniform-weight beam.</p>
+
+<h3 id="chebyshev-weighting">Chebyshev Weighting<a class="ha" href="#chebyshev-weighting" aria-hidden="true">¶</a></h3>
+
+<p>The Dolph-Chebyshev window produces the minimum beamwidth for a given sidelobe level (or equivalently, the lowest sidelobes for a given beamwidth). All sidelobes are at exactly the design level. However, the Chebyshev taper requires larger amplitude dynamic range at the array edges, which may exceed the ADAR1000 attenuator resolution. The practical implementation of Chebyshev weights given the ADAR1000 amplitude quantization is discussed in <a href="06_calibration_theory.md#adar1000-amplitude-quantization">Calibration Theory</a>.</p>
+
+<h3 id="sidelobe-beamwidth-tradeoff">Sidelobe-Beamwidth Tradeoff<a class="ha" href="#sidelobe-beamwidth-tradeoff" aria-hidden="true">¶</a></h3>
+
+<p>The fundamental tradeoff is: lower sidelobes require wider main beam (reduced angular resolution) and reduced array gain. The weights $w_n$ in Eq. (BF-3) implement this tradeoff -- any window function $w[n]$ applied to the array is equivalent to amplitude tapering with weights $w_n = w[n]$, as noted in the <a href="../00_notation/symbol_table.md#antenna-and-beamforming">Symbol Table</a>.</p>
+
+<p>!<a href="figures/beam_pattern_N16_taylor.svg">Beam pattern -- N=16 ULA, uniform vs Taylor weighting</a></p>
+
+<p>The figure above compares the beam patterns of a 16-element ULA at broadside with uniform weights and Taylor weights ($\bar{n} = 5$, SLL $= -30$ dB). The Taylor taper reduces sidelobes from $-13.3$ dB to $-30$ dB at the cost of a broader main beam, illustrating the sidelobe-beamwidth tradeoff of Eq. (BF-18).</p>
+
+<hr>
+
+<h2 id="9-two-dimensional-array-extension">9. Two-Dimensional Array Extension<a class="ha" href="#9-two-dimensional-array-extension" aria-hidden="true">¶</a></h2>
+
+<p>The preceding analysis treats a one-dimensional ULA. The AERIS-10 antenna configurations use two-dimensional planar arrays. For a rectangular planar array with $N_x$ elements along the $x$-axis (spacing $d_x$) and $N_y$ elements along the $y$-axis (spacing $d_y$), the array factor generalizes to:</p>
+
+<p>$$</p>
+<p>AF(\theta, \phi) = \left(\sum_{n_x=0}^{N_x - 1} w_{n_x} \, e^{jn_x \psi_x}\right) \left(\sum_{n_y=0}^{N_y - 1} w_{n_y} \, e^{jn_y \psi_y}\right) \tag{BF-19}</p>
+<p>$$</p>
+
+<p>where $\psi_x = k d_x(\sin\theta\cos\phi - \sin\theta_{0,x})$ and $\psi_y = k d_y(\sin\theta\sin\phi - \sin\theta_{0,y})$, with $\theta$ the elevation angle, $\phi$ the azimuth angle, and $(\theta_{0,x}, \theta_{0,y})$ the steering directions in each plane.</p>
+
+<p>The <strong>separability condition</strong> in Eq. (BF-19) holds when the element weights factor as $w_{n_x, n_y} = w_{n_x} \cdot w_{n_y}$ (separable taper) and the rows and columns can be independently controlled. Under this condition, the 2D array factor is the product of two independent 1D array factors, and all the 1D results derived above apply independently in each dimension.</p>
+
+<blockquote><strong>Variant Note:</strong></blockquote>
+<blockquote>| | Nexus | Extended |</blockquote>
+<blockquote>|--|-------|----------|</blockquote>
+<blockquote>| Array geometry | 8x16 patch array | 32x16 slotted waveguide |</blockquote>
+<blockquote>| Azimuth elements $N_x$ | 16 | 16 |</blockquote>
+<blockquote>| Elevation elements $N_y$ | 8 | 32 |</blockquote>
+<p>&gt;</p>
+<blockquote>See the <a href="../00_notation/parameter_table.md#antenna-and-beamforming">Parameter Table</a> for array dimensions.</blockquote>
+
+<p>For the AERIS-10 system, the 8x2 ADAR1000 subarray configuration provides independent phase/amplitude control for 16 elements in the azimuth dimension. Elevation steering is handled mechanically or through subarray-level phase switching (documented in the hardware sections). The 1D ULA results of this document apply directly to the azimuth beamforming dimension.</p>
+
+<hr>
+
+<h2 id="references">References<a class="ha" href="#references" aria-hidden="true">¶</a></h2>
+
+<ul><li><a href="../00_notation/symbol_table.md">Symbol Table</a> -- canonical symbol definitions</li><li><a href="../00_notation/parameter_table.md">Parameter Table</a> -- numerical values for both AERIS-10 variants</li><li><a href="../00_notation/conventions.md">Conventions</a> -- equation numbering and formatting rules</li><li><a href="01_fmcw_theory.md">FMCW Theory</a> -- wavelength $\lambda = c/f_c$ and carrier frequency definitions</li><li><a href="06_calibration_theory.md">Calibration Theory</a> -- phase/amplitude error models and calibration correction</li><li>Mailloux, R.J., <em>Phased Array Antenna Handbook</em>, 3rd ed., Artech House, 2018 -- Array factor derivations (Ch. 1-2), Taylor and Chebyshev tapers (Ch. 3), mutual coupling (Ch. 7)</li><li>Van Trees, H.L., <em>Optimum Array Processing</em>, Wiley, 2002 -- Beamforming fundamentals (Ch. 2), pattern synthesis (Ch. 3)</li><li>Skolnik, M.I., <em>Introduction to Radar Systems</em>, 4th ed., McGraw-Hill, 2008 -- Phased array antennas (Ch. 9)</li></ul>
+
+</div>
+  </div><!-- main-content -->
+</div><!-- site-shell -->
+<script>
+mermaid.initialize({ startOnLoad: true, theme: 'dark', securityLevel: 'loose' });
+</script>
+</body>
+
+</html>

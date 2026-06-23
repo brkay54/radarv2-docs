@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>radarv2 — System Overview — aros Vault</title>
+<style>
+
+:root {
+  --color-blue:    #007ACC;
+  --color-green:   #2DA44E;
+  --color-yellow:  #D29922;
+  --color-purple:  #8B5CF6;
+  --color-orange:  #F59E0B;
+  --color-red:     #E5534B;
+  --color-cyan:    #0BC5EA;
+  --color-accent:  #7C3AED;
+  --text-normal:   #DCDDDE;
+  --text-muted:    #8E8EA0;
+  --background-primary:         #1E1E2E;
+  --background-secondary:       #181825;
+  --background-modifier-border: #313244;
+  --color-base-30:              #45475A;
+}
+body {
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.6;
+  margin: 0;
+}
+
+</style>
+<!-- Mermaid -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<!-- MathJax -->
+<script>window.MathJax={tex:{inlineMath:[['$','$'],['\\(','\\)']],displayMath:[['$$','$$'],['\\[','\\]']]},options:{skipHtmlTags:['script','noscript','style','textarea','pre']}};</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+<!-- Site CSS -->
+<link rel="stylesheet" href="site.css">
+</head>
+<body class="markdown-reading-view">
+<div class="site-shell">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <a href="00-Index.html" class="site-title">radarv2 / AERIS-10</a>
+      <div class="site-subtitle">aros Radar Documentation</div>
+    </div>
+    <ul class="nav-list">
+      <li class="nav-section">Core Docs</li>
+      <li><a href="09-Concepts-Primer.html">Radar Primer</a></li>
+      <li><a href="00-Index.html">Index</a></li>
+      <li><a href="01-System-Overview.html">System Overview</a></li>
+      <li><a href="02-Physics-and-Waveform.html">Physics &amp; Waveform</a></li>
+      <li><a href="03-Beamforming-and-Scan.html">Beamforming &amp; Scan</a></li>
+      <li><a href="04-Signal-Processing-Pipeline.html">Signal Processing</a></li>
+      <li><a href="05-Node-Architecture.html">Node Architecture</a></li>
+      <li><a href="06-Message-Catalog.html">Message Catalog</a></li>
+      <li><a href="07-Detection-and-Tracking.html">Detection &amp; Tracking</a></li>
+      <li><a href="08-Scenarios-and-Targets.html">Scenarios &amp; Targets</a></li>
+      <li class="nav-section">Advanced</li>
+      <li><a href="10-Radar-Model-Library.html">Radar Model Library</a></li>
+      <li><a href="11-Multi-Radar-Fusion.html">Multi-Radar Fusion</a></li>
+      <li><a href="12-3D-Scene.html">3-D Scene</a></li>
+      <li><a href="13-Reference-Tables.html">Reference Tables</a></li>
+      <li><a href="FUTURE-DEVELOPMENT.html">Future Development</a></li>
+      <li class="nav-section">Upstream Theory</li>
+      <li><a href="upstream/README.html">Upstream README</a></li>
+      <li><a href="upstream/00_notation/conventions.html">Notation</a></li>
+      <li><a href="upstream/01_physics/01_fmcw_theory.html">FMCW Theory</a></li>
+      <li><a href="upstream/01_physics/02_lfm_waveform_model.html">LFM Waveform</a></li>
+      <li><a href="upstream/01_physics/03_beamforming_theory.html">Beamforming Theory</a></li>
+      <li><a href="upstream/01_physics/04_detection_theory.html">Detection Theory</a></li>
+      <li><a href="upstream/01_physics/05_noise_analysis.html">Noise Analysis</a></li>
+      <li><a href="upstream/01_physics/06_calibration_theory.html">Calibration</a></li>
+      <li><a href="upstream/02_hardware/01_system_overview.html">HW Overview</a></li>
+      <li><a href="upstream/04_research/01_cfar_variants.html">CFAR Variants</a></li>
+    </ul>
+    <div class="sidebar-footer">
+      <a href="https://github.com/brkay54/radarv2-docs" target="_blank">GitHub</a>
+    </div>
+  </nav>
+  <div class="main-content">
+
+<div class="markdown-preview-section">
+<h1 id="system-overview">System Overview<a class="ha" href="#system-overview" aria-hidden="true">¶</a></h1>
+
+<div class="callout" data-callout="abstract"><div class="callout-title">In one sentence</div><div class="callout-content"><p>AERIS-10 is an open-source 10.5 GHz pulse-LFM phased-array radar; radarv2 is a</p>
+<p>faithful aros software model of its receive + scan pipeline, built to exercise</p>
+<p>the aros node/executor/transport model on a realistic radar workload.</p></div></div>
+
+<hr>
+
+<h2 id="1-what-aeris-10-is">1. What AERIS-10 is<a class="ha" href="#1-what-aeris-10-is" aria-hidden="true">¶</a></h2>
+
+<p>AERIS-10 (upstream <code>PLFM_RADAR</code>) is a fully-specified FMCW X-band **phased-array</p>
+<p>radar**. It transmits linear-frequency-modulated (LFM) chirps through a</p>
+<p>16-element electronically-steered antenna array, mechanically rotates in azimuth</p>
+<p>via a stepper motor, and processes echoes into <strong>range-Doppler detection maps</strong></p>
+<p>with target tracking. Output is GPS-absolute target positions on a map display.</p>
+
+<p>The physical signal path:</p>
+
+<div class="mermaid">flowchart LR
+  ANT[16-element<br/>array]:::rf
+  BF[4x ADAR1000<br/>beamformers]:::rf
+  PA[PA / T-R<br/>module]:::rf
+  MIX[mixer to IF]:::rf
+  ADC[AD9484 ADC<br/>8-bit 400 MSPS]:::adc
+  FPGA[XC7A100T FPGA<br/>10-stage pipeline]:::dsp
+  USB[FT601<br/>USB 3.0]:::io
+  HOST[Python host<br/>GUI + map]:::io
+  STM[STM32F746<br/>control MCU]:::ctl
+
+  ANT --> BF --> PA --> MIX --> ADC --> FPGA --> USB --> HOST
+  STM -.control.-> BF
+  STM -.control.-> PA
+  STM -.toggles.-> FPGA
+
+  classDef rf fill:#0e7490,color:#ecfeff,stroke:#155e75
+  classDef adc fill:#4d7c0f,color:#f7fee7,stroke:#3f6212
+  classDef dsp fill:#1d4ed8,color:#eff6ff,stroke:#1e40af
+  classDef io fill:#7c3aed,color:#f5f3ff,stroke:#6d28d9
+  classDef ctl fill:#a16207,color:#fefce8,stroke:#854d0e</div>
+
+<div class="callout" data-callout="info"><div class="callout-title">Legend — physical subsystems</div><div class="callout-content"><p><strong>Teal</strong> = RF front-end · <strong>Green</strong> = ADC · <strong>Blue</strong> = FPGA DSP ·</p>
+<p><strong>Purple</strong> = host I/O · <strong>Amber</strong> = STM32 control MCU. Solid arrows = receive</p>
+<p>data path; dashed = STM32 control.</p></div></div>
+
+<p>The <strong>STM32F746</strong> MCU orchestrates everything: it configures the synthesizers,</p>
+<p>clock tree, and beamformers; sequences RF power; steps the azimuth motor; and</p>
+<p>drives the FPGA pipeline through GPIO handshake toggles (one per chirp,</p>
+<p>elevation change, and azimuth change). The host PC sends a <code>RadarSettings</code></p>
+<p>command to start operation and receives GPS telemetry plus the radar data stream.</p>
+
+<hr>
+
+<h2 id="2-the-two-variants">2. The two variants<a class="ha" href="#2-the-two-variants" aria-hidden="true">¶</a></h2>
+
+<p>Firmware, FPGA bitstream, and timing are <strong>shared</strong>; only the RF front-end and</p>
+<p>antenna differ.</p>
+
+<table class="md-table"><thead><tr><th></th><th><strong>AERIS-10N (Nexus)</strong></th><th><strong>AERIS-10X (Extended)</strong></th></tr></thead><tbody><tr><td>Power amplifier</td><td>ADTR1107 integrated T/R module</td><td>QPA2962 GaN PA + external LNA</td></tr><tr><td>Tx power per element</td><td>1 W</td><td>10 W</td></tr><tr><td>Antenna</td><td>8×16 patch array</td><td>32×16 slotted-waveguide array</td></tr><tr><td>Antenna gain (TBD¹)</td><td>~20 dBi</td><td>~30 dBi</td></tr><tr><td>Detection range $R_\text{max}$</td><td>3 km</td><td>20 km</td></tr></tbody></table>
+
+<p>Range scales as $R_\text{max} \propto (P_t\,G^2)^{1/4}$: +10 dB transmit power and</p>
+<p>~+10 dB gain (each way) take 3 km → 20 km. radarv2 treats the variant as a</p>
+<p><strong>parameter set</strong> (transmit power, antenna gain, $R_\text{max}$), not a code</p>
+<p>fork — the same node graph runs either variant by selecting a parameter profile.</p>
+
+<div class="callout" data-callout="note"><div class="callout-title">¹ Antenna gain is upstream-TBD</div><div class="callout-content"><p>The upstream parameter table marks antenna gain $G$ as <strong>TBD</strong> for both variants</p>
+<p>(no committed number); the ~20 / ~30 dBi figures are the hardware doc&#x27;s</p>
+<p><em>approximate</em> estimates, used here only to illustrate the link-budget scaling.</p>
+<p>Same for chirp bandwidth $B$ (see <a href="02-Physics-and-Waveform.html" class="internal-link">02-Physics-and-Waveform</a>). radarv2&#x27;s</p>
+<p>parameter profile pins concrete demo values and labels them as such.</p></div></div>
+
+<hr>
+
+<h2 id="3-how-radarv2-maps-aeris-10-onto-aros">3. How radarv2 maps AERIS-10 onto aros<a class="ha" href="#3-how-radarv2-maps-aeris-10-onto-aros" aria-hidden="true">¶</a></h2>
+
+<p>radarv2 reproduces the <strong>receive + scan</strong> behaviour as passive aros nodes</p>
+<p>driven by executors, communicating only through typed aros messages. The table below</p>
+<p>lists the core receive-to-host chain (seven nodes); the shipped single-radar spine adds</p>
+<p><code>MapProvider</code>, <code>PlotConditioner</code>, <code>TrackManager</code>, and a viz <code>TargetSink</code> (eleven nodes</p>
+<p>total), and a multi-radar fleet adds a per-radar <code>FusionCenter</code> + <code>ControlCenter</code>. Each</p>
+<p>node corresponds to a stage (or fused group of stages) of the real system:</p>
+
+<table class="md-table"><thead><tr><th>AERIS-10 element</th><th>radarv2 node</th><th>What it does</th></tr></thead><tbody><tr><td>STM32 scan FSM + beam steering</td><td><code>ScanController</code></td><td>Walks the chirp→elevation→azimuth scan hierarchy; emits one <code>ScanCommand</code> per chirp with beam geometry + waveform selection; flags dwell boundaries</td></tr><tr><td>GPS / IMU telemetry</td><td><code>NavSource</code></td><td>Emits <code>PlatformNav</code> (lat/lon/alt, attitude, ENU pose) — the GPSB-packet analog</td></tr><tr><td>Antenna + ADC + DDC (stages 1–4)</td><td><code>RxSynthesizer</code></td><td>Synthesizes baseband I/Q for each chirp from the scenario world: per-target range delay, Doppler, radar-equation SNR, plus noise</td></tr><tr><td>Matched filter + range decimation (stages 5–7)</td><td><code>PulseCompressor</code></td><td>Correlates the I/Q chirp with the reference chirp; outputs a 64-bin complex range profile</td></tr><tr><td>Doppler processing (stage 8)</td><td><code>DopplerProcessor</code></td><td>Accumulates M = 32 chirps, applies a Hamming window, runs a 32-point Doppler FFT per range bin → a 64×32 range-Doppler map</td></tr><tr><td>Threshold/CFAR detection (stage 9)</td><td><code>CfarDetector</code></td><td>CA-CFAR over the range-Doppler map → detections; converts cells to range/velocity/azimuth/elevation</td></tr><tr><td>FT601 egress + host transform (stage 10 + GUI)</td><td><code>HostEgress</code></td><td>Polar → ENU → geodetic transform; world-frame target report; terminal observability sink</td></tr></tbody></table>
+
+<p>The mapping is deliberately <strong>one stage ≈ one node</strong> so the documentation and the</p>
+<p>code read against the upstream pipeline doc stage-for-stage. Details in</p>
+<p><a href="04-Signal-Processing-Pipeline.html" class="internal-link">04-Signal-Processing-Pipeline</a> and <a href="05-Node-Architecture.html" class="internal-link">05-Node-Architecture</a>.</p>
+
+<hr>
+
+<h2 id="4-what-radarv2-models-vs-simplifies">4. What radarv2 models vs. simplifies<a class="ha" href="#4-what-radarv2-models-vs-simplifies" aria-hidden="true">¶</a></h2>
+
+<div class="callout" data-callout="note"><div class="callout-title">Fidelity stance</div><div class="callout-content"><p>radarv2 is an <em>aros example</em>, not a bit-accurate FPGA simulator. It models the</p>
+<p><strong>data products, message shapes, control flow, and algorithms</strong> faithfully at</p>
+<p>tractable sizes, but does not reproduce fixed-point bit widths, clock domains,</p>
+<p>or LVDS timing.</p></div></div>
+
+<p><strong>Modelled faithfully</strong></p>
+<ul><li>The scan hierarchy and its timing structure (chirp/elevation/azimuth, long+short bursts, M = 32).</li><li>The signal-chain transforms: down-conversion → matched filter → Doppler FFT → CFAR, in the documented stage order, at the real dimensions (64 range bins, 32 Doppler bins).</li><li>The radar equation (two-way SNR vs. range), FMCW range/Doppler relations, and resolution/ambiguity limits.</li><li>Every cross-interface structure as an aros message (see <a href="06-Message-Catalog.html" class="internal-link">06-Message-Catalog</a>).</li><li>The geometry/coordinate transform (radar polar → body → ENU → geodetic).</li></ul>
+
+<p><strong>Simplified or upgraded</strong></p>
+<ul><li>Fixed-point arithmetic → <code>int16</code>/<code>float32</code> software math.</li><li>The placeholder fixed-threshold detector is <strong>upgraded</strong> to a proper CA-CFAR (the upstream&#x27;s own documented &quot;intended&quot; algorithm — see <a href="07-Detection-and-Tracking.html" class="internal-link">07-Detection-and-Tracking</a>).</li><li>Three clock domains and CDC synchronizers are not modelled (single logical clock).</li><li>The host GUI/map is reduced to a world-frame <code>TargetReport</code> (plus tracks and, in a fleet, a fused <code>CommonPicture</code>), a terminal sink, and Foxglove/Lichtblick visualization.</li></ul>
+
+<hr>
+
+<h2 id="5-why-a-second-radar-example">5. Why a second radar example<a class="ha" href="#5-why-a-second-radar-example" aria-hidden="true">¶</a></h2>
+
+<p>The existing <span class="wikilink-unresolved">radar example</span> (<code>examples/radar</code>) is an abstract</p>
+<p><em>tracking</em> demonstrator: a beam scheduler feeds a CFAR-shaped detection model into</p>
+<p>a plot→associate→track→manage pipeline. It is excellent for the <strong>tracking</strong> and</p>
+<p><strong>multi-DKM deployment</strong> story but treats signal processing as a black box.</p>
+
+<p>radarv2 complements it by making the <strong>signal processing itself</strong> the subject:</p>
+<p>real down-conversion, pulse compression, Doppler FFT, and CFAR, modelled against a</p>
+<p>concrete, fully-documented open-source radar. Together they show aros spanning the</p>
+<p>full radar stack — raw IF to confirmed track — across two complete examples that</p>
+<p>share conventions but exercise different layers.</p>
+
+<hr>
+
+<h2 id="6-known-upstream-inconsistencies-radarv2-modeling-decisions">6. Known upstream inconsistencies &amp; radarv2 modeling decisions<a class="ha" href="#6-known-upstream-inconsistencies-radarv2-modeling-decisions" aria-hidden="true">¶</a></h2>
+
+<p>A line-by-line read of the AERIS-10 source surfaced several internal</p>
+<p>contradictions and open values. Because radarv2 aims to be a <em>correct</em> radar</p>
+<p>model, each is recorded here with the decision radarv2 makes. (The upstream is</p>
+<p>self-described <strong>alpha</strong>, with a placeholder detector and stub host code, so these</p>
+<p>are expected.)</p>
+
+<table class="md-table"><thead><tr><th>#</th><th>Upstream issue</th><th>radarv2 decision</th></tr></thead><tbody><tr><td>I-1</td><td><strong>Coherent integration count.</strong> The firmware fires <strong>M = 32 = 16 long + 16 short</strong> chirps per beam position (mixed waveforms, a guard gap between them, and <em>two different</em> PRIs — 167 µs vs. 175 µs). Yet the Doppler processor sets <code>DOPPLER_FFT_SIZE = CHIRPS_PER_FRAME = 32</code> — a 32-point <strong>coherent</strong> Doppler FFT needs 32 <em>same-waveform, uniform-PRI</em> pulses, which a 16+16 mixed burst cannot provide. The source never reconciles this.</td><td>radarv2 models a <strong>dwell = M coherent same-waveform chirps</strong> (the physically-correct CPI for a 32-point Doppler FFT). <code>ScanCommand.waveform_type</code> selects the mode per dwell; the scan can run a long-mode and a short-mode pass. This keeps [[04-Signal-Processing-Pipeline\</td><td>the Doppler FFT]] coherent while preserving M = 32. The upstream&#x27;s mixed-burst $T_\text{pos} \approx 5.65$ ms is reported as the upstream timing, flagged as non-coherent.</td></tr><tr><td>I-2</td><td><strong>Chirp bandwidth $B$ is TBD.</strong> It gates $\Delta R = c/2B$, processing gain in dB, and the coupling numbers.</td><td>radarv2 pins a concrete demo $B$ (≈ 150 MHz) in its parameter profile and labels every derived number a <em>demo choice</em>, not an upstream fact. See <a href="02-Physics-and-Waveform.html" class="internal-link">02-Physics-and-Waveform</a> §4–5.</td></tr><tr><td>I-3</td><td><strong>Antenna gain $G$ is TBD</strong> for both variants (parameter table commits no number).</td><td>Treated as a parameter-profile value; the ~20/~30 dBi figures are flagged approximate (footnote ¹ above).</td></tr><tr><td>I-4</td><td><strong>USB payload mismatch.</strong> The USB-protocol doc describes a small <strong>11-transfer per-chirp packet</strong> (header + 4 range + 4 Doppler + detection + footer); the timing-budget doc instead assumes the <strong>full 2048-cell range-Doppler map</strong> is transferred.</td><td>radarv2 models the per-dwell <code>RangeDopplerMap</code> (2048 cells) as the egress data product (the timing-budget view), since that is what <code>CfarDetector</code> needs. The 11-transfer framing is documented in <a href="06-Message-Catalog.html" class="internal-link">06-Message-Catalog</a> as the wire form it corresponds to.</td></tr><tr><td>I-5</td><td><strong>Center frequency.</strong> Firmware/README say 10.5 GHz; the GUI default is 10.0 GHz.</td><td>10.5 GHz is canonical (the upstream&#x27;s own resolution); the GUI value is a known stale default.</td></tr><tr><td>I-6</td><td><strong>GUI/tracker are stubs.</strong> The host parser, DBSCAN clustering, Kalman tracker, and map generator are <code>pass</code> stubs upstream.</td><td>radarv2 implements the detector (CA-CFAR, <a href="07-Detection-and-Tracking.html" class="internal-link">07-Detection-and-Tracking</a>), the plot conditioner, and a <strong>shipped tracker</strong> (<code>PlotConditioner</code> → <code>TrackManager</code>, RT0–6) that confirms and maintains world-frame tracks, with a multi-radar <code>FusionCenter</code> fusing them into a <code>CommonPicture</code>.</td></tr></tbody></table>
+
+<div class="callout" data-callout="tip"><div class="callout-title">Why this table matters</div><div class="callout-content"><p>These are exactly the places a naive port would silently encode a bug. Recording</p>
+<p>them keeps radarv2 honest: where the source is ambiguous, radarv2 picks the</p>
+<p>physically-correct option and says so, rather than copying a contradiction.</p></div></div>
+
+<p>Continue to <a href="02-Physics-and-Waveform.html" class="internal-link">02-Physics-and-Waveform</a>.</p>
+
+</div>
+  </div><!-- main-content -->
+</div><!-- site-shell -->
+<script>
+mermaid.initialize({ startOnLoad: true, theme: 'dark', securityLevel: 'loose' });
+</script>
+</body>
+
+</html>

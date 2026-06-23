@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>radarv2 — Reference Tables (appendix) — aros Vault</title>
+<style>
+
+:root {
+  --color-blue:    #007ACC;
+  --color-green:   #2DA44E;
+  --color-yellow:  #D29922;
+  --color-purple:  #8B5CF6;
+  --color-orange:  #F59E0B;
+  --color-red:     #E5534B;
+  --color-cyan:    #0BC5EA;
+  --color-accent:  #7C3AED;
+  --text-normal:   #DCDDDE;
+  --text-muted:    #8E8EA0;
+  --background-primary:         #1E1E2E;
+  --background-secondary:       #181825;
+  --background-modifier-border: #313244;
+  --color-base-30:              #45475A;
+}
+body {
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.6;
+  margin: 0;
+}
+
+</style>
+<!-- Mermaid -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<!-- MathJax -->
+<script>window.MathJax={tex:{inlineMath:[['$','$'],['\\(','\\)']],displayMath:[['$$','$$'],['\\[','\\]']]},options:{skipHtmlTags:['script','noscript','style','textarea','pre']}};</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+<!-- Site CSS -->
+<link rel="stylesheet" href="site.css">
+</head>
+<body class="markdown-reading-view">
+<div class="site-shell">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <a href="00-Index.html" class="site-title">radarv2 / AERIS-10</a>
+      <div class="site-subtitle">aros Radar Documentation</div>
+    </div>
+    <ul class="nav-list">
+      <li class="nav-section">Core Docs</li>
+      <li><a href="09-Concepts-Primer.html">Radar Primer</a></li>
+      <li><a href="00-Index.html">Index</a></li>
+      <li><a href="01-System-Overview.html">System Overview</a></li>
+      <li><a href="02-Physics-and-Waveform.html">Physics &amp; Waveform</a></li>
+      <li><a href="03-Beamforming-and-Scan.html">Beamforming &amp; Scan</a></li>
+      <li><a href="04-Signal-Processing-Pipeline.html">Signal Processing</a></li>
+      <li><a href="05-Node-Architecture.html">Node Architecture</a></li>
+      <li><a href="06-Message-Catalog.html">Message Catalog</a></li>
+      <li><a href="07-Detection-and-Tracking.html">Detection &amp; Tracking</a></li>
+      <li><a href="08-Scenarios-and-Targets.html">Scenarios &amp; Targets</a></li>
+      <li class="nav-section">Advanced</li>
+      <li><a href="10-Radar-Model-Library.html">Radar Model Library</a></li>
+      <li><a href="11-Multi-Radar-Fusion.html">Multi-Radar Fusion</a></li>
+      <li><a href="12-3D-Scene.html">3-D Scene</a></li>
+      <li><a href="13-Reference-Tables.html">Reference Tables</a></li>
+      <li><a href="FUTURE-DEVELOPMENT.html">Future Development</a></li>
+      <li class="nav-section">Upstream Theory</li>
+      <li><a href="upstream/README.html">Upstream README</a></li>
+      <li><a href="upstream/00_notation/conventions.html">Notation</a></li>
+      <li><a href="upstream/01_physics/01_fmcw_theory.html">FMCW Theory</a></li>
+      <li><a href="upstream/01_physics/02_lfm_waveform_model.html">LFM Waveform</a></li>
+      <li><a href="upstream/01_physics/03_beamforming_theory.html">Beamforming Theory</a></li>
+      <li><a href="upstream/01_physics/04_detection_theory.html">Detection Theory</a></li>
+      <li><a href="upstream/01_physics/05_noise_analysis.html">Noise Analysis</a></li>
+      <li><a href="upstream/01_physics/06_calibration_theory.html">Calibration</a></li>
+      <li><a href="upstream/02_hardware/01_system_overview.html">HW Overview</a></li>
+      <li><a href="upstream/04_research/01_cfar_variants.html">CFAR Variants</a></li>
+    </ul>
+    <div class="sidebar-footer">
+      <a href="https://github.com/brkay54/radarv2-docs" target="_blank">GitHub</a>
+    </div>
+  </nav>
+  <div class="main-content">
+
+<div class="markdown-preview-section">
+<h1 id="reference-tables-appendix">Reference Tables (appendix)<a class="ha" href="#reference-tables-appendix" aria-hidden="true">¶</a></h1>
+
+<div class="callout" data-callout="abstract"><div class="callout-title">Scope</div><div class="callout-content"><p>A consolidated reference of the quantitative tables radarv2 draws on — windows,</p>
+<p>tapers, Swerling models, CFAR, pulse-compression identities, direction-finding, and</p>
+<p>the AERIS-10 FPGA constants. Cross-doc and literature-augmented tables live here once</p>
+<p>(so a value like the −13.3 dB uniform sidelobe or the Taylor broadening factor has a</p>
+<p>single source of truth); the domain docs link in rather than re-state them.</p></div></div>
+
+<div class="callout" data-callout="info"><div class="callout-title">Provenance legend</div><div class="callout-content"><p>Each table&#x27;s <code>Source:</code> note tags every value as one of:</p>
+<p><strong>[AERIS-10]</strong> authored in the upstream repo · <strong>[literature]</strong> standard radar</p>
+<p>references (Harris 1978; Mahafza <em>Radar Systems Analysis</em>; Skolnik *Introduction to</p>
+<p>Radar Systems<em>; Richards </em>Principles of Modern Radar*) · <strong>[radarv2]</strong> a demo modeling</p>
+<p>choice. Disagreements between the upstream and the literature are flagged inline.</p></div></div>
+
+<hr>
+
+<h2 id="r1-window-functions">R1. Window functions<a class="ha" href="#r1-window-functions" aria-hidden="true">¶</a></h2>
+
+<p>Two different &quot;loss&quot; quantities travel under the same word — keep them apart.</p>
+
+<p><strong>R1a — Matched-filter (radar pulse-compression) view.</strong> *The processing loss column</p>
+<p>here is the coherent SNR penalty of windowing the matched filter — the number that</p>
+<p>matters for detection range.*</p>
+
+<table class="md-table"><thead><tr><th>Window</th><th>Peak SLL</th><th>Mainlobe (×1/B)</th><th>MF proc. loss</th></tr></thead><tbody><tr><td>Rectangular</td><td>−13.3 dB</td><td>1.00</td><td>0 dB</td></tr><tr><td>Hann</td><td>−31.5 dB</td><td>1.44</td><td>1.42 dB</td></tr><tr><td>Hamming</td><td>−42.8 dB</td><td>1.50</td><td>1.34 dB</td></tr><tr><td>Taylor (n̄=5, −35)</td><td>−35 dB</td><td>1.28</td><td>0.76 dB</td></tr><tr><td>Taylor (n̄=5, −40)</td><td>−40 dB</td><td>1.35</td><td>1.02 dB</td></tr><tr><td>Chebyshev (−40)</td><td>−40 dB</td><td>1.39</td><td>1.10 dB</td></tr></tbody></table>
+
+<p><code>Source: [AERIS-10] 04_research/06_pulse_compression.md §2.2. This is the table radarv2 uses (Hamming in Doppler, Taylor optional in range).</code></p>
+
+<p><strong>R1b — DFT figures-of-merit (Harris 1978), for validation only.</strong> *Harris&#x27;s &quot;worst-case</p>
+<p>process loss&quot; (~3 dB) is a <strong>spectral-analysis</strong> quantity that bundles scalloping — it is</p>
+<p>NOT the matched-filter loss in R1a. Use R1b to cross-check peak-SLL/mainlobe, never to</p>
+<p>replace R1a&#x27;s MF-loss column.*</p>
+
+<table class="md-table"><thead><tr><th>Window</th><th>Peak SLL</th><th>3-dB BW (bins)</th><th>Scallop loss</th><th>WC proc. loss</th></tr></thead><tbody><tr><td>Rectangular</td><td>−13.3 dB</td><td>0.89</td><td>3.92 dB</td><td>3.92 dB</td></tr><tr><td>Hann</td><td>−31.5 dB</td><td>1.44</td><td>1.42 dB</td><td>3.18 dB</td></tr><tr><td>Hamming</td><td>−42.7 dB</td><td>1.30</td><td>1.78 dB</td><td>3.10 dB</td></tr><tr><td>Blackman</td><td>−58.1 dB</td><td>1.68</td><td>1.10 dB</td><td>3.47 dB</td></tr></tbody></table>
+
+<p><code>Source: [literature] Harris 1978 (N=4096). ⚠ Hamming PSL −42.7 (Harris) vs −42.8 dB (AERIS-10) is rounding. ⚠ &quot;WC proc. loss&quot; (≈3 dB) ≠ R1a &quot;MF proc. loss&quot; (≈1.3 dB) — different quantities; do not merge.</code></p>
+
+<hr>
+
+<h2 id="r2-amplitude-tapers-ula-n-16-d-2">R2. Amplitude tapers (ULA, N=16, d=λ/2)<a class="ha" href="#r2-amplitude-tapers-ula-n-16-d-2" aria-hidden="true">¶</a></h2>
+
+<table class="md-table"><thead><tr><th>Taper</th><th>Design SLL</th><th>Beam-broadening β</th><th>Notes</th></tr></thead><tbody><tr><td>Uniform</td><td>−13.3 dB</td><td>1.00×</td><td>max gain, narrowest beam</td></tr><tr><td>Taylor (n̄=5)</td><td>−30 dB</td><td>≈1.25×</td><td>first n̄−1 sidelobes flat</td></tr><tr><td>Taylor (n̄=5)</td><td>−35 dB</td><td>≈1.28×</td><td>radarv2 range option</td></tr><tr><td>Chebyshev</td><td>−40 dB</td><td>≈1.39×</td><td>equal sidelobes; widest edge taper</td></tr></tbody></table>
+
+<p><code>Source: [AERIS-10] 03_beamforming_theory.md §8; β values cross-checked against [literature] (Harris; Mailloux) — agree.</code></p>
+
+<h2 id="r3-grating-lobe-free-element-spacing-vs-scan-range">R3. Grating-lobe-free element spacing vs. scan range<a class="ha" href="#r3-grating-lobe-free-element-spacing-vs-scan-range" aria-hidden="true">¶</a></h2>
+
+<table class="md-table"><thead><tr><th>Scan range θ_max</th><th><code>d/λ</code> limit = 1/(1+sin θ_max)</th><th>AERIS-10</th></tr></thead><tbody><tr><td>±90° (endfire)</td><td>0.500</td><td>—</td></tr><tr><td>±33° (ADAR1000)</td><td>0.649</td><td>d = 0.5λ (margin)</td></tr><tr><td>broadside only</td><td>1.000</td><td>—</td></tr></tbody></table>
+
+<p><code>Source: [AERIS-10] §6 (Eq. BF-16) = standard grating-lobe relation [literature] Skolnik Ch.9. AERIS-10&#x27;s d=λ/2 at ±33° has ~30% margin.</code></p>
+
+<h2 id="r4-swerling-target-models">R4. Swerling target models<a class="ha" href="#r4-swerling-target-models" aria-hidden="true">¶</a></h2>
+
+<p><strong>R4a — Taxonomy (RCS distribution × decorrelation rate).</strong></p>
+
+<table class="md-table"><thead><tr><th>Case</th><th>RCS PDF</th><th>Decorrelation</th><th>Example target</th></tr></thead><tbody><tr><td>0 / V</td><td>constant</td><td>none</td><td>sphere, calibration</td></tr><tr><td>I</td><td>Rayleigh / exp</td><td>scan-to-scan</td><td>aircraft, ship</td></tr><tr><td>II</td><td>Rayleigh / exp</td><td>pulse-to-pulse</td><td>fast-aspect aircraft</td></tr><tr><td>III</td><td>χ² (4-DOF)</td><td>scan-to-scan</td><td>vehicle + dominant scatterer</td></tr><tr><td>IV</td><td>χ² (4-DOF)</td><td>pulse-to-pulse</td><td>as III, fast aspect</td></tr></tbody></table>
+
+<p><code>Source: [AERIS-10] 04_detection_theory.md §5 = [literature] Skolnik/Mahafza taxonomy.</code></p>
+
+<p><strong>R4b — Required SNR, single pulse, P_d = 0.9, P_fa = 10⁻⁶.</strong></p>
+
+<table class="md-table"><thead><tr><th>Case</th><th>Required SNR (n=1)</th><th>Fluctuation loss vs SW0</th></tr></thead><tbody><tr><td>0 (non-fluctuating)</td><td>≈ 13.2 dB</td><td>0 dB (ref)</td></tr><tr><td>I / II</td><td>≈ 21.1 dB</td><td>≈ +8 dB</td></tr><tr><td>III / IV</td><td>≈ 16.8 dB</td><td>≈ +3.6 dB</td></tr></tbody></table>
+
+<p><code>Source: [literature] Mahafza Ch.6 / Skolnik / MATLAB shnidman. ⚠ GAP-FILL: AERIS-10 gives no numeric SNR table (only &quot;several dB&quot;). SW I=II and III=IV at n=1 (they differ only under pulse integration). ⚠ The &quot;~6/~14 dB&quot; figures common on the web are INTEGRATED multi-pulse — wrong for this single-pulse column.</code></p>
+
+<hr>
+
+<h2 id="r5-cfar">R5. CFAR<a class="ha" href="#r5-cfar" aria-hidden="true">¶</a></h2>
+
+<p><strong>R5a — CA-CFAR threshold identities.</strong></p>
+
+<table class="md-table"><thead><tr><th>Quantity</th><th>Relation</th></tr></thead><tbody><tr><td>Noise estimate</td><td><code>P̂ₙ = (1/N_ref) Σ Tᵢ</code></td></tr><tr><td>False-alarm prob.</td><td><code>P_fa = (1 + α/N_ref)^(−N_ref)</code></td></tr><tr><td>Threshold multiplier</td><td><code>α = N_ref (P_fa^(−1/N_ref) − 1)</code></td></tr><tr><td>Test</td><td><code>T_CUT ≷ α·P̂ₙ</code></td></tr></tbody></table>
+
+<p><code>Source: [AERIS-10] §6 (DET-17..20) = [literature] Skolnik/Richards. N_ref is TOTAL cells (16/side); see 07-Detection-and-Tracking.</code></p>
+
+<p><strong>R5b — CFAR loss vs. reference-window size</strong> (P_d=0.9, P_fa=10⁻⁶).</p>
+
+<table class="md-table"><thead><tr><th>N_ref</th><th>16</th><th>24</th><th>32</th><th>64</th></tr></thead><tbody><tr><td>CFAR loss</td><td>~1.5 dB</td><td>~1.0 dB</td><td>~0.8 dB</td><td>~0.4 dB</td></tr></tbody></table>
+
+<p><code>Source: [AERIS-10] §8 (DET-24, from Richards) — L_CFAR ∝ 1/N_ref. radarv2 default N_ref=32.</code></p>
+
+<p><strong>R5c — Architecture comparison.</strong></p>
+
+<table class="md-table"><thead><tr><th>Variant</th><th>Multi-target</th><th>Clutter edge</th><th>Complexity</th><th>Rel. cost</th></tr></thead><tbody><tr><td>CA</td><td>poor (masking)</td><td>poor (↑P_fa)</td><td>O(N)</td><td>1×</td></tr><tr><td>GOCA</td><td>poor</td><td>excellent</td><td>O(N)</td><td>1.1–1.2×</td></tr><tr><td>SOCA</td><td>good</td><td>poor (↑P_fa)</td><td>O(N)</td><td>1.1–1.2×</td></tr><tr><td>OS</td><td>excellent</td><td>moderate</td><td>O(N log N)</td><td>2–3×</td></tr></tbody></table>
+
+<p><code>Source: [AERIS-10] 04_research/01_cfar_variants.md §2.6; homogeneous-loss penalties match [literature] Gandhi–Kassam / Richards Ch.10. radarv2 ships CA, leaves the rest as strategy extensions.</code></p>
+
+<hr>
+
+<h2 id="r6-matched-filter-pulse-compression-identities">R6. Matched-filter / pulse-compression identities<a class="ha" href="#r6-matched-filter-pulse-compression-identities" aria-hidden="true">¶</a></h2>
+
+<table class="md-table"><thead><tr><th>Quantity</th><th>Relation</th></tr></thead><tbody><tr><td>Processing gain (time-bandwidth)</td><td><code>G_p = B·T_c</code></td></tr><tr><td>Range resolution</td><td><code>ΔR = c/(2B)</code></td></tr><tr><td>Compressed pulse width</td><td><code>≈ 1/B</code></td></tr><tr><td>LFM range–Doppler coupling</td><td>apparent <code>ΔR = c·f_d/(2μ)</code>, ridge <code>ν = −μτ</code></td></tr><tr><td>Unweighted peak sidelobe</td><td>−13.3 dB</td></tr></tbody></table>
+
+<p><code>Source: [literature] Richards Ch.4/6; Levanon. </code>G_p<code>, </code>ΔR<code> match [AERIS-10] LFM-14/18; the ν=−μτ ridge matches pulse_compression §2.1 — agree.</code></p>
+
+<hr>
+
+<h2 id="r7-direction-finding-angle-estimation">R7. Direction finding / angle estimation<a class="ha" href="#r7-direction-finding-angle-estimation" aria-hidden="true">¶</a></h2>
+
+<div class="callout" data-callout="warning"><div class="callout-title">Upstream AERIS-10 uses beam-pointing only — radarv2 adds monopulse</div><div class="callout-content"><p>The <em>upstream</em> documents <strong>no</strong> angle-refinement method — angle comes purely from the</p>
+<p>commanded beam direction (≈ one beamwidth of accuracy, RCS-sensitive). The table below</p>
+<p>is the <strong>professional-radar upgrade path</strong> (sourced from literature), and ties to the</p>
+<p><span class="wikilink-unresolved">radar model library</span>. radarv2 has since **shipped the</p>
+<p>amplitude-comparison monopulse row**: <code>RxSynthesizer</code> stamps a <code>mono_az</code> voltage and</p>
+<p><code>CfarDetector</code> inverts it through the loadable <code>df_table</code> (R9 below) to refine azimuth</p>
+<p>to sub-beamwidth accuracy — full mechanism in <a href="07-Detection-and-Tracking.html" class="internal-link">07-Detection-and-Tracking</a>.</p></div></div>
+
+<p><strong>R7a — Method comparison.</strong></p>
+
+<table class="md-table"><thead><tr><th>Method</th><th>Accuracy (×θ₃dB)</th><th>RX chans</th><th>HW cost</th><th>radarv2</th></tr></thead><tbody><tr><td>Beam-pointing / seq. lobing</td><td>~0.1–1 (RCS-sensitive)</td><td>1</td><td>lowest</td><td><strong>used</strong> (coarse az)</td></tr><tr><td>Amplitude-comparison monopulse</td><td>~0.02–0.1</td><td>2 (Σ,Δ)</td><td>low–med</td><td><strong>shipped</strong> (refines az via <code>df_table</code>)</td></tr><tr><td>Phase-comparison (interferometer)</td><td>~0.01–0.05</td><td>2+</td><td>med</td><td>no</td></tr><tr><td>MUSIC / ESPRIT (super-res.)</td><td>≪ beamwidth, multi-target</td><td>N (digital)</td><td>high</td><td>no</td></tr></tbody></table>
+
+<p><code>Source: [literature] Skolnik Ch.9; Mahafza Ch.11; radartutorial (Monopulse). Accuracy fractions are SNR-dependent orders of magnitude. AERIS-10 status from beamforming/adaptive-beamforming docs (fixed beam, no Σ/Δ channel).</code></p>
+
+<p><strong>R7b — Monopulse angular accuracy.</strong></p>
+
+<table class="md-table"><thead><tr><th>Quantity</th><th>Relation</th></tr></thead><tbody><tr><td>Angle std-dev</td><td><code>σ_θ ≈ θ₃dB / (k_m·√(2·SNR))</code></td></tr><tr><td>Monopulse slope <code>k_m</code></td><td>≈ 1.2–1.6 (pattern-dependent)</td></tr><tr><td>Key property</td><td><code>σ_θ ∝ 1/√SNR</code> → sub-beamwidth</td></tr><tr><td>Search-mode (off-boresight)</td><td><code>σ_θ/BW ≈ 0.62 / (SNR·(Δθ/BW))</code></td></tr></tbody></table>
+
+<p><code>Source: [literature] Mahafza Ch.11; Skolnik; IEEE search-mode monopulse. [radarv2] gap-fill — not in AERIS-10.</code></p>
+
+<hr>
+
+<h2 id="r8-aeris-10-fpga-constants">R8. AERIS-10 FPGA constants<a class="ha" href="#r8-aeris-10-fpga-constants" aria-hidden="true">¶</a></h2>
+
+<p><strong>R8a — DDC (stage 2) derived constants.</strong></p>
+
+<table class="md-table"><thead><tr><th>Parameter</th><th>Formula</th><th>Value</th></tr></thead><tbody><tr><td>NCO phase increment</td><td><code>(f_IF/f_s)·2³²</code></td><td><code>0x4CCCCCCD</code> (120/400 MHz)</td></tr><tr><td>CIC stages / decimation</td><td>—</td><td>5 / 4 (400→100 MHz)</td></tr><tr><td>CIC DC gain</td><td><code>D^N = 4⁵</code></td><td>1024 = 2¹⁰ (→ <code>&gt;&gt;10</code>)</td></tr><tr><td>LFSR dither polynomial</td><td><code>x⁸+x⁶+x⁵+x⁴+1</code></td><td>8-bit</td></tr></tbody></table>
+
+<p><code>Source: [AERIS-10] 03_software/01_fpga_pipeline.md §4. NCO/CIC relations are textbook-correct (Hogenauer; Richards Ch.14).</code></p>
+
+<p><strong>R8b — Matched-filter → Doppler transform chain.</strong></p>
+
+<table class="md-table"><thead><tr><th>Stage</th><th>Parameter</th><th>Value</th></tr></thead><tbody><tr><td>Matched filter</td><td>FFT size</td><td>1024</td></tr><tr><td></td><td>long chirp / overlap / advance</td><td>3000 / 128 / 896 → 4 segments</td></tr><tr><td></td><td>latency buffer</td><td>3187 cyc (31.87 µs)</td></tr><tr><td>Range decimation</td><td>1024 → 64, peak-pick</td><td>D = 16</td></tr><tr><td>Doppler</td><td>FFT / chirps / mem</td><td>32 / 32 / 2048</td></tr><tr><td></td><td>window</td><td>Hamming Q15 (peak <code>0x7FFF</code>)</td></tr></tbody></table>
+
+<p><code>Source: [AERIS-10] §7–9 (SW-4/5/6). radarv2 models the data products at the smaller demo size (see <a href="04-Signal-Processing-Pipeline.html" class="internal-link">04-Signal-Processing-Pipeline</a> DEC-8).</code></p>
+
+<p><strong>R8c — FT601 USB output + STM32→FPGA control map.</strong></p>
+
+<table class="md-table"><thead><tr><th>Signal</th><th>Pin / width</th><th>Function</th></tr></thead><tbody><tr><td><code>stm32_new_chirp</code></td><td>PD8</td><td>trigger matched-filter FSM</td></tr><tr><td><code>stm32_new_elevation</code></td><td>PD9</td><td>reset Doppler accumulator</td></tr><tr><td><code>stm32_new_azimuth</code></td><td>PD10</td><td>new scan column</td></tr><tr><td><code>stm32_mixers_enable</code></td><td>PD11</td><td>NCO phase-valid</td></tr><tr><td>FPGA reset</td><td>PD12</td><td>active-low</td></tr><tr><td><code>ft601_data</code></td><td>32-bit BiDir</td><td>USB3 slave-FIFO payload</td></tr></tbody></table>
+
+<p><code>Source: [AERIS-10] §11–12. radarv2 maps these toggles to ScanCommand fields (chirp_index / el_position / az_position / frame_start) — see <span class="wikilink-unresolved">06-Message-Catalog#mapping-to-aeris-10-wire-structures</span>.</code></p>
+
+<hr>
+
+<h2 id="r9-loadable-binary-assets">R9. Loadable binary assets<a class="ha" href="#r9-loadable-binary-assets" aria-hidden="true">¶</a></h2>
+
+<p>radarv2 ships <strong>three loadable binary tables</strong>, each read once at <code>on_configure</code></p>
+<p>(the same cold-path pattern across all three) and generated build-time by a script under</p>
+<p><code>examples/radarv2/scripts/</code>. The committed copies live in <code>examples/radarv2/assets/</code>. When</p>
+<p>the asset is absent the node falls back to synthesizing the data in code, so the tables are</p>
+<p>optional fidelity, not a hard dependency.</p>
+
+<table class="md-table"><thead><tr><th>Asset</th><th>Loaded by</th><th>Param</th><th>Generator</th><th>What it is</th></tr></thead><tbody><tr><td>DTED terrain tile</td><td><code>MapProvider</code></td><td><code>dted_path</code></td><td><code>gen_dted_tile.py</code> (or parses MIL-PRF-89020B)</td><td>ENU height grid → <code>MapLayer</code> (terrain mask, clutter)</td></tr><tr><td>Matched-filter reference bank</td><td><code>PulseCompressor</code></td><td><code>matched_filter_table</code></td><td><code>gen_matched_filter_table.py</code></td><td>conjugated chirp-reference coefficients (host analog of the FPGA chirp <code>.mem</code> block-RAM)</td></tr><tr><td>Monopulse DF table</td><td><code>CfarDetector</code></td><td><code>df_table</code></td><td><code>gen_df_table.py</code></td><td>inverse monopulse curve (ratio→angle) used to refine detection azimuth (R7)</td></tr></tbody></table>
+
+<p><strong>Live wiring.</strong> <code>radarv2 run</code> injects all three committed assets as <code>--param</code> weak overrides</p>
+<p>(the DF table is built for the single-radar 0.055-rad beam). The DF table is <strong>beam-specific</strong>,</p>
+<p>so <code>radarv2 multi</code> bakes one <code>df_table_az&lt;half_az&gt;.bin</code> per distinct profile beamwidth into the</p>
+<p>run&#x27;s gen dir and wires each radar&#x27;s <code>CfarDetector</code> to its own; the matched-filter bank is</p>
+<p>beam-independent (one file fleet-wide). The multi base graph has no per-radar <code>MapProvider</code>,</p>
+<p>so the DTED tile applies to the single-radar <code>run</code> only.</p>
+
+<p><code>Source: [radarv2] examples/radarv2/scripts/{gen_matched_filter_table,gen_df_table,gen_dted_tile}.py + radarv2_utils/asset/dted.hpp + the gen_multi_radar_spine.py per-beam DF baking. Each param defaults to &quot;&quot; (synthesize in code) when no asset is provided.</code></p>
+
+<hr>
+
+<h2 id="sources-web-fetchable">Sources (web-fetchable)<a class="ha" href="#sources-web-fetchable" aria-hidden="true">¶</a></h2>
+
+<ul><li><a href="https://vru.vibrationresearch.com/lesson/tables-of-window-function-details/">Harris 1978 window figures of merit (VRU)</a> · <a href="https://www.cs.cmu.edu/afs/cs/user/bhiksha/WWW/courses/dsp/spring2013/WWW/schedule/readings/windows_comparison2_harris.pdf">Harris 1978 PDF (CMU)</a> · <a href="https://www.gaussianwaves.com/2020/09/window-function-figure-of-merits/">GaussianWaves window FOMs</a></li><li><a href="https://www.mathworks.com/help/phased/ref/shnidman.html">MATLAB <code>shnidman</code> required SNR (Swerling)</a> · <a href="https://www.mathworks.com/help/radar/ref/detectability.html">MATLAB detectability factor</a> · <a href="https://www.mathworks.com/help/radar/ug/receiver-operating-characteristic-roc-curves-part-1-theoretical-performance-analysis.html">MATLAB ROC theoretical performance</a></li><li><a href="https://www.radartutorial.eu/06.antennas/Monopulse%20Antenna.en.html">Radartutorial — Monopulse Antenna</a> · <a href="https://www.researchgate.net/publication/339275312_Performance_Analysis_of_Amplitude_Comparison_Monopulse_Direction-of-Arrival_Estimation">Amplitude-comparison monopulse DOA (ResearchGate)</a> · <a href="https://ieeexplore.ieee.org/document/4201876/">Search-mode monopulse accuracy (IEEE)</a></li><li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9861839/">CFAR FPGA implementation, Sensors 2023</a> · <a href="https://link.springer.com/article/10.1007/s11760-024-03001-x">Multi-mode CFAR, SIViP 2024</a></li></ul>
+
+<p>Textbook origins (not web-fetchable, cited as authoritative): Mahafza *Radar Systems</p>
+<p>Analysis and Design<em> Ch.6/11 · Skolnik </em>Introduction to Radar Systems* Ch.5/9 · Richards</p>
+<p><em>Principles of Modern Radar</em> Ch.4/6/10/14 · Levanon <em>Radar Signals</em>.</p>
+
+</div>
+  </div><!-- main-content -->
+</div><!-- site-shell -->
+<script>
+mermaid.initialize({ startOnLoad: true, theme: 'dark', securityLevel: 'loose' });
+</script>
+</body>
+
+</html>

@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>05_ml_detection — aros Vault</title>
+<style>
+
+:root {
+  --color-blue:    #007ACC;
+  --color-green:   #2DA44E;
+  --color-yellow:  #D29922;
+  --color-purple:  #8B5CF6;
+  --color-orange:  #F59E0B;
+  --color-red:     #E5534B;
+  --color-cyan:    #0BC5EA;
+  --color-accent:  #7C3AED;
+  --text-normal:   #DCDDDE;
+  --text-muted:    #8E8EA0;
+  --background-primary:         #1E1E2E;
+  --background-secondary:       #181825;
+  --background-modifier-border: #313244;
+  --color-base-30:              #45475A;
+}
+body {
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.6;
+  margin: 0;
+}
+
+</style>
+<!-- Mermaid -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<!-- MathJax -->
+<script>window.MathJax={tex:{inlineMath:[['$','$'],['\\(','\\)']],displayMath:[['$$','$$'],['\\[','\\]']]},options:{skipHtmlTags:['script','noscript','style','textarea','pre']}};</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+<!-- Site CSS -->
+<link rel="stylesheet" href="../../site.css">
+</head>
+<body class="markdown-reading-view">
+<div class="site-shell">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <a href="../../00-Index.html" class="site-title">radarv2 / AERIS-10</a>
+      <div class="site-subtitle">aros Radar Documentation</div>
+    </div>
+    <ul class="nav-list">
+      <li class="nav-section">Core Docs</li>
+      <li><a href="../../09-Concepts-Primer.html">Radar Primer</a></li>
+      <li><a href="../../00-Index.html">Index</a></li>
+      <li><a href="../../01-System-Overview.html">System Overview</a></li>
+      <li><a href="../../02-Physics-and-Waveform.html">Physics &amp; Waveform</a></li>
+      <li><a href="../../03-Beamforming-and-Scan.html">Beamforming &amp; Scan</a></li>
+      <li><a href="../../04-Signal-Processing-Pipeline.html">Signal Processing</a></li>
+      <li><a href="../../05-Node-Architecture.html">Node Architecture</a></li>
+      <li><a href="../../06-Message-Catalog.html">Message Catalog</a></li>
+      <li><a href="../../07-Detection-and-Tracking.html">Detection &amp; Tracking</a></li>
+      <li><a href="../../08-Scenarios-and-Targets.html">Scenarios &amp; Targets</a></li>
+      <li class="nav-section">Advanced</li>
+      <li><a href="../../10-Radar-Model-Library.html">Radar Model Library</a></li>
+      <li><a href="../../11-Multi-Radar-Fusion.html">Multi-Radar Fusion</a></li>
+      <li><a href="../../12-3D-Scene.html">3-D Scene</a></li>
+      <li><a href="../../13-Reference-Tables.html">Reference Tables</a></li>
+      <li><a href="../../FUTURE-DEVELOPMENT.html">Future Development</a></li>
+      <li class="nav-section">Upstream Theory</li>
+      <li><a href="../../upstream/README.html">Upstream README</a></li>
+      <li><a href="../../upstream/00_notation/conventions.html">Notation</a></li>
+      <li><a href="../../upstream/01_physics/01_fmcw_theory.html">FMCW Theory</a></li>
+      <li><a href="../../upstream/01_physics/02_lfm_waveform_model.html">LFM Waveform</a></li>
+      <li><a href="../../upstream/01_physics/03_beamforming_theory.html">Beamforming Theory</a></li>
+      <li><a href="../../upstream/01_physics/04_detection_theory.html">Detection Theory</a></li>
+      <li><a href="../../upstream/01_physics/05_noise_analysis.html">Noise Analysis</a></li>
+      <li><a href="../../upstream/01_physics/06_calibration_theory.html">Calibration</a></li>
+      <li><a href="../../upstream/02_hardware/01_system_overview.html">HW Overview</a></li>
+      <li><a href="../../upstream/04_research/01_cfar_variants.html">CFAR Variants</a></li>
+    </ul>
+    <div class="sidebar-footer">
+      <a href="https://github.com/brkay54/radarv2-docs" target="_blank">GitHub</a>
+    </div>
+  </nav>
+  <div class="main-content">
+
+<div class="markdown-preview-section">
+<h1 id="ml-based-detection-alternatives">ML-Based Detection Alternatives<a class="ha" href="#ml-based-detection-alternatives" aria-hidden="true">¶</a></h1>
+
+<p class="kv-line"><span class="kv-key">Purpose:</span> <span class="kv-value">Survey machine learning approaches for radar target detection as alternatives or augmentations to the current fixed threshold detector, evaluating FPGA inference feasibility on the Artix-7 XC7A100T with INT8 quantization constraints.</span></p>
+
+<p class="kv-line"><span class="kv-key">Prerequisites:</span> <span class="kv-value">Familiarity with:</span></p>
+<ul><li><a href="../00_notation/symbol_table.md">Symbol Table</a> -- all symbols used herein</li><li><a href="../00_notation/parameter_table.md">Parameter Table</a> -- numerical values for both variants</li><li><a href="../00_notation/conventions.md">Conventions</a> -- equation formatting rules</li><li><a href="../02_hardware/05_fpga_board.md">FPGA Board</a> -- XC7A100T resources, clock domains</li><li><a href="../03_software/01_fpga_pipeline.md">FPGA Pipeline</a> -- signal processing pipeline architecture</li><li><a href="../01_physics/04_detection_theory.md">Detection Theory</a> -- CFAR theory and detection performance</li></ul>
+
+<hr>
+
+<h2 id="1-current-state">1. Current State<a class="ha" href="#1-current-state" aria-hidden="true">¶</a></h2>
+
+<h3 id="1-1-current-detection-implementation">1.1 Current Detection Implementation<a class="ha" href="#1-1-current-detection-implementation" aria-hidden="true">¶</a></h3>
+
+<p>The AERIS-10 radar currently uses a <strong>fixed magnitude threshold</strong> for target detection, NOT a true CFAR algorithm. The detection logic is implemented inline in <code>radar_system_top.v</code> (Stage 9 of the pipeline, see Section 10 of <a href="../03_software/01_fpga_pipeline.md#10-stage-8-threshold-detection"><code>03_software/01_fpga_pipeline.md</code></a>).</p>
+
+<p>The detector computes the L1 norm (Manhattan distance) of the Doppler output and compares against a hardcoded constant:</p>
+
+<p>$$</p>
+<p>I| +| Q| &gt; 10{,}000 \tag{SW-7}</p>
+<p>$$</p>
+
+<p>This results in an <strong>uncontrolled false alarm rate</strong> that varies with noise level. The detection theory foundation for proper adaptive detection is derived in <a href="../01_physics/04_detection_theory.md"><code>01_physics/04_detection_theory.md</code></a>, including:</p>
+
+<ul><li>Binary hypothesis testing (Eq. (DET-1))</li><li>Neyman-Pearson optimal detection (Eq. (DET-2))</li><li>CA-CFAR threshold multiplier derivation (Eq. (DET-20))</li><li>CFAR loss analysis (Eq. (DET-24))</li><li>Swerling target models (Eqs. (DET-13) through (DET-16))</li></ul>
+
+<p>The current system has no learning capability, no adaptation to changing noise environments, and no ability to distinguish target types.</p>
+
+<h3 id="1-2-artix-7-resource-constraints">1.2 Artix-7 Resource Constraints<a class="ha" href="#1-2-artix-7-resource-constraints" aria-hidden="true">¶</a></h3>
+
+<p>The XC7A100T FPGA provides the following resources relevant to ML inference (see Section 2.1 of <a href="../02_hardware/05_fpga_board.md#21-device-resources"><code>02_hardware/05_fpga_board.md</code></a>):</p>
+
+<table class="md-table"><thead><tr><th>Resource</th><th>Total Available</th><th>Currently Used (est.)</th><th>Available for ML</th><th>Symbol</th></tr></thead><tbody><tr><td>LUTs</td><td>63,400</td><td>~16,500 (~26%)</td><td>~46,900</td><td>$N_\text{LUT}$</td></tr><tr><td>DSP48E1 slices</td><td>240</td><td>~88 (~37%)</td><td>~152</td><td>$N_\text{DSP}$</td></tr><tr><td>Block RAM (36 Kb)</td><td>135</td><td>~101 (~75%)</td><td>~34</td><td>$N_\text{BRAM}$</td></tr><tr><td>Flip-Flops</td><td>126,800</td><td>--</td><td>--</td><td>$N_\text{FF}$</td></tr></tbody></table>
+
+<blockquote><strong>Important:</strong> These are theoretical estimates based on Verilog module parameters, pending Vivado implementation reports. All ML feasibility assessments in this document use these estimates as the baseline and should be re-evaluated when Vivado reports become available.</blockquote>
+
+<p><strong>Critical constraints for ML inference:</strong></p>
+
+<ul><li><strong>No floating-point hardware:</strong> The Artix-7 has no floating-point units. All ML inference must use fixed-point arithmetic (INT8, INT16, or smaller).</li><li><strong>Limited DSP slices:</strong> 240 DSP48E1s total, with ~152 available. Each DSP48E1 can perform one 18x25 multiply-accumulate per clock cycle, or two 8x8 multiplies in packed mode.</li><li><strong>Tight BRAM budget:</strong> Only ~34 BRAMs available for ML weight storage. Each 36 Kb BRAM stores 4,096 bytes (INT8) or 2,048 words (INT16). Total ML weight storage capacity: ~34 x 4,096 = ~139 KB in INT8.</li><li><strong>No external memory interface:</strong> The XC7A100T in this design has no DDR memory controller. All model weights must reside in on-chip BRAM.</li></ul>
+
+<h3 id="1-3-adc-dynamic-range-limitation">1.3 ADC Dynamic Range Limitation<a class="ha" href="#1-3-adc-dynamic-range-limitation" aria-hidden="true">¶</a></h3>
+
+<p>The AD9484 ADC provides 8-bit resolution, yielding a signal-to-quantization-noise ratio (SQNR) of:</p>
+
+<p>$$</p>
+<p>\text{SQNR} = 6.02 \times 8 + 1.76 = 49.9~\text{dB}</p>
+<p>$$</p>
+
+<p>This limits the dynamic range of the range-Doppler maps that serve as input to any ML-based detector. The 8-bit quantization constrains the range of signal amplitudes that the detector can resolve, which is particularly relevant for ML approaches that operate on amplitude patterns in the range-Doppler map.</p>
+
+<blockquote><strong>Open Question (per Phase 5 research):</strong> Whether 8-bit quantized range-Doppler maps provide sufficient resolution for CNN/autoencoder-based detection is a key feasibility question. ML approaches may be more sensitive to ADC bit depth than traditional CFAR, because CFAR operates on relative thresholds while ML models may depend on absolute amplitude patterns learned during training.</blockquote>
+
+<hr>
+
+<h2 id="2-literature-survey">2. Literature Survey<a class="ha" href="#2-literature-survey" aria-hidden="true">¶</a></h2>
+
+<h3 id="2-1-autoencoder-based-anomaly-detection">2.1 Autoencoder-Based Anomaly Detection<a class="ha" href="#2-1-autoencoder-based-anomaly-detection" aria-hidden="true">¶</a></h3>
+
+<p>Autoencoders learn a compressed representation of &quot;normal&quot; data (noise-only range-Doppler patches) and detect anomalies (targets) by measuring reconstruction error. When a target is present, the autoencoder cannot accurately reconstruct the range-Doppler patch, producing a high reconstruction error that triggers detection.</p>
+
+<p><strong>Architecture for FPGA deployment:</strong></p>
+
+<p>A small autoencoder suitable for Artix-7 implementation:</p>
+
+<table class="md-table"><thead><tr><th>Layer</th><th>Type</th><th>Input Size</th><th>Output Size</th><th>Parameters (INT8)</th></tr></thead><tbody><tr><td>Encoder L1</td><td>Dense + ReLU</td><td>64</td><td>32</td><td>64 x 32 + 32 = 2,080</td></tr><tr><td>Encoder L2</td><td>Dense + ReLU</td><td>32</td><td>16</td><td>32 x 16 + 16 = 528</td></tr><tr><td>Decoder L1</td><td>Dense + ReLU</td><td>16</td><td>32</td><td>16 x 32 + 32 = 544</td></tr><tr><td>Decoder L2</td><td>Dense + Sigmoid</td><td>32</td><td>64</td><td>32 x 64 + 64 = 2,112</td></tr><tr><td><strong>Total</strong></td><td></td><td></td><td></td><td><strong>5,264 parameters</strong></td></tr></tbody></table>
+
+<p>The input is a flattened patch from the range-Doppler map (e.g., 8 range bins x 8 Doppler bins = 64 values). The reconstruction error is computed as the mean squared error (MSE) between input and output, compared against a learned threshold.</p>
+
+<p class="kv-line"><span class="kv-key">Published reference:</span> <span class="kv-value">PMC 9370841 demonstrates an autoencoder-based target detection approach for MIMO FMCW radar, achieving detection performance comparable to CFAR in homogeneous environments with improved performance in non-homogeneous clutter.</span></p>
+
+<p><strong>FPGA resource estimate for INT8 inference:</strong></p>
+
+<table class="md-table"><thead><tr><th>Resource</th><th>Estimate</th><th>Calculation</th></tr></thead><tbody><tr><td>LUTs</td><td>~2,000--4,000</td><td>MAC units, activation functions, control logic</td></tr><tr><td>DSPs</td><td>20--40</td><td>INT8 multiply-accumulate; can use packed 8x8 mode (2 MACs per DSP)</td></tr><tr><td>BRAMs</td><td>5--10</td><td>Weight storage (~5.3 KB for 5,264 INT8 parameters = 2 BRAMs; input/output buffers add 3--8 BRAMs)</td></tr><tr><td>Clock cycles per inference</td><td>~300--600</td><td>Sequential MAC with partial parallelism</td></tr></tbody></table>
+
+<p class="kv-line"><span class="kv-key">INT8 quantization impact:</span> <span class="kv-value">Post-training quantization from FP32 to INT8 typically incurs 1--3% accuracy loss for small dense networks. Quantization-aware training can reduce this to &lt;1%. The 8-bit ADC input already limits input precision to 8 bits, so INT8 inference is naturally aligned with the input data precision.</span></p>
+
+<p class="kv-line"><span class="kv-key">Interaction with 8-bit ADC:</span> <span class="kv-value">The autoencoder input is already limited to 8-bit dynamic range by the AD9484. This actually simplifies the quantization challenge -- INT8 weights operating on 8-bit inputs produce 16-bit intermediate results that fit within the DSP48E1&#x27;s 18-bit input width. However, the limited 49.9 dB SQNR means that weak targets near the noise floor may be indistinguishable from quantization noise, reducing the autoencoder&#x27;s ability to detect low-SNR targets compared to approaches that benefit from higher dynamic range.</span></p>
+
+<h3 id="2-2-cnn-range-doppler-detectors">2.2 CNN Range-Doppler Detectors<a class="ha" href="#2-2-cnn-range-doppler-detectors" aria-hidden="true">¶</a></h3>
+
+<p>Convolutional neural networks (CNNs) can process 2D range-Doppler maps directly, learning spatial patterns associated with targets, clutter, and noise. CNN-based detectors can potentially learn features that are not captured by threshold-based methods.</p>
+
+<p><strong>Model size constraints on XC7A100T:</strong></p>
+
+<p>The available on-chip storage (~34 BRAMs x 4,096 bytes = ~139 KB in INT8) constrains the maximum model size:</p>
+
+<table class="md-table"><thead><tr><th>Model Class</th><th>Parameters</th><th>INT8 Storage</th><th>BRAMs Required</th><th>Feasibility</th></tr></thead><tbody><tr><td>Tiny CNN (&lt;10K params)</td><td>~5K--10K</td><td>5--10 KB</td><td>2--3</td><td>FEASIBLE (resource-wise)</td></tr><tr><td>Small CNN (10K--50K params)</td><td>~10K--50K</td><td>10--50 KB</td><td>3--13</td><td>MARGINAL</td></tr><tr><td>Medium CNN (50K--100K params)</td><td>~50K--100K</td><td>50--100 KB</td><td>13--25</td><td>MARGINAL (BRAM-constrained)</td></tr><tr><td>Large CNN (&gt;100K params)</td><td>&gt;100K</td><td>&gt;100 KB</td><td>&gt;25</td><td>INFEASIBLE (exceeds BRAM budget)</td></tr></tbody></table>
+
+<p><strong>Tiny CNN architecture example:</strong></p>
+
+<table class="md-table"><thead><tr><th>Layer</th><th>Type</th><th>Input</th><th>Output</th><th>Params (INT8)</th><th>Notes</th></tr></thead><tbody><tr><td>Conv1</td><td>3x3, 4 filters</td><td>8x32x1</td><td>8x32x4</td><td>3x3x1x4 + 4 = 40</td><td>Range-Doppler input (8 range x 32 Doppler)</td></tr><tr><td>Pool1</td><td>2x2 max pool</td><td>8x32x4</td><td>4x16x4</td><td>0</td><td>Reduces spatial dimensions</td></tr><tr><td>Conv2</td><td>3x3, 8 filters</td><td>4x16x4</td><td>4x16x8</td><td>3x3x4x8 + 8 = 296</td><td>Feature extraction</td></tr><tr><td>Pool2</td><td>2x2 max pool</td><td>4x16x8</td><td>2x8x8</td><td>0</td><td>Further reduction</td></tr><tr><td>FC1</td><td>Dense + ReLU</td><td>128</td><td>32</td><td>128x32 + 32 = 4,128</td><td>Classification</td></tr><tr><td>FC2</td><td>Dense + Sigmoid</td><td>32</td><td>1</td><td>32x1 + 1 = 33</td><td>Detection output</td></tr><tr><td><strong>Total</strong></td><td></td><td></td><td></td><td><strong>4,497 params</strong></td><td>~4.5 KB INT8</td></tr></tbody></table>
+
+<p><strong>FPGA resource estimate for tiny CNN (INT8):</strong></p>
+
+<table class="md-table"><thead><tr><th>Resource</th><th>Estimate</th><th>Notes</th></tr></thead><tbody><tr><td>LUTs</td><td>~4,000--8,000</td><td>Convolution datapath, pooling, FC layers</td></tr><tr><td>DSPs</td><td>16--32</td><td>Convolution MAC units; 3x3 kernel requires 9 MACs per output pixel</td></tr><tr><td>BRAMs</td><td>3--8</td><td>Weight storage + feature map double buffering</td></tr><tr><td>Clock cycles per inference</td><td>~1,000--5,000</td><td>Depends on parallelism vs. resource sharing</td></tr></tbody></table>
+
+<p><strong>Published references:</strong></p>
+<ul><li>arXiv 2509.04153 surveys real-time FPGA-based CNN implementations, demonstrating INT8 inference on Zynq and Kintex-class FPGAs. Artix-7 implementations are rare due to resource constraints.</li><li>PMC 10857097 presents an FPGA-based CNN+LSTM architecture for radar signal recognition, achieving real-time performance on a Kintex UltraScale FPGA with ~100K parameters.</li></ul>
+
+<blockquote><strong>Critical note (per Pitfall 2):</strong> GPU and cloud benchmarks are NOT evidence of Artix-7 feasibility. The Kintex UltraScale FPGA used in PMC 10857097 has ~10x the DSP slices and ~5x the BRAM of the Artix-7 XC7A100T. Resource estimates in this section are specifically scaled for the XC7A100T.</blockquote>
+
+<p class="kv-line"><span class="kv-key">INT8 quantization impact on CNN detection accuracy:</span> <span class="kv-value">Published results show that INT8 quantization of small CNNs (&lt;50K parameters) typically reduces classification accuracy by 1--5% compared to FP32 baseline. For radar detection (binary classification: target/no-target), the impact may be smaller than for multi-class classification tasks. However, the 8-bit ADC input dynamic range (49.9 dB SQNR) is a more fundamental limitation: the CNN cannot learn features at resolutions finer than the ADC quantization step, regardless of model precision.</span></p>
+
+<h3 id="2-3-hybrid-cfar-ml-approaches">2.3 Hybrid CFAR + ML Approaches<a class="ha" href="#2-3-hybrid-cfar-ml-approaches" aria-hidden="true">¶</a></h3>
+
+<p>Hybrid approaches combine traditional CFAR detection on the FPGA with ML-based post-processing on the host PC. This architecture avoids the FPGA resource constraint entirely for the ML portion while leveraging the FPGA&#x27;s strength in real-time signal processing.</p>
+
+<p><strong>Architecture:</strong></p>
+
+<pre><code>FPGA Pipeline                          Host PC (Python)
+-----------------                      ----------------
+ADC -&gt; DDC -&gt; Matched Filter           Receive USB data
+    -&gt; Doppler FFT -&gt; CFAR             CFAR detections
+    -&gt; USB Output  ----USB 3.0----&gt;    ML classification
+                                       (CNN, autoencoder,
+                                        random forest, etc.)</code></pre>
+
+<p class="kv-line"><span class="kv-key">FPGA-side changes:</span> <span class="kv-value">Replace the current fixed threshold (Eq. (SW-7)) with a true CA-CFAR implementation (see Phase 5 SWRES-01 for CFAR variant analysis). CFAR requires ~2,000--4,000 LUTs, 2--4 DSPs, and 2--4 BRAMs -- well within Artix-7 headroom.</span></p>
+
+<p><strong>Host PC-side ML options:</strong></p>
+
+<table class="md-table"><thead><tr><th>Approach</th><th>Model Size</th><th>Inference Time (Python)</th><th>Training Data Required</th><th>Notes</th></tr></thead><tbody><tr><td>Random forest classifier</td><td>10--100 trees</td><td>&lt;1 ms per frame</td><td>~1,000+ labeled frames</td><td>Lightweight, interpretable</td></tr><tr><td>Small CNN (PyTorch)</td><td>50K--500K params</td><td>1--10 ms per frame</td><td>~5,000+ labeled frames</td><td>Good for spatial pattern recognition</td></tr><tr><td>Autoencoder anomaly detection</td><td>5K--50K params</td><td>&lt;1 ms per frame</td><td>~1,000+ noise-only frames</td><td>Unsupervised; no target labels needed</td></tr><tr><td>LSTM sequence classifier</td><td>10K--100K params</td><td>1--5 ms per frame</td><td>~2,000+ labeled sequences</td><td>Temporal pattern recognition</td></tr></tbody></table>
+
+<p><strong>Advantages of hybrid approach:</strong></p>
+<ul><li>No FPGA resource constraint for ML -- host PC has effectively unlimited compute and memory</li><li>Model can be updated without FPGA re-synthesis -- Python model weights are loaded at runtime</li><li>Full floating-point precision -- no INT8 quantization accuracy loss</li><li>Larger model capacity -- can use models with &gt;1M parameters if needed</li><li>Access to standard ML frameworks (PyTorch, scikit-learn, TensorFlow)</li></ul>
+
+<p><strong>Disadvantages:</strong></p>
+<ul><li>USB transfer latency -- adds several ms to detection pipeline</li><li>Host PC must be powered and running -- not suitable for standalone FPGA operation</li><li>Real-time constraint depends on host PC processing speed</li><li>ML classification occurs after CFAR pre-filtering -- cannot improve raw detection sensitivity</li></ul>
+
+<p class="kv-line"><span class="kv-key">Integration with current system:</span> <span class="kv-value">The AERIS-10 already has a host PC running <code>GUI_V6.py</code> that receives USB data. The hybrid approach adds ML post-processing to the existing Python pipeline with minimal architectural change.</span></p>
+
+<hr>
+
+<h2 id="3-gap-analysis">3. Gap Analysis<a class="ha" href="#3-gap-analysis" aria-hidden="true">¶</a></h2>
+
+<h3 id="3-1-no-ml-capability">3.1 No ML Capability<a class="ha" href="#3-1-no-ml-capability" aria-hidden="true">¶</a></h3>
+
+<p class="kv-line"><span class="kv-key">Gap:</span> <span class="kv-value">The current system has no machine learning capability. Detection is performed by a fixed threshold comparator with no learning or adaptation. There is no mechanism for the detector to improve based on experience or adapt to changing environmental conditions.</span></p>
+
+<h3 id="3-2-fixed-threshold-limitations">3.2 Fixed Threshold Limitations<a class="ha" href="#3-2-fixed-threshold-limitations" aria-hidden="true">¶</a></h3>
+
+<p class="kv-line"><span class="kv-key">Gap:</span> <span class="kv-value">The fixed threshold $|I| + |Q| &gt; 10{,}000$ (Eq. (SW-7)) cannot adapt to varying noise levels, clutter environments, or interference. The false alarm rate varies directly with noise power, violating the constant false alarm rate principle derived in Eq. (DET-19) and (DET-20) of the <a href="../01_physics/04_detection_theory.md">detection theory</a>.</span></p>
+
+<h3 id="3-3-no-training-data-available">3.3 No Training Data Available<a class="ha" href="#3-3-no-training-data-available" aria-hidden="true">¶</a></h3>
+
+<p class="kv-line"><span class="kv-key">Gap:</span> <span class="kv-value">No labeled training data (range-Doppler maps with known target locations) exists for the AERIS-10 system. All ML approaches require training data, though the amount varies:</span></p>
+<ul><li>Supervised approaches (CNN, random forest) require target-labeled data</li><li>Unsupervised approaches (autoencoder) require only noise-only data for baseline learning</li><li>Training data acquisition requires controlled field experiments with known target positions</li></ul>
+
+<p class="kv-line"><span class="kv-key">Impact:</span> <span class="kv-value">Training data collection is a prerequisite for any ML approach and represents a significant effort that must precede ML development.</span></p>
+
+<h3 id="3-4-8-bit-adc-dynamic-range-constraint">3.4 8-Bit ADC Dynamic Range Constraint<a class="ha" href="#3-4-8-bit-adc-dynamic-range-constraint" aria-hidden="true">¶</a></h3>
+
+<p class="kv-line"><span class="kv-key">Gap:</span> <span class="kv-value">The AD9484&#x27;s 8-bit resolution provides 49.9 dB SQNR, which limits the dynamic range of input data for any ML model. This constrains:</span></p>
+<ul><li>The ability to detect weak targets near the noise floor</li><li>The resolution of amplitude features in the range-Doppler map</li><li>The effective number of distinguishable amplitude levels (256 for 8-bit unsigned)</li></ul>
+
+<p>ML models trained on higher-precision data would need to be re-evaluated for 8-bit input compatibility. The quantization floor is a fundamental limit that ML cannot overcome.</p>
+
+<hr>
+
+<h2 id="4-feasibility-assessment">4. Feasibility Assessment<a class="ha" href="#4-feasibility-assessment" aria-hidden="true">¶</a></h2>
+
+<blockquote><strong>Note:</strong> All resource estimates are based on theoretical utilization from Phase 3, pending Vivado implementation reports. All ML-specific resource estimates are extrapolated from published implementations on similar-class FPGAs and should be validated through actual synthesis.</blockquote>
+
+<h3 id="4-1-autoencoder-based-detection-on-fpga">4.1 Autoencoder-Based Detection (On-FPGA)<a class="ha" href="#4-1-autoencoder-based-detection-on-fpga" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Property</th><th>Value</th></tr></thead><tbody><tr><td>Algorithm complexity</td><td>$O(N_\text{params})$ per inference (~5,264 MACs)</td></tr><tr><td>Model size</td><td>~5,264 parameters (INT8)</td></tr><tr><td>Estimated LUTs</td><td>~2,000--4,000</td></tr><tr><td>Estimated DSPs</td><td>20--40 (packed 8x8 mode: ~10--20 DSP slices)</td></tr><tr><td>Estimated BRAMs</td><td>5--10</td></tr><tr><td>Current LUT utilization after</td><td>~29--32%</td></tr><tr><td>Current DSP utilization after</td><td>~45--53%</td></tr><tr><td>Current BRAM utilization after</td><td><strong>~79--83%</strong></td></tr><tr><td>Inference latency</td><td>~300--600 clock cycles at 100 MHz ($3{-}6~\mu\text{s}$)</td></tr><tr><td>Pipeline integration</td><td>Parallel to or replacing Stage 9 (threshold detection)</td></tr><tr><td>Training data requirement</td><td>~1,000+ noise-only frames (unsupervised)</td></tr><tr><td>INT8 accuracy impact</td><td>1--3% accuracy loss vs. FP32 (typical for small dense networks)</td></tr><tr><td>8-bit ADC compatibility</td><td>ALIGNED -- INT8 inference matches ADC input precision</td></tr><tr><td>Verdict</td><td><strong>MARGINAL</strong> -- fits within resource budget but competes with FFT modules for DSPs; BRAM utilization approaches 83%</td></tr></tbody></table>
+
+<h3 id="4-2-tiny-cnn-detector-on-fpga">4.2 Tiny CNN Detector (On-FPGA)<a class="ha" href="#4-2-tiny-cnn-detector-on-fpga" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Property</th><th>Value</th></tr></thead><tbody><tr><td>Algorithm complexity</td><td>$O(K^2 \cdot C_\text{in} \cdot C_\text{out} \cdot H \cdot W)$ per conv layer</td></tr><tr><td>Model size</td><td>~4,497 parameters (INT8, tiny architecture)</td></tr><tr><td>Estimated LUTs</td><td>~4,000--8,000</td></tr><tr><td>Estimated DSPs</td><td>16--32</td></tr><tr><td>Estimated BRAMs</td><td>3--8</td></tr><tr><td>Current LUT utilization after</td><td>~32--39%</td></tr><tr><td>Current DSP utilization after</td><td>~43--50%</td></tr><tr><td>Current BRAM utilization after</td><td><strong>~77--81%</strong></td></tr><tr><td>Inference latency</td><td>~1,000--5,000 clock cycles at 100 MHz ($10{-}50~\mu\text{s}$)</td></tr><tr><td>Pipeline integration</td><td>Parallel to or replacing Stage 9</td></tr><tr><td>Training data requirement</td><td>~5,000+ labeled frames (supervised)</td></tr><tr><td>INT8 accuracy impact</td><td>1--5% accuracy loss vs. FP32</td></tr><tr><td>8-bit ADC compatibility</td><td>INPUT-LIMITED -- CNN feature learning limited by 8-bit dynamic range</td></tr><tr><td>Published FPGA reference</td><td>No direct Artix-7 radar detection CNN found; estimates extrapolated from Kintex/Zynq literature</td></tr><tr><td>Verdict</td><td><strong>MARGINAL</strong> for tiny models (&lt;10K params); <strong>INFEASIBLE</strong> for larger models (&gt;50K params due to BRAM)</td></tr></tbody></table>
+
+<h3 id="4-3-hybrid-cfar-ml-ml-on-host-pc">4.3 Hybrid CFAR + ML (ML on Host PC)<a class="ha" href="#4-3-hybrid-cfar-ml-ml-on-host-pc" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Property</th><th>Value</th></tr></thead><tbody><tr><td>FPGA changes</td><td>Replace fixed threshold with CA-CFAR (~2,000--4,000 LUTs, 2--4 DSPs, 2--4 BRAMs)</td></tr><tr><td>Host PC ML model</td><td>Unconstrained (Python/PyTorch, any model size)</td></tr><tr><td>Additional LUTs (FPGA)</td><td>~2,000--4,000 (for CFAR only)</td></tr><tr><td>Additional DSPs (FPGA)</td><td>2--4 (for CFAR only)</td></tr><tr><td>Additional BRAMs (FPGA)</td><td>2--4 (for CFAR only)</td></tr><tr><td>Current LUT utilization after</td><td>~29--32%</td></tr><tr><td>Current DSP utilization after</td><td>~38--39%</td></tr><tr><td>Current BRAM utilization after</td><td>~76--78%</td></tr><tr><td>End-to-end latency</td><td>FPGA pipeline + USB transfer + Python inference (~10--50 ms total)</td></tr><tr><td>Pipeline integration</td><td>CFAR replaces Stage 9 on FPGA; ML post-processing added to <code>GUI_V6.py</code></td></tr><tr><td>Training data requirement</td><td>Varies by approach (1,000--5,000+ frames)</td></tr><tr><td>INT8 accuracy impact</td><td>None -- host PC uses FP32</td></tr><tr><td>8-bit ADC compatibility</td><td>Same limitation as all approaches -- ML cannot exceed ADC dynamic range</td></tr><tr><td>Verdict</td><td><strong>FEASIBLE</strong> -- leverages existing host PC; only CFAR added to FPGA</td></tr></tbody></table>
+
+<h3 id="4-4-summary-table">4.4 Summary Table<a class="ha" href="#4-4-summary-table" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Approach</th><th>LUT Impact</th><th>DSP Impact</th><th>BRAM Impact</th><th>Training Data</th><th>8-Bit ADC</th><th>Verdict</th></tr></thead><tbody><tr><td>Autoencoder (FPGA)</td><td>+3--6%</td><td>+8--17%</td><td>+4--7%</td><td>1,000+ frames</td><td>Aligned</td><td><strong>MARGINAL</strong></td></tr><tr><td>Tiny CNN (FPGA)</td><td>+6--13%</td><td>+7--13%</td><td>+2--6%</td><td>5,000+ frames</td><td>Input-limited</td><td><strong>MARGINAL</strong></td></tr><tr><td>Large CNN (FPGA)</td><td>&gt;15%</td><td>&gt;20%</td><td>&gt;18%</td><td>10,000+ frames</td><td>Input-limited</td><td><strong>INFEASIBLE</strong></td></tr><tr><td>Hybrid CFAR+ML</td><td>+3--6%</td><td>+1--2%</td><td>+1--3%</td><td>1,000+ frames</td><td>Same for all</td><td><strong>FEASIBLE</strong></td></tr></tbody></table>
+
+<hr>
+
+<h2 id="5-recommendations">5. Recommendations<a class="ha" href="#5-recommendations" aria-hidden="true">¶</a></h2>
+
+<h3 id="priority-1-hybrid-cfar-ml-host-pc">Priority 1: Hybrid CFAR + ML (Host PC)<a class="ha" href="#priority-1-hybrid-cfar-ml-host-pc" aria-hidden="true">¶</a></h3>
+
+<ul><li><strong>Expected improvement:</strong> Controlled $P_{fa}$ via CFAR (replacing fixed threshold), plus ML-based target classification and false alarm rejection on host PC</li><li><strong>FPGA resource cost:</strong> ~2,000--4,000 LUTs, 2--4 DSPs, 2--4 BRAMs (CFAR only)</li><li><strong>Risk:</strong> LOW -- CFAR is well-understood (see SWRES-01); ML runs on unconstrained host PC</li><li><strong>Rationale:</strong> This is the most practical approach because it avoids the FPGA resource constraint entirely for the ML portion. The AERIS-10 already has a host PC running <code>GUI_V6.py</code> that receives all pipeline data via USB. Adding ML post-processing to the Python pipeline requires no FPGA redesign beyond implementing CFAR (which is recommended independently in SWRES-01).</li><li><strong>Prerequisites:</strong></li><li>Implement CA-CFAR on FPGA (see SWRES-01 for variant analysis)</li><li>Collect labeled training data through controlled field experiments</li><li>Develop Python ML pipeline in <code>GUI_V6.py</code> or companion module</li><li><strong>Investigation steps:</strong></li><li>Implement CA-CFAR as recommended in SWRES-01</li><li>Design data collection protocol for labeled range-Doppler maps (target type, position, SNR)</li><li>Prototype random forest classifier on collected data as baseline ML approach</li><li>Evaluate autoencoder anomaly detection as unsupervised alternative (requires only noise-only data)</li><li>Compare ML-augmented detection performance against CFAR-only baseline</li></ul>
+
+<h3 id="priority-2-tiny-autoencoder-on-fpga">Priority 2: Tiny Autoencoder (On-FPGA)<a class="ha" href="#priority-2-tiny-autoencoder-on-fpga" aria-hidden="true">¶</a></h3>
+
+<ul><li><strong>Expected improvement:</strong> Anomaly-based detection that adapts to learned noise characteristics; potential improvement in non-homogeneous clutter environments where CFAR performance degrades</li><li><strong>FPGA resource cost:</strong> ~2,000--4,000 LUTs, 20--40 DSPs, 5--10 BRAMs</li><li><strong>Risk:</strong> MEDIUM-HIGH -- BRAM utilization reaches ~83%; DSP competition with FFT modules; no published Artix-7 radar autoencoder implementation for validation</li><li><strong>Rationale:</strong> The autoencoder approach requires only noise-only training data (unsupervised), reducing the training data acquisition burden. The INT8 inference is naturally aligned with the 8-bit ADC input precision. However, the resource requirements are non-trivial and compete with the existing FFT/matched filter for DSP slices.</li><li><strong>Prerequisites:</strong></li><li>Validate BRAM availability via Vivado synthesis of current design</li><li>Collect noise-only range-Doppler map data for autoencoder training</li><li>Train and quantize autoencoder model offline (Python/PyTorch)</li><li>Evaluate INT8 quantization impact on reconstruction error threshold</li><li><strong>Investigation steps:</strong></li><li>Train FP32 autoencoder on simulated or measured noise-only range-Doppler patches</li><li>Quantize to INT8 using post-training quantization and quantization-aware training</li><li>Evaluate detection performance vs. CFAR on simulated data with known targets</li><li>Synthesize INT8 inference engine in Vivado to obtain actual resource utilization on XC7A100T</li><li>Compare detection ROC curves: autoencoder vs. CFAR vs. fixed threshold</li></ul>
+
+<h3 id="priority-3-cnn-detector-on-fpga-research-stage">Priority 3: CNN Detector (On-FPGA, Research-Stage)<a class="ha" href="#priority-3-cnn-detector-on-fpga-research-stage" aria-hidden="true">¶</a></h3>
+
+<ul><li><strong>Expected improvement:</strong> Spatial pattern recognition in range-Doppler maps; potential to learn complex clutter/target discrimination features</li><li><strong>FPGA resource cost:</strong> ~4,000--8,000 LUTs, 16--32 DSPs, 3--8 BRAMs (tiny model only)</li><li><strong>Risk:</strong> HIGH -- FPGA feasibility uncertain for Artix-7; no published XC7A100T radar CNN implementation; 8-bit ADC limits feature learning; large labeled dataset required</li><li><strong>Rationale:</strong> CNN-based detection offers the most powerful feature learning capability but faces the most severe feasibility constraints on the Artix-7. The 8-bit ADC dynamic range limitation compounds the FPGA resource constraint: even if a CNN fits on the FPGA, the limited input dynamic range may prevent the CNN from learning features that outperform simpler approaches like CFAR. This approach is recommended for research evaluation only, not near-term deployment.</li><li><strong>Prerequisites:</strong></li><li>All Priority 1 and Priority 2 prerequisites</li><li>Large labeled dataset (5,000+ frames with target annotations)</li><li>Vivado resource validation confirming BRAM and DSP availability</li><li><strong>Investigation steps:</strong></li><li>Define tiny CNN architecture constrained to &lt;10K INT8 parameters</li><li>Train on simulated range-Doppler data with synthetic targets at various SNR levels</li><li>Evaluate INT8 quantization impact on detection probability vs. false alarm rate</li><li>Synthesize INT8 CNN inference engine on XC7A100T and measure actual resource utilization</li><li>Compare detection performance against CFAR baseline at equivalent false alarm rates</li><li>Assess whether CNN detection gains justify the resource cost over CFAR</li></ul>
+
+<h3 id="training-data-prerequisite">Training Data Prerequisite<a class="ha" href="#training-data-prerequisite" aria-hidden="true">¶</a></h3>
+
+<p>All ML approaches require training data, which does not currently exist for the AERIS-10 system. Training data collection is a non-trivial prerequisite that should begin before any ML development:</p>
+
+<table class="md-table"><thead><tr><th>Data Type</th><th>Collection Method</th><th>Volume</th><th>ML Approaches Served</th></tr></thead><tbody><tr><td>Noise-only frames</td><td>Record with no targets present</td><td>~1,000+ frames</td><td>Autoencoder (unsupervised)</td></tr><tr><td>Labeled target frames</td><td>Controlled experiments with known target positions</td><td>~5,000+ frames</td><td>CNN, random forest (supervised)</td></tr><tr><td>Multi-environment data</td><td>Record across weather, clutter, interference conditions</td><td>~10,000+ frames</td><td>All approaches (robustness)</td></tr></tbody></table>
+
+<hr>
+
+<h2 id="references">References<a class="ha" href="#references" aria-hidden="true">¶</a></h2>
+
+<h3 id="project-documentation">Project Documentation<a class="ha" href="#project-documentation" aria-hidden="true">¶</a></h3>
+<ul><li><a href="../00_notation/symbol_table.md">Symbol Table</a> -- Section 5 (Signal Processing) and Section 6 (Software Signal Processing)</li><li><a href="../00_notation/parameter_table.md">Parameter Table</a> -- Signal Processing (FPGA) section</li><li><a href="../00_notation/conventions.md">Conventions</a> -- equation numbering and formatting rules</li><li><a href="../02_hardware/05_fpga_board.md">FPGA Board</a> -- XC7A100T resource capacity (Section 2), clock domains (Section 3)</li><li><a href="../03_software/01_fpga_pipeline.md">FPGA Pipeline</a> -- threshold detection (Section 10, Eq. (SW-7))</li><li><a href="../01_physics/04_detection_theory.md">Detection Theory</a> -- CFAR derivation (Eqs. (DET-17) through (DET-24)), Swerling models</li></ul>
+
+<h3 id="external-references">External References<a class="ha" href="#external-references" aria-hidden="true">¶</a></h3>
+<ul><li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9370841/">PMC 9370841</a> -- Autoencoder-based target detection in MIMO FMCW radar</li><li><a href="https://arxiv.org/abs/2509.04153">arXiv 2509.04153</a> -- Survey of real-time FPGA-based CNN implementations</li><li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10857097/">PMC 10857097</a> -- Efficient FPGA CNN+LSTM architecture for radar signal recognition</li><li>Xilinx, <em>7 Series DSP48E1 Slice User Guide</em> (UG479) -- DSP48E1 packed arithmetic modes for INT8 inference</li><li>Xilinx, <em>Artix-7 FPGAs Data Sheet: DC and AC Switching Characteristics</em> (DS181)</li><li>Goodfellow, I., Bengio, Y., and Courville, A., <em>Deep Learning</em>, MIT Press, 2016 -- Autoencoder theory (Ch. 14), CNN architectures (Ch. 9)</li><li>Jacob, B. et al., &quot;Quantization and Training of Neural Networks for Efficient Integer-Arithmetic-Only Inference,&quot; <em>CVPR</em>, 2018 -- INT8 quantization methodology</li></ul>
+
+</div>
+  </div><!-- main-content -->
+</div><!-- site-shell -->
+<script>
+mermaid.initialize({ startOnLoad: true, theme: 'dark', securityLevel: 'loose' });
+</script>
+</body>
+
+</html>

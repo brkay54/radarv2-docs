@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>02_rf_frontend — aros Vault</title>
+<style>
+
+:root {
+  --color-blue:    #007ACC;
+  --color-green:   #2DA44E;
+  --color-yellow:  #D29922;
+  --color-purple:  #8B5CF6;
+  --color-orange:  #F59E0B;
+  --color-red:     #E5534B;
+  --color-cyan:    #0BC5EA;
+  --color-accent:  #7C3AED;
+  --text-normal:   #DCDDDE;
+  --text-muted:    #8E8EA0;
+  --background-primary:         #1E1E2E;
+  --background-secondary:       #181825;
+  --background-modifier-border: #313244;
+  --color-base-30:              #45475A;
+}
+body {
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.6;
+  margin: 0;
+}
+
+</style>
+<!-- Mermaid -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<!-- MathJax -->
+<script>window.MathJax={tex:{inlineMath:[['$','$'],['\\(','\\)']],displayMath:[['$$','$$'],['\\[','\\]']]},options:{skipHtmlTags:['script','noscript','style','textarea','pre']}};</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+<!-- Site CSS -->
+<link rel="stylesheet" href="../../site.css">
+</head>
+<body class="markdown-reading-view">
+<div class="site-shell">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <a href="../../00-Index.html" class="site-title">radarv2 / AERIS-10</a>
+      <div class="site-subtitle">aros Radar Documentation</div>
+    </div>
+    <ul class="nav-list">
+      <li class="nav-section">Core Docs</li>
+      <li><a href="../../09-Concepts-Primer.html">Radar Primer</a></li>
+      <li><a href="../../00-Index.html">Index</a></li>
+      <li><a href="../../01-System-Overview.html">System Overview</a></li>
+      <li><a href="../../02-Physics-and-Waveform.html">Physics &amp; Waveform</a></li>
+      <li><a href="../../03-Beamforming-and-Scan.html">Beamforming &amp; Scan</a></li>
+      <li><a href="../../04-Signal-Processing-Pipeline.html">Signal Processing</a></li>
+      <li><a href="../../05-Node-Architecture.html">Node Architecture</a></li>
+      <li><a href="../../06-Message-Catalog.html">Message Catalog</a></li>
+      <li><a href="../../07-Detection-and-Tracking.html">Detection &amp; Tracking</a></li>
+      <li><a href="../../08-Scenarios-and-Targets.html">Scenarios &amp; Targets</a></li>
+      <li class="nav-section">Advanced</li>
+      <li><a href="../../10-Radar-Model-Library.html">Radar Model Library</a></li>
+      <li><a href="../../11-Multi-Radar-Fusion.html">Multi-Radar Fusion</a></li>
+      <li><a href="../../12-3D-Scene.html">3-D Scene</a></li>
+      <li><a href="../../13-Reference-Tables.html">Reference Tables</a></li>
+      <li><a href="../../FUTURE-DEVELOPMENT.html">Future Development</a></li>
+      <li class="nav-section">Upstream Theory</li>
+      <li><a href="../../upstream/README.html">Upstream README</a></li>
+      <li><a href="../../upstream/00_notation/conventions.html">Notation</a></li>
+      <li><a href="../../upstream/01_physics/01_fmcw_theory.html">FMCW Theory</a></li>
+      <li><a href="../../upstream/01_physics/02_lfm_waveform_model.html">LFM Waveform</a></li>
+      <li><a href="../../upstream/01_physics/03_beamforming_theory.html">Beamforming Theory</a></li>
+      <li><a href="../../upstream/01_physics/04_detection_theory.html">Detection Theory</a></li>
+      <li><a href="../../upstream/01_physics/05_noise_analysis.html">Noise Analysis</a></li>
+      <li><a href="../../upstream/01_physics/06_calibration_theory.html">Calibration</a></li>
+      <li><a href="../../upstream/02_hardware/01_system_overview.html">HW Overview</a></li>
+      <li><a href="../../upstream/04_research/01_cfar_variants.html">CFAR Variants</a></li>
+    </ul>
+    <div class="sidebar-footer">
+      <a href="https://github.com/brkay54/radarv2-docs" target="_blank">GitHub</a>
+    </div>
+  </nav>
+  <div class="main-content">
+
+<div class="markdown-preview-section">
+<h1 id="rf-front-end-subsystem">RF Front-End Subsystem<a class="ha" href="#rf-front-end-subsystem" aria-hidden="true">¶</a></h1>
+
+<p class="kv-line"><span class="kv-key">Purpose:</span> <span class="kv-value">Document the AERIS-10 RF receive/transmit chain -- the ADTR1107 integrated T/R front-end module, LT5552 downconversion mixer, and AD9484 analog-to-digital converter -- with key specifications, interface details, and cross-references to the noise analysis and frequency synthesis subsystems.</span></p>
+
+<p class="kv-line"><span class="kv-key">Prerequisites:</span> <span class="kv-value">Familiarity with:</span></p>
+<ul><li><a href="../00_notation/symbol_table.md">Symbol Table</a> -- all symbols used herein</li><li><a href="../00_notation/parameter_table.md">Parameter Table</a> -- numerical values for both variants</li><li><a href="../00_notation/conventions.md">Conventions</a> -- equation formatting rules</li></ul>
+
+<hr>
+
+<h2 id="1-overview">1. Overview<a class="ha" href="#1-overview" aria-hidden="true">¶</a></h2>
+
+<p>The AERIS-10 RF front-end implements a superheterodyne architecture with an intermediate frequency $f_\text{IF}$ (see <a href="../00_notation/parameter_table.md#signal-processing-fpga">Parameter Table</a>). The signal path is:</p>
+
+<ul><li><strong>Antenna elements</strong> (16-element phased array)</li><li><strong>ADAR1000</strong> beamformer -- per-element phase and amplitude control, T/R switching (documented in <a href="04_antenna_beamforming.md"><code>04_antenna_beamforming.md</code></a>)</li><li><strong>ADTR1107</strong> T/R front-end module -- LNA (receive path) and PA (transmit path) per element</li><li><strong>LT5552</strong> mixer -- downconversion from X-band RF to IF using ADF4382 RX LO</li><li><strong>AD9484</strong> ADC -- 8-bit digitization of the IF signal at $f_s$ (see <a href="../00_notation/parameter_table.md#signal-processing-fpga">Parameter Table</a>)</li></ul>
+
+<p>In the transmit path, the signal flows in reverse: the ADF4382 TX synthesizer generates the X-band carrier at $f_c$, which is amplified by the ADTR1107 PA and radiated through the array.</p>
+
+<hr>
+
+<h2 id="2-adtr1107-t-r-front-end-module">2. ADTR1107 T/R Front-End Module<a class="ha" href="#2-adtr1107-t-r-front-end-module" aria-hidden="true">¶</a></h2>
+
+<p>The ADTR1107 (Analog Devices) is an integrated transmit/receive module covering 8 GHz to 16 GHz, combining a power amplifier (PA), low-noise amplifier (LNA), and T/R switch in a single package.</p>
+
+<h3 id="2-1-key-specifications">2.1 Key Specifications<a class="ha" href="#2-1-key-specifications" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Parameter</th><th>Symbol</th><th>Value</th><th>Notes</th></tr></thead><tbody><tr><td>Frequency range</td><td>--</td><td>8--16 GHz</td><td>Covers full X-band</td></tr><tr><td>Output power (PA, P1dB)</td><td>$P_t$</td><td>~1 W (30 dBm)</td><td>Per element, Nexus variant</td></tr><tr><td>LNA noise figure</td><td>$F_\text{LNA}$</td><td>TBD</td><td>See <a href="../00_notation/parameter_table.md#tbd-tracking">Parameter Table</a></td></tr><tr><td>LNA gain</td><td>$G_\text{LNA}$</td><td>TBD</td><td>Datasheet value pending extraction</td></tr><tr><td>IP3 (LNA, output)</td><td>--</td><td>TBD</td><td>Datasheet value pending extraction</td></tr><tr><td>PA gain</td><td>--</td><td>TBD</td><td>Datasheet value pending extraction</td></tr></tbody></table>
+
+<p>The ADTR1107 noise figure $F_\text{LNA}$ is a critical parameter because the first-stage noise figure dominates the system noise budget per the Friis formula Eq. (NF-7) in <a href="../01_physics/05_noise_analysis.md#friis-cascaded-noise-figure"><code>05_noise_analysis.md</code></a>. Once confirmed from the datasheet, this value must be updated in the <a href="../00_notation/parameter_table.md#tbd-tracking">Parameter Table</a>.</p>
+
+<h3 id="2-2-tx-rx-switching">2.2 TX/RX Switching<a class="ha" href="#2-2-tx-rx-switching" aria-hidden="true">¶</a></h3>
+
+<p>T/R switching is controlled by the ADAR1000 beamformer via the <code>setADTR1107Control()</code> method in the firmware (<code>ADAR1000_Manager.cpp</code>). The control signal sets the ADTR1107&#x27;s internal switch position:</p>
+
+<ul><li><strong>TX mode:</strong> PA active, LNA disabled. The <code>CTRL_SW</code> pin is driven HIGH.</li><li><strong>RX mode:</strong> LNA active, PA disabled. The <code>CTRL_SW</code> pin is driven LOW.</li></ul>
+
+<p>Fast switching between TX and RX modes is supported via <code>fastTXMode()</code> and <code>fastRXMode()</code> in the ADAR1000 manager, enabling rapid T/R toggling during the chirp cycle.</p>
+
+<h3 id="2-3-power-sequencing">2.3 Power Sequencing<a class="ha" href="#2-3-power-sequencing" aria-hidden="true">¶</a></h3>
+
+<p>The ADTR1107 requires a specific power-up sequence to prevent damage, implemented in <code>ADAR1000_Manager::initializeADTR1107Sequence()</code> (<code>ADAR1000_Manager.cpp</code>):</p>
+
+<ul><li>Connect all GND pins to ground (hardware)</li><li>Set <code>VDD_SW</code> to 3.3 V via GPIO enable (<code>EN_P_3V3_ADTR</code>)</li><li>Set <code>VSS_SW</code> to $-3.3~\text{V}$ via GPIO enable (<code>EN_P_3V3_SW</code>)</li><li>Set <code>CTRL_SW</code> to RX mode initially</li><li>Set LNA gate voltage <code>VGG_LNA</code> to 0 V (via ADAR1000 bias DAC)</li><li>Apply <code>VDD_LNA</code> at 5.0 V</li><li>Set <code>VGG_LNA</code> to operating bias</li><li>Set PA gate voltage <code>VGG_PA</code> and drain voltage <code>VDD_PA</code></li><li>Ramp PA drain current $I_{dq}$ (<code>Idq_pa_bias</code>) to operating point</li></ul>
+
+<p>Each step includes settling delays to ensure safe power rail transitions.</p>
+
+<h3 id="2-4-variant-differences">2.4 Variant Differences<a class="ha" href="#2-4-variant-differences" aria-hidden="true">¶</a></h3>
+
+<blockquote><strong>Variant Note:</strong></blockquote>
+<blockquote>| | Nexus (AERIS-10N) | Extended (AERIS-10X) |</blockquote>
+<blockquote>|--|-------|----------|</blockquote>
+<blockquote>| T/R module | ADTR1107 (integrated) | QPA2962 GaN PA + external LNA |</blockquote>
+<blockquote>| $P_t$ per element | ~1 W (30 dBm) | 10 W (40 dBm) |</blockquote>
+<blockquote>| Noise figure $F_\text{LNA}$ | TBD (ADTR1107 datasheet) | TBD (external LNA datasheet) |</blockquote>
+<blockquote>| Package | Single integrated module | Separate PA and LNA components |</blockquote>
+
+<p>The Extended variant replaces the ADTR1107 with a Qorvo QPA2962 GaN MMIC power amplifier (6--18 GHz, 10 W) paired with a separate external LNA. This provides 10x transmit power but requires independent bias control for the PA and LNA stages. The firmware PA bias control via <code>DAC5578</code> and current monitoring via <code>ADS7830</code> supports both configurations.</p>
+
+<hr>
+
+<h2 id="3-lt5552-mixer">3. LT5552 Mixer<a class="ha" href="#3-lt5552-mixer" aria-hidden="true">¶</a></h2>
+
+<p>The LT5552 (Analog Devices / Linear Technology) is a high-linearity double-balanced mixer covering 3 GHz to 20 GHz.</p>
+
+<h3 id="3-1-key-specifications">3.1 Key Specifications<a class="ha" href="#3-1-key-specifications" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Parameter</th><th>Value</th><th>Notes</th></tr></thead><tbody><tr><td>RF/LO frequency range</td><td>3--20 GHz</td><td>Covers X-band operation</td></tr><tr><td>Conversion loss</td><td>~7 dB typical</td><td>Passive mixer: $G_\text{mix} &lt; 1$</td></tr><tr><td>Input IP3 (IIP3)</td><td>+23.8 dBm typical</td><td>High linearity for strong signal handling</td></tr><tr><td>LO drive level</td><td>13--18 dBm</td><td>Required for specified performance</td></tr><tr><td>IF bandwidth</td><td>DC to 6 GHz</td><td>Supports $f_\text{IF}$ operation</td></tr></tbody></table>
+
+<h3 id="3-2-downconversion">3.2 Downconversion<a class="ha" href="#3-2-downconversion" aria-hidden="true">¶</a></h3>
+
+<p>The LT5552 performs RF-to-IF downconversion using the RX local oscillator generated by the ADF4382 (documented in <a href="03_frequency_synthesis.md#adf4382-synthesizers"><code>03_frequency_synthesis.md</code></a>). The IF frequency is the difference between the TX and RX synthesizer frequencies:</p>
+
+<p>$$</p>
+<p>f_\text{IF} = f_\text{TX} - f_\text{RX} \tag{HW-RF-1}</p>
+<p>$$</p>
+
+<p>where $f_\text{TX}$ (<code>TX_FREQ_HZ</code> in <code>adf4382a_manager.h</code>) and $f_\text{RX}$ (<code>RX_FREQ_HZ</code> in <code>adf4382a_manager.h</code>) are the TX and RX local oscillator frequencies, respectively (see <a href="../00_notation/parameter_table.md#frequency-synthesis">Parameter Table</a> for values).</p>
+
+<h3 id="3-3-noise-figure-impact">3.3 Noise Figure Impact<a class="ha" href="#3-3-noise-figure-impact" aria-hidden="true">¶</a></h3>
+
+<p>As a passive mixer, the LT5552 has conversion <em>loss</em> rather than gain ($G_\text{mix} &lt; 1$, i.e., $G_{\text{mix,dB}} &lt; 0~\text{dB}$). The mixer&#x27;s noise figure $F_\text{mix}$ and the noise of all downstream stages are divided by $G_\text{LNA}$ in the Friis cascade Eq. (NF-8) in <a href="../01_physics/05_noise_analysis.md#aeris-10-receive-chain-stages"><code>05_noise_analysis.md</code></a>, making the LNA gain critical for suppressing these contributions.</p>
+
+<p>The equivalent noise figure for a passive mixer approximates its conversion loss:</p>
+
+<p>$$</p>
+<p>F_\text{mix} \approx \frac{1}{G_\text{mix}} \tag{HW-RF-2}</p>
+<p>$$</p>
+
+<hr>
+
+<h2 id="4-ad9484-adc">4. AD9484 ADC<a class="ha" href="#4-ad9484-adc" aria-hidden="true">¶</a></h2>
+
+<p>The AD9484 (Analog Devices) is an 8-bit, 500 MSPS analog-to-digital converter. In the AERIS-10, it is operated at $f_s$ (see <a href="../00_notation/parameter_table.md#signal-processing-fpga">Parameter Table</a>) to digitize the IF signal.</p>
+
+<blockquote><strong>Pitfall Reminder:</strong> The AD9484 is an <strong>8-bit</strong> ADC, NOT 14-bit. See <a href="../00_notation/parameter_table.md#3-adc-resolution-8-bit-ad9484">Parameter Table -- Inconsistency Resolution #3</a>. The FPGA data path width <code>ADC_WIDTH = 8</code> in <code>ddc_400m.v</code> confirms this.</blockquote>
+
+<h3 id="4-1-key-specifications">4.1 Key Specifications<a class="ha" href="#4-1-key-specifications" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Parameter</th><th>Symbol</th><th>Value</th><th>Notes</th></tr></thead><tbody><tr><td>Resolution</td><td>$b$</td><td>8 bits</td><td>FPGA <code>ADC_WIDTH = 8</code></td></tr><tr><td>Maximum sample rate</td><td>--</td><td>500 MSPS</td><td>Datasheet rated maximum</td></tr><tr><td>Operating sample rate</td><td>$f_s$</td><td>400 MSPS</td><td>Clocked from AD9523 OUT4/OUT5</td></tr><tr><td>ENOB</td><td>--</td><td>~7.5 bits typical</td><td>At Nyquist input frequency</td></tr><tr><td>SFDR</td><td>--</td><td>~48 dBFS typical</td><td>At Nyquist input frequency</td></tr><tr><td>Input bandwidth</td><td>--</td><td>650 MHz</td><td>Full-power analog bandwidth</td></tr><tr><td>Interface</td><td>--</td><td>LVDS DDR</td><td>8-bit parallel, differential</td></tr><tr><td>Power supply</td><td>--</td><td>1.8 V / 3.3 V</td><td>Analog and digital supply rails</td></tr></tbody></table>
+
+<h3 id="4-2-clock-source">4.2 Clock Source<a class="ha" href="#4-2-clock-source" aria-hidden="true">¶</a></h3>
+
+<p>The ADC clock is provided by the AD9523-1 clock distribution IC via outputs OUT4 and OUT5 at 400 MHz LVDS (see <a href="03_frequency_synthesis.md#ad9523-1-clock-generator"><code>03_frequency_synthesis.md</code></a> and the clock tree table therein). OUT4 drives the AD9484 directly; OUT5 provides a phase-aligned copy to the FPGA for data capture synchronization.</p>
+
+<h3 id="4-3-lvds-interface">4.3 LVDS Interface<a class="ha" href="#4-3-lvds-interface" aria-hidden="true">¶</a></h3>
+
+<p>The AD9484 outputs 8-bit data via an LVDS DDR (double data rate) interface, captured by the FPGA using Xilinx IDDR primitives. The interface is implemented in two Verilog modules:</p>
+
+<p><strong><code>ad9484_interface_400m.v</code></strong> -- Primary ADC data capture:</p>
+
+<table class="md-table"><thead><tr><th>Signal</th><th>Width</th><th>Direction</th><th>Description</th></tr></thead><tbody><tr><td><code>adc_d_p[7:0]</code> / <code>adc_d_n[7:0]</code></td><td>8-bit differential</td><td>Input</td><td>LVDS data pairs</td></tr><tr><td><code>adc_dco_p</code> / <code>adc_dco_n</code></td><td>1-bit differential</td><td>Input</td><td>Data clock output (400 MHz LVDS)</td></tr><tr><td><code>adc_data_400m[7:0]</code></td><td>8-bit</td><td>Output</td><td>Captured data in 400 MHz domain</td></tr><tr><td><code>adc_data_valid_400m</code></td><td>1-bit</td><td>Output</td><td>Data valid flag</td></tr></tbody></table>
+
+<p>The module uses:</p>
+<ul><li><code>IBUFDS</code> primitives with <code>DIFF_TERM = &quot;TRUE&quot;</code> and <code>IOSTANDARD = &quot;LVDS_25&quot;</code> for LVDS-to-single-ended conversion on each data bit and the DCO clock</li><li><code>IDDR</code> primitives in <code>SAME_EDGE_PIPELINED</code> mode for DDR data capture, producing rising-edge and falling-edge samples</li><li>A phase toggle register to interleave rising and falling edge data into the 400 MSPS output stream</li></ul>
+
+<p><strong><code>lvds_to_cmos_400m.v</code></strong> -- Clock domain conversion:</p>
+
+<table class="md-table"><thead><tr><th>Signal</th><th>Width</th><th>Direction</th><th>Description</th></tr></thead><tbody><tr><td><code>clk_400m_p</code> / <code>clk_400m_n</code></td><td>1-bit differential</td><td>Input</td><td>400 MHz LVDS clock</td></tr><tr><td><code>clk_400m_cmos</code></td><td>1-bit</td><td>Output</td><td>400 MHz CMOS clock</td></tr></tbody></table>
+
+<p>This module converts the LVDS DCO clock to a CMOS-level clock using <code>IBUFDS</code> (with <code>DIFF_TERM = &quot;FALSE&quot;</code>, using external 100 Ohm termination) and a <code>BUFG</code> global clock buffer for distribution across the FPGA fabric.</p>
+
+<h3 id="4-4-dynamic-range">4.4 Dynamic Range<a class="ha" href="#4-4-dynamic-range" aria-hidden="true">¶</a></h3>
+
+<p>The theoretical signal-to-quantization-noise ratio for an 8-bit ADC is given by Eq. (NF-11) in <a href="../01_physics/05_noise_analysis.md#signal-to-quantization-noise-ratio"><code>05_noise_analysis.md</code></a>:</p>
+
+<p>$$</p>
+<p>\text{SQNR}_\text{dB} = 6.02 \, b + 1.76~\text{dB} \tag{HW-RF-3}</p>
+<p>$$</p>
+
+<p>For $b = 8$, this yields a theoretical SQNR of approximately 49.9 dB. In practice, the AD9484 achieves an ENOB of approximately 7.5 bits (see Eq. (NF-13)), further reducing the effective dynamic range. The ADC effective noise figure $F_\text{ADC}$ depends on the signal level and analog chain gain, as analyzed in Eq. (NF-12) in <a href="../01_physics/05_noise_analysis.md#effective-noise-figure-of-the-adc"><code>05_noise_analysis.md</code></a>.</p>
+
+<p>The 8-bit quantization noise floor is a <strong>dominant constraint</strong> on the AERIS-10 digital noise floor. The CIC decimation filter (5 stages, $D_\text{CIC} = 4$) provides processing gain that partially compensates for the limited ADC resolution (see Eq. (NF-14) in <a href="../01_physics/05_noise_analysis.md#cic-processing-gain"><code>05_noise_analysis.md</code></a>).</p>
+
+<hr>
+
+<h2 id="5-cascaded-noise-figure-reference">5. Cascaded Noise Figure Reference<a class="ha" href="#5-cascaded-noise-figure-reference" aria-hidden="true">¶</a></h2>
+
+<p>The AERIS-10 receive chain noise figure is analyzed in detail in <a href="../01_physics/05_noise_analysis.md"><code>05_noise_analysis.md</code></a>. The cascade order and cross-references are:</p>
+
+<table class="md-table"><thead><tr><th>Stage</th><th>Component</th><th>Noise Figure Symbol</th><th>Gain Symbol</th><th>Reference</th></tr></thead><tbody><tr><td>1</td><td>ADTR1107 LNA</td><td>$F_\text{LNA}$ (TBD)</td><td>$G_\text{LNA}$ (TBD)</td><td><a href="../00_notation/parameter_table.md#tbd-tracking">Parameter Table</a></td></tr><tr><td>2</td><td>LT5552 mixer</td><td>$F_\text{mix}$</td><td>$G_\text{mix}$</td><td>Eq. (HW-RF-2) above</td></tr><tr><td>3</td><td>IF amplifier (if present)</td><td>$F_\text{IF}$</td><td>$G_\text{IF}$</td><td>TBD</td></tr><tr><td>4</td><td>AD9484 ADC</td><td>$F_\text{ADC}$</td><td>$G_\text{ADC}$</td><td>Eq. (NF-12) in noise analysis</td></tr></tbody></table>
+
+<p>The system noise figure follows the Friis formula, Eq. (NF-8) in <a href="../01_physics/05_noise_analysis.md#aeris-10-receive-chain-stages"><code>05_noise_analysis.md</code></a>:</p>
+
+<p>$$</p>
+<p>F_\text{sys} = F_\text{LNA} + \frac{F_\text{mix} - 1}{G_\text{LNA}} + \frac{F_\text{IF} - 1}{G_\text{LNA} \, G_\text{mix}} + \frac{F_\text{ADC} - 1}{G_\text{LNA} \, G_\text{mix} \, G_\text{IF}} \tag{HW-RF-4}</p>
+<p>$$</p>
+
+<p>The first-stage noise figure $F_\text{LNA}$ dominates provided the LNA gain $G_\text{LNA}$ is sufficient to suppress downstream contributions. The representative numerical evaluation in Section 7.3 of <a href="../01_physics/05_noise_analysis.md#numerical-evaluation-pending-parameter-resolution"><code>05_noise_analysis.md</code></a> illustrates this relationship using placeholder values.</p>
+
+<p><strong>TBD parameters affecting noise budget:</strong></p>
+<ul><li>$F_\text{LNA}$ -- ADTR1107 datasheet extraction required (Nexus variant)</li><li>$G_\text{LNA}$ -- ADTR1107 datasheet extraction required</li><li>Extended variant noise figure chain -- QPA2962 + external LNA analysis required</li></ul>
+
+<hr>
+
+<h2 id="6-references">6. References<a class="ha" href="#6-references" aria-hidden="true">¶</a></h2>
+
+<h3 id="project-documentation">Project Documentation<a class="ha" href="#project-documentation" aria-hidden="true">¶</a></h3>
+<ul><li><a href="../00_notation/symbol_table.md">Symbol Table</a> -- symbol definitions for $F$, $G$, $P_t$, $f_\text{IF}$, $f_s$, $b$</li><li><a href="../00_notation/parameter_table.md">Parameter Table</a> -- canonical numerical values for both variants</li><li><a href="../00_notation/conventions.md">Conventions</a> -- equation numbering and formatting rules</li></ul>
+
+<h3 id="hardware-cross-references">Hardware Cross-References<a class="ha" href="#hardware-cross-references" aria-hidden="true">¶</a></h3>
+<ul><li><a href="01_system_overview.md"><code>01_system_overview.md</code></a> -- system block diagram and variant comparison</li><li><a href="03_frequency_synthesis.md"><code>03_frequency_synthesis.md</code></a> -- ADF4382 LO frequencies (mixer LO source), AD9523 clock tree (ADC clock source)</li><li><a href="../01_physics/05_noise_analysis.md"><code>05_noise_analysis.md</code></a> -- Friis cascaded noise figure derivation, ADC noise contribution, CIC processing gain</li></ul>
+
+<h3 id="firmware-sources">Firmware Sources<a class="ha" href="#firmware-sources" aria-hidden="true">¶</a></h3>
+<ul><li><code>ADAR1000_Manager.cpp</code> / <code>ADAR1000_Manager.h</code> -- ADTR1107 power sequencing (<code>initializeADTR1107Sequence()</code>), T/R switching (<code>setADTR1107Control()</code>)</li><li><code>adf4382a_manager.h</code> -- LO frequency definitions (<code>TX_FREQ_HZ</code>, <code>RX_FREQ_HZ</code>)</li></ul>
+
+<h3 id="fpga-sources">FPGA Sources<a class="ha" href="#fpga-sources" aria-hidden="true">¶</a></h3>
+<ul><li><code>ad9484_interface_400m.v</code> -- LVDS DDR data capture interface</li><li><code>lvds_to_cmos_400m.v</code> -- LVDS-to-CMOS clock conversion</li></ul>
+
+<h3 id="component-datasheets">Component Datasheets<a class="ha" href="#component-datasheets" aria-hidden="true">¶</a></h3>
+<ul><li>ADTR1107 -- 8--16 GHz integrated T/R front-end module (<a href="../7_Components%20Datasheets%20and%20Application%20notes/adtr1107.pdf"><code>7_Components Datasheets and Application notes/adtr1107.pdf</code></a>)</li><li>LT5552 -- 3--20 GHz high-linearity double-balanced mixer (<a href="../7_Components%20Datasheets%20and%20Application%20notes/LTC5552f.pdf"><code>7_Components Datasheets and Application notes/LTC5552f.pdf</code></a>)</li><li>AD9484 -- 8-bit, 500 MSPS ADC (<a href="../7_Components%20Datasheets%20and%20Application%20notes/"><code>7_Components Datasheets and Application notes/</code></a>)</li><li>QPA2962 -- 6--18 GHz 10 W GaN MMIC power amplifier (Extended variant)</li></ul>
+
+</div>
+  </div><!-- main-content -->
+</div><!-- site-shell -->
+<script>
+mermaid.initialize({ startOnLoad: true, theme: 'dark', securityLevel: 'loose' });
+</script>
+</body>
+
+</html>

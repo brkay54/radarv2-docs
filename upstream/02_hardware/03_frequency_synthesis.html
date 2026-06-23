@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>03_frequency_synthesis — aros Vault</title>
+<style>
+
+:root {
+  --color-blue:    #007ACC;
+  --color-green:   #2DA44E;
+  --color-yellow:  #D29922;
+  --color-purple:  #8B5CF6;
+  --color-orange:  #F59E0B;
+  --color-red:     #E5534B;
+  --color-cyan:    #0BC5EA;
+  --color-accent:  #7C3AED;
+  --text-normal:   #DCDDDE;
+  --text-muted:    #8E8EA0;
+  --background-primary:         #1E1E2E;
+  --background-secondary:       #181825;
+  --background-modifier-border: #313244;
+  --color-base-30:              #45475A;
+}
+body {
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.6;
+  margin: 0;
+}
+
+</style>
+<!-- Mermaid -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<!-- MathJax -->
+<script>window.MathJax={tex:{inlineMath:[['$','$'],['\\(','\\)']],displayMath:[['$$','$$'],['\\[','\\]']]},options:{skipHtmlTags:['script','noscript','style','textarea','pre']}};</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+<!-- Site CSS -->
+<link rel="stylesheet" href="../../site.css">
+</head>
+<body class="markdown-reading-view">
+<div class="site-shell">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <a href="../../00-Index.html" class="site-title">radarv2 / AERIS-10</a>
+      <div class="site-subtitle">aros Radar Documentation</div>
+    </div>
+    <ul class="nav-list">
+      <li class="nav-section">Core Docs</li>
+      <li><a href="../../09-Concepts-Primer.html">Radar Primer</a></li>
+      <li><a href="../../00-Index.html">Index</a></li>
+      <li><a href="../../01-System-Overview.html">System Overview</a></li>
+      <li><a href="../../02-Physics-and-Waveform.html">Physics &amp; Waveform</a></li>
+      <li><a href="../../03-Beamforming-and-Scan.html">Beamforming &amp; Scan</a></li>
+      <li><a href="../../04-Signal-Processing-Pipeline.html">Signal Processing</a></li>
+      <li><a href="../../05-Node-Architecture.html">Node Architecture</a></li>
+      <li><a href="../../06-Message-Catalog.html">Message Catalog</a></li>
+      <li><a href="../../07-Detection-and-Tracking.html">Detection &amp; Tracking</a></li>
+      <li><a href="../../08-Scenarios-and-Targets.html">Scenarios &amp; Targets</a></li>
+      <li class="nav-section">Advanced</li>
+      <li><a href="../../10-Radar-Model-Library.html">Radar Model Library</a></li>
+      <li><a href="../../11-Multi-Radar-Fusion.html">Multi-Radar Fusion</a></li>
+      <li><a href="../../12-3D-Scene.html">3-D Scene</a></li>
+      <li><a href="../../13-Reference-Tables.html">Reference Tables</a></li>
+      <li><a href="../../FUTURE-DEVELOPMENT.html">Future Development</a></li>
+      <li class="nav-section">Upstream Theory</li>
+      <li><a href="../../upstream/README.html">Upstream README</a></li>
+      <li><a href="../../upstream/00_notation/conventions.html">Notation</a></li>
+      <li><a href="../../upstream/01_physics/01_fmcw_theory.html">FMCW Theory</a></li>
+      <li><a href="../../upstream/01_physics/02_lfm_waveform_model.html">LFM Waveform</a></li>
+      <li><a href="../../upstream/01_physics/03_beamforming_theory.html">Beamforming Theory</a></li>
+      <li><a href="../../upstream/01_physics/04_detection_theory.html">Detection Theory</a></li>
+      <li><a href="../../upstream/01_physics/05_noise_analysis.html">Noise Analysis</a></li>
+      <li><a href="../../upstream/01_physics/06_calibration_theory.html">Calibration</a></li>
+      <li><a href="../../upstream/02_hardware/01_system_overview.html">HW Overview</a></li>
+      <li><a href="../../upstream/04_research/01_cfar_variants.html">CFAR Variants</a></li>
+    </ul>
+    <div class="sidebar-footer">
+      <a href="https://github.com/brkay54/radarv2-docs" target="_blank">GitHub</a>
+    </div>
+  </nav>
+  <div class="main-content">
+
+<div class="markdown-preview-section">
+<h1 id="frequency-synthesis-subsystem">Frequency Synthesis Subsystem<a class="ha" href="#frequency-synthesis-subsystem" aria-hidden="true">¶</a></h1>
+
+<p class="kv-line"><span class="kv-key">Purpose:</span> <span class="kv-value">Document the AERIS-10 frequency synthesis architecture -- the AD9523-1 clock distribution IC (complete 12-output clock tree), the ADF4382 TX/RX local oscillator synthesizers, and the OCXO warm-up requirement -- with register maps, initialization sequences, and cross-references to the RF front-end and system overview.</span></p>
+
+<p class="kv-line"><span class="kv-key">Prerequisites:</span> <span class="kv-value">Familiarity with:</span></p>
+<ul><li><a href="../00_notation/symbol_table.md">Symbol Table</a> -- all symbols used herein</li><li><a href="../00_notation/parameter_table.md">Parameter Table</a> -- numerical values for both variants</li><li><a href="../00_notation/conventions.md">Conventions</a> -- equation formatting rules</li></ul>
+
+<hr>
+
+<h2 id="1-overview">1. Overview<a class="ha" href="#1-overview" aria-hidden="true">¶</a></h2>
+
+<p>The AERIS-10 frequency synthesis architecture generates all system clocks and local oscillator signals from a single 100 MHz oven-controlled crystal oscillator (OCXO). The signal chain is:</p>
+
+<ul><li><strong>100 MHz OCXO</strong> -- precision frequency reference (VCXO input to AD9523)</li><li><strong>AD9523-1</strong> -- dual-PLL clock distribution IC with internal VCO at 3.6 GHz, providing 12 output channels through programmable integer dividers</li><li><strong>ADF4382 (x2)</strong> -- microwave wideband synthesizers generating TX LO at $f_\text{TX}$ and RX LO at $f_\text{RX}$ (see <a href="../00_notation/parameter_table.md#frequency-synthesis">Parameter Table</a> for values)</li></ul>
+
+<p>The AD9523 is the clock backbone of the entire system: it provides reference clocks to both ADF4382 synthesizers, ADC/DAC clocks to the FPGA, the system processing clock, and synchronization signals.</p>
+
+<hr>
+
+<h2 id="2-ad9523-1-clock-generator">2. AD9523-1 Clock Generator<a class="ha" href="#2-ad9523-1-clock-generator" aria-hidden="true">¶</a></h2>
+
+<p>The AD9523-1 (Analog Devices) is a dual-PLL clock generator with 12 LVDS/LVCMOS outputs. In the AERIS-10, PLL1 is configured in bypass mode; PLL2 multiplies the 100 MHz VCXO to produce a 3.6 GHz VCO, from which all output clocks are derived via integer dividers.</p>
+
+<h3 id="2-1-vco-frequency">2.1 VCO Frequency<a class="ha" href="#2-1-vco-frequency" aria-hidden="true">¶</a></h3>
+
+<p>The AD9523 PLL2 multiplies the VCXO reference to produce the internal VCO frequency:</p>
+
+<p>$$</p>
+<p>f_\text{VCO} = f_\text{VCXO} \times N_\text{PLL2} \tag{HW-FS-1}</p>
+<p>$$</p>
+
+<p>where $f_\text{VCXO}$ is the VCXO frequency and $N_\text{PLL2}$ is the PLL2 feedback divider. The PLL2 feedback divider is computed from the A and B counters:</p>
+
+<p>$$</p>
+<p>N_\text{PLL2} = 4 \times B_\text{cnt} + A_\text{cnt} \tag{HW-FS-2}</p>
+<p>$$</p>
+
+<p>From the firmware configuration in <code>configure_ad9523()</code> (<code>main.cpp:924--1076</code>):</p>
+<ul><li><code>pll2_ndiv_b_cnt</code> $= B_\text{cnt} = 9$</li><li><code>pll2_ndiv_a_cnt</code> $= A_\text{cnt} = 0$</li><li><code>pll2_r2_div</code> $= 0$ (R2 divider = 1, so PFD frequency equals VCXO frequency)</li></ul>
+
+<p>Therefore:</p>
+
+<p>$$</p>
+<p>N_\text{PLL2} = 4 \times 9 + 0 = 36 \tag{HW-FS-3}</p>
+<p>$$</p>
+
+<p>$$</p>
+<p>f_\text{VCO} = 100~\text{MHz} \times 36 = 3.6~\text{GHz} \tag{HW-FS-4}</p>
+<p>$$</p>
+
+<h3 id="2-2-output-clock-derivation">2.2 Output Clock Derivation<a class="ha" href="#2-2-output-clock-derivation" aria-hidden="true">¶</a></h3>
+
+<p>Each AD9523 output clock is derived from the VCO by an integer channel divider $D_k$:</p>
+
+<p>$$</p>
+<p>f_{\text{out},k} = \frac{f_\text{VCO}}{D_k} \tag{HW-FS-5}</p>
+<p>$$</p>
+
+<h3 id="2-3-complete-clock-tree-table">2.3 Complete Clock Tree Table<a class="ha" href="#2-3-complete-clock-tree-table" aria-hidden="true">¶</a></h3>
+
+<p>The following table documents all 12 AD9523 output channels as configured in <code>configure_ad9523()</code> (<code>main.cpp:970--1029</code>). Channels not listed (OUT2, OUT3, OUT12, OUT13) are disabled (<code>output_dis = 1</code>, <code>driver_mode = TRISTATE</code>).</p>
+
+<table class="md-table"><thead><tr><th>AD9523 Output</th><th>Frequency</th><th>Divider $D_k$</th><th>Format</th><th>Destination</th><th>FPGA Signal</th><th>Firmware Line</th></tr></thead><tbody><tr><td>OUT0</td><td>300 MHz</td><td>12</td><td>LVDS 7 mA</td><td>ADF4382 TX reference</td><td>--</td><td><code>main.cpp:972</code></td></tr><tr><td>OUT1</td><td>300 MHz</td><td>12</td><td>LVDS 7 mA</td><td>ADF4382 RX reference</td><td>--</td><td><code>main.cpp:978</code></td></tr><tr><td>OUT2</td><td>--</td><td>--</td><td>Disabled</td><td>--</td><td>--</td><td>--</td></tr><tr><td>OUT3</td><td>--</td><td>--</td><td>Disabled</td><td>--</td><td>--</td><td>--</td></tr><tr><td>OUT4</td><td>400 MHz</td><td>9</td><td>LVDS 7 mA</td><td>AD9484 ADC clock</td><td><code>adc_dco_p/n</code></td><td><code>main.cpp:984</code></td></tr><tr><td>OUT5</td><td>400 MHz</td><td>9</td><td>LVDS 7 mA</td><td>FPGA ADC clock (phase-aligned with OUT4)</td><td><code>adc_dco_p/n</code></td><td><code>main.cpp:990</code></td></tr><tr><td>OUT6</td><td>100 MHz</td><td>36</td><td>LVCMOS</td><td>FPGA system clock</td><td><code>clk_100m</code></td><td><code>main.cpp:996</code></td></tr><tr><td>OUT7</td><td>20 MHz</td><td>180</td><td>LVCMOS</td><td>FPGA test/debug clock</td><td>--</td><td><code>main.cpp:1002</code></td></tr><tr><td>OUT8</td><td>60 MHz</td><td>60</td><td>LVDS 4 mA</td><td>ADF4382 TX sync (SYNCP/SYNCN)</td><td>--</td><td><code>main.cpp:1008</code></td></tr><tr><td>OUT9</td><td>60 MHz</td><td>60</td><td>LVDS 4 mA</td><td>ADF4382 RX sync (SYNCP/SYNCN)</td><td>--</td><td><code>main.cpp:1014</code></td></tr><tr><td>OUT10</td><td>120 MHz</td><td>30</td><td>LVCMOS</td><td>DAC clock</td><td><code>clk_120m_dac</code></td><td><code>main.cpp:1020</code></td></tr><tr><td>OUT11</td><td>120 MHz</td><td>30</td><td>LVCMOS</td><td>FPGA DAC clock (phase-aligned with OUT10)</td><td><code>clk_120m_dac</code></td><td><code>main.cpp:1026</code></td></tr><tr><td>OUT12</td><td>--</td><td>--</td><td>Disabled</td><td>--</td><td>--</td><td>--</td></tr><tr><td>OUT13</td><td>--</td><td>--</td><td>Disabled</td><td>--</td><td>--</td><td>--</td></tr></tbody></table>
+
+<p>Verification: each frequency satisfies Eq. (HW-FS-5). For example, OUT4: $3600~\text{MHz} / 9 = 400~\text{MHz}$.</p>
+
+<h3 id="2-4-key-register-map">2.4 Key Register Map<a class="ha" href="#2-4-key-register-map" aria-hidden="true">¶</a></h3>
+
+<p>The following registers are the most important for AD9523 configuration. Register definitions are from the Analog Devices no-OS driver header <code>ad9523.h</code>.</p>
+
+<table class="md-table"><thead><tr><th>Register</th><th>Address</th><th>Field</th><th>Description</th></tr></thead><tbody><tr><td><code>SERIAL_PORT_CONFIG</code></td><td>0x000</td><td><code>SDO_ACTIVE</code>, <code>SOFT_RESET</code></td><td>SPI mode and soft reset control</td></tr><tr><td><code>PLL2_FEEDBACK_DIVIDER_AB</code></td><td>0x0F1</td><td><code>NDIV_A_CNT[1:0]</code>, <code>NDIV_B_CNT[5:0]</code></td><td>PLL2 N divider: $N = 4B + A$</td></tr><tr><td><code>PLL2_R2_DIVIDER</code></td><td>0x0F7</td><td><code>R2_DIVIDER_VAL[4:0]</code></td><td>PLL2 R2 divider (0 = divide-by-1)</td></tr><tr><td><code>PLL2_CHARGE_PUMP</code></td><td>0x0F0</td><td><code>CP_CURRENT</code></td><td>PLL2 charge pump current</td></tr><tr><td><code>PLL2_VCO_CTRL</code></td><td>0x0F3</td><td><code>VCO_CALIBRATE</code>, <code>FORCE_VCO_MIDSCALE</code></td><td>VCO calibration and control</td></tr><tr><td><code>PLL2_LOOP_FILTER_CTRL</code></td><td>0x0F6</td><td><code>CPOLE1</code>, <code>RZERO</code>, <code>RPOLE2</code></td><td>PLL2 loop filter component selection</td></tr><tr><td><code>CHANNEL_CLOCK_DIST(ch)</code></td><td>0x192 + 3*ch</td><td><code>DIV[9:0]</code>, <code>DRIVER_MODE[3:0]</code>, <code>PWR_DOWN</code></td><td>Per-channel divider, output format, enable</td></tr><tr><td><code>STATUS_SIGNALS</code></td><td>0x232</td><td><code>SYNC_MAN_CTRL</code></td><td>Manual sync trigger</td></tr><tr><td><code>READBACK_0</code></td><td>0x22C</td><td><code>PLL2_LD</code>, <code>PLL1_LD</code></td><td>PLL lock detect status</td></tr><tr><td><code>IO_UPDATE</code></td><td>0x234</td><td><code>IO_UPDATE_EN</code></td><td>Latch register writes to active config</td></tr><tr><td><code>POWER_DOWN_CTRL</code></td><td>0x233</td><td><code>PLL1_PWR_DOWN</code>, <code>PLL2_PWR_DOWN</code>, <code>DIST_PWR_DOWN</code></td><td>Power-down control</td></tr></tbody></table>
+
+<h3 id="2-5-spi-interface">2.5 SPI Interface<a class="ha" href="#2-5-spi-interface" aria-hidden="true">¶</a></h3>
+
+<p>The AD9523 uses a 3-wire or 4-wire SPI interface:</p>
+
+<table class="md-table"><thead><tr><th>Parameter</th><th>Value</th><th>Source</th></tr></thead><tbody><tr><td>SPI clock speed</td><td>10 MHz</td><td><code>main.cpp:1036</code> (<code>max_speed_hz</code>)</td></tr><tr><td>SPI mode</td><td>Mode 0 (CPOL=0, CPHA=0)</td><td><code>main.cpp:1038</code></td></tr><tr><td>Address width</td><td>13 bits (12-bit address + R/W bit at bit 15)</td><td><code>ad9523.h:43--46</code></td></tr><tr><td>Data width</td><td>8, 16, or 24 bits (register-dependent)</td><td><code>ad9523.h:48--51</code></td></tr><tr><td>R/W bit</td><td>Bit 15: 1 = read, 0 = write</td><td><code>ad9523.h:43--44</code></td></tr><tr><td>Multi-byte</td><td>Byte count in bits [14:13]</td><td><code>ad9523.h:45</code></td></tr><tr><td>STM32 peripheral</td><td>SPI4</td><td><code>main.cpp:1040</code></td></tr></tbody></table>
+
+<p>Register writes are buffered and take effect only after an <code>IO_UPDATE</code> strobe (register 0x234, bit 0).</p>
+
+<h3 id="2-6-lock-detection-and-status">2.6 Lock Detection and Status<a class="ha" href="#2-6-lock-detection-and-status" aria-hidden="true">¶</a></h3>
+
+<p>PLL lock status is read from the <code>READBACK_0</code> register (0x22C):</p>
+
+<table class="md-table"><thead><tr><th>Bit</th><th>Field</th><th>Description</th></tr></thead><tbody><tr><td>[0]</td><td><code>PLL1_LD</code></td><td>PLL1 lock detect</td></tr><tr><td>[1]</td><td><code>PLL2_LD</code></td><td>PLL2 lock detect</td></tr><tr><td>[5]</td><td><code>STAT_VCXO</code></td><td>VCXO status</td></tr><tr><td>[6]</td><td><code>PLL2_FB_CLK</code></td><td>PLL2 feedback clock present</td></tr><tr><td>[7]</td><td><code>PLL2_REF_CLK</code></td><td>PLL2 reference clock present</td></tr></tbody></table>
+
+<p>VCO calibration status is available in <code>READBACK_1</code> (0x22D), bit [0] (<code>VCO_CALIB_IN_PROGRESS</code>).</p>
+
+<p>The firmware calls <code>ad9523_status()</code> after setup to verify lock (<code>main.cpp:1065</code>).</p>
+
+<h3 id="2-7-firmware-initialization-flow">2.7 Firmware Initialization Flow<a class="ha" href="#2-7-firmware-initialization-flow" aria-hidden="true">¶</a></h3>
+
+<p>The <code>configure_ad9523()</code> function (<code>main.cpp:924--1076</code>) follows this sequence:</p>
+
+<ul><li><strong>Initialize platform data</strong> -- set VCXO frequency (100 MHz), PLL2 dividers ($N = 36$, $R2 = 1$), charge pump current (3500 nA), loop filter components</li><li><strong>Configure channel array</strong> -- set divider, output format, and enable for each of the 14 channels (12 used, 2 disabled)</li><li><strong>Set SPI parameters</strong> -- 10 MHz clock, Mode 0, STM32 SPI4</li><li><strong>Call <code>ad9523_init()</code></strong> -- fill default platform data values</li><li><strong>Release hardware reset</strong> -- <code>AD9523_RESET_RELEASE()</code>, 5 ms delay</li><li><strong>Select reference</strong> -- <code>AD9523_REF_SEL(true)</code> selects REFB (100 MHz VCXO)</li><li><strong>Call <code>ad9523_setup()</code></strong> -- writes all registers via SPI, performs IO update, VCO calibration, and sync</li><li><strong>Verify lock</strong> -- <code>ad9523_status()</code> checks PLL lock indicators</li><li><strong>Manual sync</strong> -- <code>ad9523_sync()</code> aligns all output phases</li></ul>
+
+<hr>
+
+<h2 id="3-adf4382-synthesizers">3. ADF4382 Synthesizers<a class="ha" href="#3-adf4382-synthesizers" aria-hidden="true">¶</a></h2>
+
+<p>The AERIS-10 uses two ADF4382A microwave wideband synthesizers (Analog Devices) to generate the TX and RX local oscillator signals. Both are configured identically except for their output frequency.</p>
+
+<h3 id="3-1-frequency-configuration">3.1 Frequency Configuration<a class="ha" href="#3-1-frequency-configuration" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Parameter</th><th>TX Synthesizer</th><th>RX Synthesizer</th><th>Firmware Source</th></tr></thead><tbody><tr><td>Output frequency</td><td>$f_\text{TX}$</td><td>$f_\text{RX}$</td><td><code>TX_FREQ_HZ</code>, <code>RX_FREQ_HZ</code> in <code>adf4382a_manager.h</code></td></tr><tr><td>Reference clock</td><td>300 MHz (AD9523 OUT0)</td><td>300 MHz (AD9523 OUT1)</td><td><code>REF_FREQ_HZ</code> in <code>adf4382a_manager.h</code></td></tr><tr><td>Sync clock</td><td>60 MHz (AD9523 OUT8)</td><td>60 MHz (AD9523 OUT9)</td><td><code>SYNC_CLOCK_FREQ</code> in <code>adf4382a_manager.h</code></td></tr></tbody></table>
+
+<p>The TX and RX LO frequencies are defined in <code>adf4382a_manager.h</code>:</p>
+
+<pre><code>REF_FREQ_HZ   = 300,000,000 Hz    (300 MHz from AD9523)
+TX_FREQ_HZ    = 10,500,000,000 Hz (10.5 GHz)
+RX_FREQ_HZ    = 10,380,000,000 Hz (10.38 GHz)
+SYNC_CLOCK_FREQ = 60,000,000 Hz   (60 MHz sync clock)</code></pre>
+
+<h3 id="3-2-if-derivation">3.2 IF Derivation<a class="ha" href="#3-2-if-derivation" aria-hidden="true">¶</a></h3>
+
+<p>The intermediate frequency results from the difference between TX and RX synthesizer frequencies:</p>
+
+<p>$$</p>
+<p>f_\text{IF} = f_\text{TX} - f_\text{RX} \tag{HW-FS-6}</p>
+<p>$$</p>
+
+<p>This equation is equivalent to Eq. (HW-RF-1) in <a href="02_rf_frontend.md#downconversion"><code>02_rf_frontend.md</code></a>, establishing the connection between the frequency synthesis and RF front-end subsystems. The IF frequency value is documented in the <a href="../00_notation/parameter_table.md#signal-processing-fpga">Parameter Table</a> and confirmed in the firmware as <code>IF_freq</code> and in the FPGA as <code>IF_FREQ</code> in <code>ddc_400m.v</code>.</p>
+
+<h3 id="3-3-pll-frequency-synthesis">3.3 PLL Frequency Synthesis<a class="ha" href="#3-3-pll-frequency-synthesis" aria-hidden="true">¶</a></h3>
+
+<p>The ADF4382 VCO operates in the 11.5--21.0 GHz range (ADF4382A variant, per <code>adf4382.h:468--469</code>). The output frequency is derived from the VCO via a programmable output divider:</p>
+
+<p>$$</p>
+<p>f_\text{out} = \frac{f_\text{VCO,ADF}}{2^{D_\text{clkout}}} \tag{HW-FS-7}</p>
+<p>$$</p>
+
+<p>where $D_\text{clkout}$ is the CLKOUT divider register value (0--4 for ADF4382, 0--2 for ADF4382A). The VCO frequency is set by the N divider and the reference frequency:</p>
+
+<p>$$</p>
+<p>f_\text{VCO,ADF} = f_\text{ref} \times \left( N_\text{INT} + \frac{\text{FRAC1}}{2^{25}} + \frac{\text{FRAC2}}{\text{MOD2} \times 2^{25}} \right) \tag{HW-FS-8}</p>
+<p>$$</p>
+
+<p>where $f_\text{ref}$ is the PFD frequency (reference clock after the R divider and optional doubler), $N_\text{INT}$ is the integer divider, and FRAC1/FRAC2/MOD2 provide fractional-N operation.</p>
+
+<h3 id="3-4-key-register-map">3.4 Key Register Map<a class="ha" href="#3-4-key-register-map" aria-hidden="true">¶</a></h3>
+
+<p>The following registers control the ADF4382 frequency synthesis and are the most important for understanding the system configuration. Register definitions from <code>adf4382.h</code>.</p>
+
+<table class="md-table"><thead><tr><th>Register</th><th>Address</th><th>Key Fields</th><th>Bits</th><th>Description</th></tr></thead><tbody><tr><td>REG0000</td><td>0x0000</td><td><code>SOFT_RESET</code>, <code>SDO_ACTIVE</code></td><td>[0], [3]</td><td>Reset (write 0x81) and SPI 3/4-wire mode</td></tr><tr><td>REG0010</td><td>0x0010</td><td><code>N_INT_LSB</code></td><td>[7:0]</td><td>Integer N divider, LSB</td></tr><tr><td>REG0011</td><td>0x0011</td><td><code>N_INT_MSB</code>, <code>CLKOUT_DIV</code></td><td>[3:0], [7:5]</td><td>Integer N divider MSB, output divider</td></tr><tr><td>REG0012--0014</td><td>0x0012--0x0014</td><td><code>FRAC1WORD</code></td><td>24-bit</td><td>Fractional-N numerator word 1</td></tr><tr><td>REG0015</td><td>0x0015</td><td><code>INT_MODE</code>, <code>PFD_POL</code></td><td>[2], [1]</td><td>Integer/fractional mode, PFD polarity</td></tr><tr><td>REG001F</td><td>0x001F</td><td><code>CP_I</code>, <code>EN_BLEED</code></td><td>[3:0], [4]</td><td>Charge pump current, bleed enable</td></tr><tr><td>REG0020</td><td>0x0020</td><td><code>R_DIV</code>, <code>EN_RDBLR</code>, <code>EN_AUTOCAL</code></td><td>[5:0], [6], [7]</td><td>R divider (max 63), ref doubler, auto-cal</td></tr><tr><td>REG002B</td><td>0x002B</td><td><code>PD_ALL</code>, <code>PD_VCO</code>, <code>PD_LD</code></td><td>[7], [4], [3]</td><td>Power-down controls</td></tr><tr><td>REG002D</td><td>0x002D</td><td><code>EN_LOL</code>, <code>EN_LDWIN</code>, <code>LD_O_CTRL</code></td><td>[5], [4], [1:0]</td><td>Lock detect configuration</td></tr><tr><td>REG0058</td><td>0x0058</td><td><code>LOCKED</code>, <code>FSM_BUSY</code></td><td>[0], [1]</td><td>PLL lock status (read-only)</td></tr></tbody></table>
+
+<h3 id="3-5-spi-interface">3.5 SPI Interface<a class="ha" href="#3-5-spi-interface" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Parameter</th><th>Value</th><th>Source</th></tr></thead><tbody><tr><td>SPI clock speed</td><td>10 MHz</td><td><code>ADF4382A_SPI_SPEED_HZ</code> in <code>adf4382a_manager.h</code></td></tr><tr><td>SPI peripheral</td><td>SPI4</td><td><code>ADF4382A_SPI_DEVICE_ID = 4</code></td></tr><tr><td>Transaction format</td><td>16-bit address (MSB = R/W) + 8-bit data</td><td><code>adf4382.h:460--463</code></td></tr><tr><td>R/W bit</td><td>Bit 15: 1 = read, 0 = write</td><td><code>ADF4382_SPI_READ_CMD = 0x8000</code></td></tr><tr><td>Buffer size</td><td>3 bytes per transaction</td><td><code>ADF4382_BUFF_SIZE_BYTES = 3</code></td></tr></tbody></table>
+
+<h3 id="3-6-synchronization-mechanism">3.6 Synchronization Mechanism<a class="ha" href="#3-6-synchronization-mechanism" aria-hidden="true">¶</a></h3>
+
+<p>The two ADF4382 synthesizers must maintain a fixed phase relationship for coherent operation. Synchronization is achieved using the <strong>timed sync</strong> mechanism via dedicated 60 MHz sync clocks:</p>
+
+<ul><li><strong>AD9523 OUT8</strong> provides the 60 MHz sync clock to the TX ADF4382 via SYNCP/SYNCN pins</li><li><strong>AD9523 OUT9</strong> provides the 60 MHz sync clock to the RX ADF4382 via SYNCP/SYNCN pins</li></ul>
+
+<p>The firmware supports two synchronization methods (defined in <code>adf4382a_manager.h</code>):</p>
+
+<table class="md-table"><thead><tr><th>Method</th><th>Enum Value</th><th>Description</th></tr></thead><tbody><tr><td>EZ-Sync</td><td><code>SYNC_METHOD_EZSYNC</code></td><td>Software synchronization via SPI <code>SW_SYNC</code> bit (REG001F[7])</td></tr><tr><td>Timed Sync</td><td><code>SYNC_METHOD_TIMED</code></td><td>Hardware synchronization using SYNCP/SYNCN pins with <code>TIMED_SYNC</code> bit (REG001E[5])</td></tr></tbody></table>
+
+<p>The timed sync method is preferred for production use as it provides deterministic phase alignment. The sync delay is configurable via <code>SYNC_DEL</code> (REG0031[7:5]).</p>
+
+<h3 id="3-7-lock-detection">3.7 Lock Detection<a class="ha" href="#3-7-lock-detection" aria-hidden="true">¶</a></h3>
+
+<p>Each ADF4382 provides a lock detect output on a dedicated GPIO pin:</p>
+
+<table class="md-table"><thead><tr><th>Synthesizer</th><th>Lock Detect GPIO</th><th>Firmware Pin</th><th>Port</th></tr></thead><tbody><tr><td>TX LO</td><td><code>TX_LKDET_Pin</code></td><td>GPIO_PIN_4</td><td>GPIOG</td></tr><tr><td>RX LO</td><td><code>RX_LKDET_Pin</code></td><td>GPIO_PIN_9</td><td>GPIOG</td></tr></tbody></table>
+
+<p>Lock status can also be read via SPI from REG0058, bit [0] (<code>LOCKED</code>). The firmware function <code>ADF4382A_CheckLockStatus()</code> reads both GPIO pins and returns the lock state of each synthesizer.</p>
+
+<p>The lock detect window and count are configured via REG002C (<code>LDWIN_PW</code> and <code>LD_COUNT_OPWR</code>).</p>
+
+<h3 id="3-8-phase-noise">3.8 Phase Noise<a class="ha" href="#3-8-phase-noise" aria-hidden="true">¶</a></h3>
+
+<p>Phase noise of the ADF4382 is critical for the AERIS-10 Doppler processing performance. Close-in phase noise sets the minimum detectable Doppler frequency shift $f_d$ and therefore the minimum detectable velocity $v$.</p>
+
+<p>The phase noise power spectral density $\mathcal{L}(f_m)$ at offset $f_m$ from the carrier (defined in the <a href="../00_notation/symbol_table.md#hardware-and-power">Symbol Table</a>) determines the noise floor against which Doppler returns must be detected. Datasheet specifications for the ADF4382A at 10.5 GHz output should be consulted for the actual phase noise profile.</p>
+
+<h3 id="3-9-chip-enable-and-phase-adjustment">3.9 Chip Enable and Phase Adjustment<a class="ha" href="#3-9-chip-enable-and-phase-adjustment" aria-hidden="true">¶</a></h3>
+
+<p>Each ADF4382 has dedicated GPIO control lines:</p>
+
+<table class="md-table"><thead><tr><th>Function</th><th>TX GPIO</th><th>RX GPIO</th><th>Description</th></tr></thead><tbody><tr><td>Chip Enable</td><td><code>TX_CE_Pin</code> (PG0)</td><td><code>RX_CE_Pin</code> (PG5)</td><td>Power enable</td></tr><tr><td>Chip Select</td><td><code>TX_CS_Pin</code> (PG1)</td><td><code>RX_CS_Pin</code> (PG6)</td><td>SPI chip select</td></tr><tr><td>Delay Adjust</td><td><code>TX_DELADJ_Pin</code> (PG2)</td><td><code>RX_DELADJ_Pin</code> (PG7)</td><td>Fine phase delay PWM</td></tr><tr><td>Delay Strobe</td><td><code>TX_DELSTR_Pin</code> (PG3)</td><td><code>RX_DELSTR_Pin</code> (PG8)</td><td>Latch phase delay</td></tr><tr><td>Lock Detect</td><td><code>TX_LKDET_Pin</code> (PG4)</td><td><code>RX_LKDET_Pin</code> (PG9)</td><td>PLL lock status</td></tr></tbody></table>
+
+<p>Fine phase adjustment is supported via the DELADJ/DELSTR pins with configurable duty cycle (<code>DELADJ_MAX_DUTY_CYCLE = 1000</code>) and pulse width (<code>DELADJ_PULSE_WIDTH_US = 10</code> microseconds). Maximum phase shift is <code>PHASE_SHIFT_MAX_PS = 10000</code> picoseconds.</p>
+
+<hr>
+
+<h2 id="4-ocxo-warm-up-requirement">4. OCXO Warm-Up Requirement<a class="ha" href="#4-ocxo-warm-up-requirement" aria-hidden="true">¶</a></h2>
+
+<p>The AERIS-10 uses an oven-controlled crystal oscillator (OCXO) as the master frequency reference. The OCXO requires a <strong>180-second warm-up period</strong> before reaching frequency stability sufficient for clock synthesis.</p>
+
+<p>This warm-up delay is implemented in the firmware as:</p>
+
+<pre><code>HAL_Delay(180000);   // main.cpp:L1237 -- 180 seconds = 3 minutes</code></pre>
+
+<p>This delay occurs at the beginning of the power-up sequence, <strong>before</strong> any clock configuration (AD9523 setup) or synthesizer initialization (ADF4382 setup). Attempting to configure the AD9523 or ADF4382 before the OCXO has stabilized will result in unreliable PLL lock and incorrect output frequencies.</p>
+
+<blockquote><strong>Pitfall Warning:</strong> This 3-minute warm-up delay is easy to overlook when analyzing system startup time. The total power-on to operational time is approximately 185--190 seconds: 180 seconds OCXO warm-up + 5--10 seconds for clock configuration, synthesizer lock, FPGA initialization, and beam calibration.</blockquote>
+
+<p>The warm-up timeline integrates into the overall power sequencing documented in <a href="06_power_management.md"><code>06_power_management.md</code></a>:</p>
+
+<p>$$</p>
+<p>t_\text{startup} = t_\text{OCXO} + t_\text{clock} + t_\text{synth} + t_\text{init} \tag{HW-FS-9}</p>
+<p>$$</p>
+
+<p>where $t_\text{OCXO} = 180~\text{s}$ is the OCXO warm-up time, $t_\text{clock}$ is the AD9523 configuration time, $t_\text{synth}$ is the ADF4382 lock acquisition time (including VCO calibration), and $t_\text{init}$ covers FPGA, ADAR1000, and beam matrix initialization.</p>
+
+<hr>
+
+<h2 id="5-references">5. References<a class="ha" href="#5-references" aria-hidden="true">¶</a></h2>
+
+<h3 id="project-documentation">Project Documentation<a class="ha" href="#project-documentation" aria-hidden="true">¶</a></h3>
+<ul><li><a href="../00_notation/symbol_table.md">Symbol Table</a> -- symbol definitions for $f_\text{VCO}$, $f_\text{IF}$, $\mathcal{L}(f_m)$, $t_\text{lock}$</li><li><a href="../00_notation/parameter_table.md">Parameter Table</a> -- canonical frequency values, clock domain specifications</li><li><a href="../00_notation/conventions.md">Conventions</a> -- equation numbering and formatting rules</li></ul>
+
+<h3 id="hardware-cross-references">Hardware Cross-References<a class="ha" href="#hardware-cross-references" aria-hidden="true">¶</a></h3>
+<ul><li><a href="01_system_overview.md"><code>01_system_overview.md</code></a> -- system-level clock domain overview (Section 4), VCO frequency derivation Eq. (HW-SYS-1) through Eq. (HW-SYS-3)</li><li><a href="02_rf_frontend.md"><code>02_rf_frontend.md</code></a> -- LT5552 mixer LO connection, AD9484 clock source, IF frequency cross-reference Eq. (HW-RF-1)</li></ul>
+
+<h3 id="firmware-sources">Firmware Sources<a class="ha" href="#firmware-sources" aria-hidden="true">¶</a></h3>
+<ul><li><code>main.cpp:924--1076</code> -- <code>configure_ad9523()</code> function: complete AD9523 clock tree configuration</li><li><code>main.cpp:1237</code> -- <code>HAL_Delay(180000)</code>: OCXO warm-up delay</li><li><code>adf4382a_manager.h</code> -- ADF4382A frequency definitions, GPIO pin assignments, SPI configuration, sync methods</li><li><code>adf4382.h</code> -- ADF4382 register map (Analog Devices no-OS driver), VCO frequency ranges, PLL specifications</li><li><code>ad9523.h</code> -- AD9523 register map (Analog Devices no-OS driver), channel configuration structures</li></ul>
+
+<h3 id="component-datasheets">Component Datasheets<a class="ha" href="#component-datasheets" aria-hidden="true">¶</a></h3>
+<ul><li>AD9523-1 -- Dual-PLL 12-output clock distribution IC (<a href="../7_Components%20Datasheets%20and%20Application%20notes/"><code>7_Components Datasheets and Application notes/</code></a>)</li><li>ADF4382A -- 62.5 MHz to 21 GHz microwave wideband synthesizer (<a href="../7_Components%20Datasheets%20and%20Application%20notes/"><code>7_Components Datasheets and Application notes/</code></a>)</li></ul>
+
+</div>
+  </div><!-- main-content -->
+</div><!-- site-shell -->
+<script>
+mermaid.initialize({ startOnLoad: true, theme: 'dark', securityLevel: 'loose' });
+</script>
+</body>
+
+</html>

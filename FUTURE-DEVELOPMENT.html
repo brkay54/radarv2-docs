@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>radarv2 — Future Development — aros Vault</title>
+<style>
+
+:root {
+  --color-blue:    #007ACC;
+  --color-green:   #2DA44E;
+  --color-yellow:  #D29922;
+  --color-purple:  #8B5CF6;
+  --color-orange:  #F59E0B;
+  --color-red:     #E5534B;
+  --color-cyan:    #0BC5EA;
+  --color-accent:  #7C3AED;
+  --text-normal:   #DCDDDE;
+  --text-muted:    #8E8EA0;
+  --background-primary:         #1E1E2E;
+  --background-secondary:       #181825;
+  --background-modifier-border: #313244;
+  --color-base-30:              #45475A;
+}
+body {
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.6;
+  margin: 0;
+}
+
+</style>
+<!-- Mermaid -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<!-- MathJax -->
+<script>window.MathJax={tex:{inlineMath:[['$','$'],['\\(','\\)']],displayMath:[['$$','$$'],['\\[','\\]']]},options:{skipHtmlTags:['script','noscript','style','textarea','pre']}};</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+<!-- Site CSS -->
+<link rel="stylesheet" href="site.css">
+</head>
+<body class="markdown-reading-view">
+<div class="site-shell">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <a href="00-Index.html" class="site-title">radarv2 / AERIS-10</a>
+      <div class="site-subtitle">aros Radar Documentation</div>
+    </div>
+    <ul class="nav-list">
+      <li class="nav-section">Core Docs</li>
+      <li><a href="09-Concepts-Primer.html">Radar Primer</a></li>
+      <li><a href="00-Index.html">Index</a></li>
+      <li><a href="01-System-Overview.html">System Overview</a></li>
+      <li><a href="02-Physics-and-Waveform.html">Physics &amp; Waveform</a></li>
+      <li><a href="03-Beamforming-and-Scan.html">Beamforming &amp; Scan</a></li>
+      <li><a href="04-Signal-Processing-Pipeline.html">Signal Processing</a></li>
+      <li><a href="05-Node-Architecture.html">Node Architecture</a></li>
+      <li><a href="06-Message-Catalog.html">Message Catalog</a></li>
+      <li><a href="07-Detection-and-Tracking.html">Detection &amp; Tracking</a></li>
+      <li><a href="08-Scenarios-and-Targets.html">Scenarios &amp; Targets</a></li>
+      <li class="nav-section">Advanced</li>
+      <li><a href="10-Radar-Model-Library.html">Radar Model Library</a></li>
+      <li><a href="11-Multi-Radar-Fusion.html">Multi-Radar Fusion</a></li>
+      <li><a href="12-3D-Scene.html">3-D Scene</a></li>
+      <li><a href="13-Reference-Tables.html">Reference Tables</a></li>
+      <li><a href="FUTURE-DEVELOPMENT.html">Future Development</a></li>
+      <li class="nav-section">Upstream Theory</li>
+      <li><a href="upstream/README.html">Upstream README</a></li>
+      <li><a href="upstream/00_notation/conventions.html">Notation</a></li>
+      <li><a href="upstream/01_physics/01_fmcw_theory.html">FMCW Theory</a></li>
+      <li><a href="upstream/01_physics/02_lfm_waveform_model.html">LFM Waveform</a></li>
+      <li><a href="upstream/01_physics/03_beamforming_theory.html">Beamforming Theory</a></li>
+      <li><a href="upstream/01_physics/04_detection_theory.html">Detection Theory</a></li>
+      <li><a href="upstream/01_physics/05_noise_analysis.html">Noise Analysis</a></li>
+      <li><a href="upstream/01_physics/06_calibration_theory.html">Calibration</a></li>
+      <li><a href="upstream/02_hardware/01_system_overview.html">HW Overview</a></li>
+      <li><a href="upstream/04_research/01_cfar_variants.html">CFAR Variants</a></li>
+    </ul>
+    <div class="sidebar-footer">
+      <a href="https://github.com/brkay54/radarv2-docs" target="_blank">GitHub</a>
+    </div>
+  </nav>
+  <div class="main-content">
+
+<div class="markdown-preview-section">
+<h1 id="radarv2-future-development">radarv2 — Future Development<a class="ha" href="#radarv2-future-development" aria-hidden="true">¶</a></h1>
+
+<div class="callout" data-callout="note"><div class="callout-title">Purpose</div><div class="callout-content"><p>Running list of post-v1 enhancements for the <code>examples/radarv2</code> AERIS-10 demo.</p>
+<p>Items here are <strong>not</strong> in the first reviewable slice; they are captured so the</p>
+<p>initial architecture leaves room for them. Each entry states the idea, why it</p>
+<p>matters, and the design hook it needs in the base implementation.</p>
+<p>See <a href="00-Index.html" class="internal-link">00-Index</a> for the full doc set; FD-1&#x27;s base seam is described in</p>
+<p><a href="08-Scenarios-and-Targets.html" class="internal-link">08-Scenarios-and-Targets</a>.</p></div></div>
+
+<hr>
+
+<h2 id="fd-1-realistic-vehicle-target-models-in-scenarios">FD-1 — Realistic vehicle / target models in scenarios<a class="ha" href="#fd-1-realistic-vehicle-target-models-in-scenarios" aria-hidden="true">¶</a></h2>
+
+<p><strong>Idea.</strong> Let a scenario declare a <em>typed vehicle</em> (e.g. a fighter jet, an</p>
+<p>airliner, a helicopter, a cruise missile, a quadrotor) instead of a hand-scripted</p>
+<p>position polyline. Each vehicle type carries realistic flight-dynamics parameters</p>
+<p>and a maneuver algorithm so that, when a scenario places a &quot;jet&quot;, it actually</p>
+<p>flies plausible jet maneuvers — accelerations, turn rates, and speeds bounded by</p>
+<p>real aircraft limits — and the radar pipeline sees a physically credible target.</p>
+
+<p><strong>Why it matters.</strong></p>
+<ul><li>Stresses the detection + (future) tracking chain with realistic kinematics:</li></ul>
+<p>  high-speed inbound, beam-aspect notch (near-zero radial velocity → MTI/Doppler</p>
+<p>  blind speed), coordinated turns, and rapid maneuvers that break constant-velocity</p>
+<p>  tracker assumptions.</p>
+<ul><li>Makes the demo a credible <em>radar scenario sandbox</em>, not just a fixed playback —</li></ul>
+<p>  scenario authors compose engagements (&quot;two jets in a pincer, one airliner</p>
+<p>  transiting&quot;) from a vehicle library.</p>
+<ul><li>Ties the synthetic RCS/Doppler return to vehicle class (a jet vs. a drone differ</li></ul>
+<p>  in RCS, speed envelope, and maneuverability), exercising the CFAR thresholds and</p>
+<p>  range/velocity-resolution limits documented in the parameter tables.</p>
+
+<p><strong>Proposed shape.</strong></p>
+<ul><li>A <code>vehicle library</code>: each vehicle type = { kinematic limits (v_min/v_max,</li></ul>
+<p>  a_max, max load factor <em>g</em>, max turn rate ω_max, climb/dive limits), nominal RCS</p>
+<p>  (and aspect-dependent RCS model), motion model }.</p>
+<ul><li><strong>Motion / maneuver models</strong> (graduated realism):</li><li><em>Waypoint + bounded kinematics</em> — follow waypoints but clamp velocity and</li></ul>
+<p>     acceleration to the vehicle envelope (coordinated-turn at ω_max).</p>
+<ul><li><em>Maneuver scripts</em> — named maneuvers (straight-and-level, weave, break turn,</li></ul>
+<p>     split-S, terrain-follow, orbit/loiter, attack run) parameterized per vehicle.</p>
+<ul><li><em>Closed-loop guidance</em> — pure-pursuit / proportional-navigation toward a goal</li></ul>
+<p>     or waypoint, integrating a 3-DoF point-mass flight model with the vehicle&#x27;s</p>
+<p>     thrust/drag/turn limits. This is the &quot;runs like a real jet&quot; tier.</p>
+<ul><li><strong>Standard target-motion models</strong> worth supporting for tracker realism:</li></ul>
+<p>  constant-velocity (CV), constant-acceleration (CA), coordinated-turn (CT), and</p>
+<p>  the Singer maneuvering-target model — these are the canonical models the</p>
+<p>  IMM/tracking literature uses and align with the upstream tracking research notes.</p>
+
+<p><strong>Design hook needed in the base implementation.</strong></p>
+<ul><li>The radarv2 scenario format (analogous to <code>examples/radar</code>&#x27;s</li></ul>
+<p>  <code>scenarios/*.scenario.yaml</code> codegen table) must allow a target entry to</p>
+<p>  reference a <strong>vehicle type id</strong> + initial state + a maneuver/route spec, not only</p>
+<p>  a precomputed trajectory. Keep the scenario→target sampling API one step removed</p>
+<p>  from &quot;fixed positions&quot; so a kinematic integrator can be dropped in later.</p>
+<ul><li>The target-generating node (the radarv2 analog of <code>radar_bpp</code>/scenario sampler)</li></ul>
+<p>  should sample target state from a <code>TargetMotion</code> interface at dwell time, so the</p>
+<p>  bounded-kinematics / guidance integrators are pluggable behind one seam.</p>
+<ul><li>Vehicle RCS/Doppler should be a function of the <em>type</em> + geometry, so the</li></ul>
+<p>  synthetic return reflects vehicle class.</p>
+
+<p class="kv-line"><span class="kv-key">Status:</span> <span class="kv-value">captured 2026-06-20. Not in the first review slice. Revisit after the</span></p>
+<p>base AERIS-10 receive pipeline + a basic scripted-trajectory scenario are running.</p>
+
+<hr>
+
+<h2 id="fd-2-physical-map-layers-dted-terrain-road-coastline-in-the-demo">FD-2 — Physical map layers (DTED terrain + road/coastline) in the demo<a class="ha" href="#fd-2-physical-map-layers-dted-terrain-road-coastline-in-the-demo" aria-hidden="true">¶</a></h2>
+
+<p><strong>Idea.</strong> Load real <strong>physical map binaries</strong> — DTED (Digital Terrain Elevation</p>
+<p>Data) tiles, <code>karayolları haritası</code> (road/highway maps), coastlines, or other</p>
+<p>geographic binaries — into the radarv2 demo so the radar operates over, and is</p>
+<p>visualized against, the actual world: terrain under the tracks in</p>
+<p>Foxglove/Lichtblick, and terrain-aware behaviour in the pipeline.</p>
+
+<p><strong>Why it matters.</strong></p>
+<ul><li><strong>Realism in the pipeline</strong>: a DTED surface gives terrain masking and a</li></ul>
+<p>  line-of-sight horizon — a target behind a ridge or below the radar horizon is</p>
+<p>  occluded, and ground returns become terrain-shaped clutter rather than a flat</p>
+<p>  noise floor. This stresses CFAR (<a href="07-Detection-and-Tracking.html" class="internal-link">07-Detection-and-Tracking</a>) against real</p>
+<p>  clutter and makes <span class="wikilink-unresolved">scenarios</span> (sea-skimmers,</p>
+<p>  terrain-following jets) behave credibly.</p>
+<ul><li><strong>Visualization</strong>: rendering DTED + roads/coastline beneath the</li></ul>
+<p>  <span class="wikilink-unresolved">TargetReport</span> in Lichtblick is exactly the</p>
+<p>  &quot;see those physical maps inside this demo&quot; the operator wants — geographic</p>
+<p>  context for the air picture.</p>
+<ul><li><strong>Geodetic grounding</strong>: the polar→ENU→geodetic transform (<a href="05-Node-Architecture.html" class="internal-link">05-Node-Architecture</a>)</li></ul>
+<p>  gets a real backdrop to place targets on.</p>
+
+<p><strong>Proposed shape.</strong></p>
+<ul><li>A <code>terrain_provider</code> / <code>map_provider</code> node loads DTED tiles + vector maps at</li></ul>
+<p>  <code>on_configure</code> and serves: (a) a terrain-height + occlusion query to</p>
+<p>  <code>RxSynthesizer</code>/<code>CfarDetector</code> (masking, clutter), and (b) a static map layer to</p>
+<p>  the visualization (a one-shot <code>MapLayer</code> message or a Foxglove scene asset).</p>
+<ul><li>DTED is a well-defined binary (SRTM-style elevation grid, fixed posting); road/</li></ul>
+<p>  coastline can be a simple packed polyline binary. Both are read once, cold path.</p>
+
+<div class="callout" data-callout="warning"><div class="callout-title">Blocked on a core capability — ASSET-01</div><div class="callout-content"><p>aros has <strong>no proper node asset/file-loading mechanism today</strong> (no OSAL</p>
+<p>filesystem primitive; the only file I/O is the quarantined MCAP replay path; a</p>
+<p>raw <code>ifstream</code> in <code>on_configure</code> breaks the no-exceptions-in-core and</p>
+<p>portability conventions). FD-2 therefore depends on <strong>ASSET-01</strong> on the aros</p>
+<p>roadmap (<code>.planning/ROADMAP.md</code> Backlog; full spec + code pointers in</p>
+<p><code>aros/BACKLOG.md</code>): an OSAL read primitive + manifest-resolved asset</p>
+<p>dependencies + asset bundling. Interim: radarv2 may ship a Linux-only <code>ifstream</code></p>
+<p>loader, clearly marked non-portable, until ASSET-01 lands.</p></div></div>
+
+<p class="kv-line"><span class="kv-key">Status:</span> <span class="kv-value">captured 2026-06-20. Pairs naturally with FD-1 (terrain-following /</span></p>
+<p>low-altitude vehicle maneuvers need the terrain surface).</p>
+
+<div class="callout" data-callout="success"><div class="callout-title">Shipped (FD-2, R5 + this milestone)</div><div class="callout-content"><p>The MapProvider half landed in R5 (synthetic ridge tile + <code>MapLayer</code> over SHM +</p>
+<p>CfarDetector terrain masking + RS1 terrain-shaped clutter). FD-2 then made the</p>
+<p>map <strong>proper and at scale</strong>:</p>
+<ul><li><strong>Proper DTED</strong> — <code>radarv2_utils/asset/dted.hpp</code> parses the real MIL-PRF-89020B</li></ul>
+<p>  image (UHL/DSI/ACC headers + per-column records of big-endian <em>signed-magnitude</em></p>
+<p>  posts) into the ENU height grid; MapProvider bilinear-resamples it to the 64×64</p>
+<p>  tile (falling back to the ASSET-01 interim raw-int16 loader). Replaces the</p>
+<p>  raw-blob stand-in.</p>
+<ul><li><strong>At-scale terrain</strong> — <code>radarv2_utils/radar/terrain_gen.hpp</code> <code>fbmHeight</code> is a</li></ul>
+<p>  deterministic multi-octave (fBm) value-noise heightfield; MapProvider&#x27;s</p>
+<p>  <code>terrain_mode: fractal</code> fills the whole tile with varied rolling relief instead</p>
+<p>  of one Gaussian ridge (ridge stays the default → no regression).</p>
+<ul><li><strong>Land-cover clutter</strong> — the RS1 clutter model gains optional sea/land typing</li></ul>
+<p>  (a patch at/below <code>sea_level_m</code> uses the weaker <code>sea_gamma_db</code>), so a coastline</p>
+<p>  tile returns strong land clutter and a quiet sea.</p>
+
+<p>Still open (true ASSET-01): an OSAL <code>readFile</code>/<code>MappedFile</code> primitive +</p>
+<p>manifest-resolved asset bundling (tracked as <strong>INF1</strong>); road/coastline vector</p>
+<p>features beyond the single demo road; live Lichtblick terrain rendering (FD-5).</p></div></div>
+
+<hr>
+
+<h2 id="fd-3-radar-model-library-real-professional-radars-selectable-definable">FD-3 — Radar model library (real professional radars, selectable &amp; definable)<a class="ha" href="#fd-3-radar-model-library-real-professional-radars-selectable-definable" aria-hidden="true">¶</a></h2>
+
+<p><strong>Idea.</strong> Refactor radarv2 from &quot;model the one AERIS-10 hobby radar&quot; into a</p>
+<p><strong>model-driven</strong> simulation: a library of <strong>real, recognizable professional radars</strong></p>
+<p>(≥ 5–6, specs sourced from the open literature) plus AERIS-10, each captured as a</p>
+<p><strong>radar definition</strong> (a parameter profile). A demo author selects a radar by model</p>
+<p>name, and can define new ones by writing a profile — no code changes.</p>
+
+<p><strong>Why it matters.</strong> Makes radarv2 a credible radar sandbox: the same node graph runs</p>
+<p>as an S-band naval phased array, an X-band AESA fire-control, an L-band volume-search</p>
+<p>set, etc., just by swapping the model. Different bands/beamwidths/PRFs exercise the</p>
+<p>DSP and detection chain across realistic regimes.</p>
+
+<p><strong>Proposed shape.</strong></p>
+<ul><li>A <code>radar definition</code> schema (extends the per-node params): band/center frequency →</li></ul>
+<p>  wavelength, bandwidth → range resolution, beamwidth → angular resolution, PRF/CPI →</p>
+<p>  velocity resolution + ambiguity, instrumented range → SNR budget, scan type</p>
+<p>  (mechanical rpm / electronic) + revisit rate, antenna type (PESA/AESA), array size.</p>
+<ul><li>Candidate library (real radars, public specs — see the web-research digest in</li></ul>
+<p>  <code>examples/radarv2/.design/</code>): e.g. AN/SPY-1 (S-band PESA), AN/TPY-2 (X-band AESA),</p>
+<p>  Thales SMART-L (L-band), Ground Master 400 (S-band AESA), Saab Giraffe (C-band),</p>
+<p>  AN/APG-81 (X-band airborne AESA) — plus AERIS-10 (X-band hobby).</p>
+<ul><li><code>ScanController</code>/<code>RxSynthesizer</code>/<code>CfarDetector</code> already read waveform + geometry from</li></ul>
+<p>  params/<code>ScanCommand</code>; FD-3 generalizes those into a named model profile so the whole</p>
+<p>  pipeline is model-parameterized.</p>
+
+<p class="kv-line"><span class="kv-key">Design hook (v1):</span> <span class="kv-value">keep every physical constant (fc, B, beamwidth, PRF, Rmax, scan</span></p>
+<p>rate) in the <strong>parameter profile</strong>, never hard-coded — so a model is data, not code.</p>
+
+<div class="callout" data-callout="success"><div class="callout-title">Shipped (FD-3)</div><div class="callout-content"><p>The library is realized: <strong>twelve</strong> profiles under <code>config/radars/*.profile.yaml</code></p>
+<p>(<code>spy1 / tpy2 / smartl / gm400 / giraffe / apg81 / fps117 / aeris10</code> + the ASELSAN fleet</p>
+<p>models <code>kalkan2 / alp300 / alp100 / eirs</code>), each selectable by model name from a fleet.</p>
+<p>The <code>library</code> showcase fleet runs five across four bands together; <code>radarv2 list radars</code></p>
+<p>enumerates them, and the <code>RadarProfileLibrary</code> ctest gates every profile&#x27;s schema +</p>
+<p>instantiability. Full write-up: <a href="10-Radar-Model-Library.html" class="internal-link">10-Radar-Model-Library</a>.</p></div></div>
+
+<h2 id="fd-4-multiple-radars-running-together-data-fusion-central-control">FD-4 — Multiple radars running together + data fusion + central control<a class="ha" href="#fd-4-multiple-radars-running-together-data-fusion-central-control" aria-hidden="true">¶</a></h2>
+
+<p><strong>Idea.</strong> Run <strong>several radar instances simultaneously</strong> (different models and/or</p>
+<p>sites), <strong>fuse</strong> their detections/tracks into one common operating picture for the end</p>
+<p>user, and <strong>control all radars centrally</strong> (start/stop, mode, scan sector) from one place.</p>
+
+<p><strong>Why it matters.</strong> This is the real operational value: a layered, multi-sensor air</p>
+<p>picture. Fusion resolves the same target seen by multiple radars into one track with</p>
+<p>better accuracy and coverage; central control commands the whole network.</p>
+
+<p><strong>Proposed shape.</strong></p>
+<ul><li><strong>Multi-instance deployment</strong>: instantiate the radar node graph N times (one DKM set</li></ul>
+<p>  per radar instance, distinct diagtree roots <code>/AERIS10/&lt;radar_id&gt;/…</code>), each with its</p>
+<p>  own model profile + site pose. Static manifest (fits ADR-004) — N is a deploy choice.</p>
+<ul><li><strong>FusionCenter node</strong>: subscribes to every radar&#x27;s <code>TargetReport</code>/detections,</li></ul>
+<p>  transforms each into a common ENU/geodetic frame, associates across radars (GNN/track-</p>
+<p>  to-track), and publishes a fused <code>CommonPicture</code> (unified tracks + which radars</p>
+<p>  contributed). This is the multi-radar analog of the existing <code>examples/radar</code></p>
+<p>  associator/tracker, lifted to the inter-radar level.</p>
+<ul><li><strong>ControlCenter node</strong> (or a control topic): broadcasts commands to all radars</li></ul>
+<p>  (start/stop, waveform/mode, scan sector, revisit) and aggregates health — the central</p>
+<p>  operator seat.</p>
+<ul><li>Track <strong>prediction</strong> (CV/CA/IMM, pairs with <span class="wikilink-unresolved">FD-1</span>) so the fused</li></ul>
+<p>  picture shows predicted positions, not just last-seen.</p>
+
+<p class="kv-line"><span class="kv-key">Design hook (v1):</span> <span class="kv-value">define <code>TargetReport</code> in a <strong>common world frame</strong> (ENU/geodetic,</span></p>
+<p>already the case) so fusion needs no per-radar special-casing; give each radar a unique</p>
+<p>id namespace.</p>
+
+<div class="callout" data-callout="success"><div class="callout-title">Shipped (FD-4, Linux-verified)</div><div class="callout-content"><p>Built with two deliberate departures from the sketch above, both intentional:</p>
+<ul><li><strong>Distributed, not centralized</strong> — every radar runs its <strong>own</strong> <code>FusionCenter</code></li></ul>
+<p>  (Covariance Intersection over its own + every peer&#x27;s world-track reports) and its own</p>
+<p>  <code>ControlCenter</code> (closed-loop cue: pick the priority fused threat, emit a <code>RadarControl</code></p>
+<p>  <code>set_sector</code> so the staring beam follows the fused picture). No single fusion/control</p>
+<p>  process to lose.</p>
+<ul><li><strong>Dynamic fleet size (config, not compiled)</strong> — the <code>FusionCenter</code> reads a <code>peer_tracks</code></li></ul>
+<p>  list (filled by the spine generator) and maps each transport <code>source_id</code> to a</p>
+<p>  contributor bit; any fleet up to 32 works with no code change.</p>
+<p>The tracking that feeds fusion (<code>PlotConditioner</code> → <code>TrackManager</code>, RT0–6) is also</p>
+<p>shipped. Full write-up: <a href="11-Multi-Radar-Fusion.html" class="internal-link">11-Multi-Radar-Fusion</a>.</p></div></div>
+
+<h2 id="fd-5-3d-visualization-in-lichtblick-objects-beams-signals-detections-predictions">FD-5 — 3D visualization in Lichtblick (objects, beams, signals, detections, predictions)<a class="ha" href="#fd-5-3d-visualization-in-lichtblick-objects-beams-signals-detections-predictions" aria-hidden="true">¶</a></h2>
+
+<p><strong>Idea.</strong> A rich <strong>3D scene</strong> in Lichtblick (the vendored <code>tools/lichtblick</code>) showing</p>
+<p>the whole engagement: platform/radar <strong>sites</strong>, the <strong>beams</strong> (steered cones/wedges) and</p>
+<p><strong>signals</strong>, live <strong>detections</strong>, <strong>predicted tracks</strong>, and **target models rendered as</p>
+<p>3D objects<strong> — fighters, helicopters, etc. — with </strong>multiple radar models** visible</p>
+<p>together.</p>
+
+<p><strong>Why it matters.</strong> &quot;See the objects in 3D&quot; is the payoff: an operator-grade view of</p>
+<p>beams sweeping, returns lighting up, tracks predicting ahead, across a multi-radar</p>
+<p>network — far more legible than 2-D panels.</p>
+
+<p><strong>Proposed shape.</strong></p>
+<ul><li>A scene-builder (a Lichtblick <strong>User Script</strong>, like <code>examples/radar</code>&#x27;s</li></ul>
+<p>  <code>tracks_scene.user.ts</code>) converting the fused <code>CommonPicture</code> + per-radar state into a</p>
+<p>  <code>foxglove.SceneUpdate</code>: radar sites as models, beams as translucent cone/wedge</p>
+<p>  primitives oriented by the current az/el, detections as points, tracks as labelled</p>
+<p>  arrows with predicted-position trails, and <strong>target meshes</strong> keyed by vehicle class</p>
+<p>  (jet/helicopter/airliner/drone — pairs with <span class="wikilink-unresolved">FD-1</span>).</p>
+<ul><li>Multiple radars distinguished by colour/namespace; the DTED/road map (<span class="wikilink-unresolved">FD-2</span>)</li></ul>
+<p>  as the ground layer.</p>
+<ul><li>Drive it over the <code>aros-foxglove-bridge</code>, the same path the existing demo uses.</li></ul>
+
+<p class="kv-line"><span class="kv-key">Design hook (v1):</span> <span class="kv-value">publish everything the scene needs as typed aros messages in a</span></p>
+<p><strong>world frame</strong> (poses, beam az/el, detections, tracks, vehicle class) so the scene</p>
+<p>builder is a pure transform with no hidden state.</p>
+
+<div class="callout" data-callout="note"><div class="callout-title">Status — PENDING (FD-5)</div><div class="callout-content"><p>FD-3 (model library) and FD-4 (multi-radar fusion + control) are <strong>shipped</strong>; the rich</p>
+<p>3-D Lichtblick scene is the remaining FD item. The data it consumes (per-radar beam</p>
+<p>state, <code>DetectionReport</code>, tracks, fused <code>CommonPicture</code>, <code>MapLayer</code>) is already published</p>
+<p>as world-frame messages, so the scene builder stays a pure transform when it lands. The</p>
+<p>design is written up in <a href="12-3D-Scene.html" class="internal-link">12-3D-Scene</a>.</p></div></div>
+
+<hr>
+
+<h2 id="fd-6-foxglove-schema-bridge">FD-6 — Foxglove schema bridge<a class="ha" href="#fd-6-foxglove-schema-bridge" aria-hidden="true">¶</a></h2>
+
+<p><strong>Idea.</strong> A schema bridge that exposes radarv2&#x27;s typed aros messages to Foxglove /</p>
+<p>Lichtblick with their own well-known schemas (so panels bind natively rather than</p>
+<p>through a hand-written User Script), pairing with the FD-5 3-D scene.</p>
+
+<p class="kv-line"><span class="kv-key">Status:</span> <span class="kv-value">planned. The current path serves Foxglove-native MCAP bags (<code>radarv2 record</code> /</span></p>
+<p><code>replay</code>) and a live <code>aros-foxglove-bridge</code>; FD-6 adds the schema mapping layer.</p>
+
+<hr>
+
+<div class="callout" data-callout="note"><div class="callout-title">Loadable binary assets (shipped, cross-cutting)</div><div class="callout-content"><p>Three build-time binary tables now load at <code>on_configure</code> like the DTED tile: the DTED</p>
+<p>terrain tile (<code>MapProvider</code>), the matched-filter reference bank (<code>PulseCompressor</code>, param</p>
+<p><code>matched_filter_table</code>, generator <code>scripts/gen_matched_filter_table.py</code>), and the</p>
+<p>monopulse ratio→angle DF table (<code>CfarDetector</code>, param <code>df_table</code>, generator</p>
+<p><code>scripts/gen_df_table.py</code>). Each falls back to in-code synthesis when absent. See</p>
+<p><span class="wikilink-unresolved">R9</span>.</p></div></div>
+
+<p>&lt;!-- Add new future-development items below as FD-7, FD-8, ... --&gt;</p>
+
+</div>
+  </div><!-- main-content -->
+</div><!-- site-shell -->
+<script>
+mermaid.initialize({ startOnLoad: true, theme: 'dark', securityLevel: 'loose' });
+</script>
+</body>
+
+</html>

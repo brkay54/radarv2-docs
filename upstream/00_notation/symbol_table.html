@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>symbol_table — aros Vault</title>
+<style>
+
+:root {
+  --color-blue:    #007ACC;
+  --color-green:   #2DA44E;
+  --color-yellow:  #D29922;
+  --color-purple:  #8B5CF6;
+  --color-orange:  #F59E0B;
+  --color-red:     #E5534B;
+  --color-cyan:    #0BC5EA;
+  --color-accent:  #7C3AED;
+  --text-normal:   #DCDDDE;
+  --text-muted:    #8E8EA0;
+  --background-primary:         #1E1E2E;
+  --background-secondary:       #181825;
+  --background-modifier-border: #313244;
+  --color-base-30:              #45475A;
+}
+body {
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.6;
+  margin: 0;
+}
+
+</style>
+<!-- Mermaid -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<!-- MathJax -->
+<script>window.MathJax={tex:{inlineMath:[['$','$'],['\\(','\\)']],displayMath:[['$$','$$'],['\\[','\\]']]},options:{skipHtmlTags:['script','noscript','style','textarea','pre']}};</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+<!-- Site CSS -->
+<link rel="stylesheet" href="../../site.css">
+</head>
+<body class="markdown-reading-view">
+<div class="site-shell">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <a href="../../00-Index.html" class="site-title">radarv2 / AERIS-10</a>
+      <div class="site-subtitle">aros Radar Documentation</div>
+    </div>
+    <ul class="nav-list">
+      <li class="nav-section">Core Docs</li>
+      <li><a href="../../09-Concepts-Primer.html">Radar Primer</a></li>
+      <li><a href="../../00-Index.html">Index</a></li>
+      <li><a href="../../01-System-Overview.html">System Overview</a></li>
+      <li><a href="../../02-Physics-and-Waveform.html">Physics &amp; Waveform</a></li>
+      <li><a href="../../03-Beamforming-and-Scan.html">Beamforming &amp; Scan</a></li>
+      <li><a href="../../04-Signal-Processing-Pipeline.html">Signal Processing</a></li>
+      <li><a href="../../05-Node-Architecture.html">Node Architecture</a></li>
+      <li><a href="../../06-Message-Catalog.html">Message Catalog</a></li>
+      <li><a href="../../07-Detection-and-Tracking.html">Detection &amp; Tracking</a></li>
+      <li><a href="../../08-Scenarios-and-Targets.html">Scenarios &amp; Targets</a></li>
+      <li class="nav-section">Advanced</li>
+      <li><a href="../../10-Radar-Model-Library.html">Radar Model Library</a></li>
+      <li><a href="../../11-Multi-Radar-Fusion.html">Multi-Radar Fusion</a></li>
+      <li><a href="../../12-3D-Scene.html">3-D Scene</a></li>
+      <li><a href="../../13-Reference-Tables.html">Reference Tables</a></li>
+      <li><a href="../../FUTURE-DEVELOPMENT.html">Future Development</a></li>
+      <li class="nav-section">Upstream Theory</li>
+      <li><a href="../../upstream/README.html">Upstream README</a></li>
+      <li><a href="../../upstream/00_notation/conventions.html">Notation</a></li>
+      <li><a href="../../upstream/01_physics/01_fmcw_theory.html">FMCW Theory</a></li>
+      <li><a href="../../upstream/01_physics/02_lfm_waveform_model.html">LFM Waveform</a></li>
+      <li><a href="../../upstream/01_physics/03_beamforming_theory.html">Beamforming Theory</a></li>
+      <li><a href="../../upstream/01_physics/04_detection_theory.html">Detection Theory</a></li>
+      <li><a href="../../upstream/01_physics/05_noise_analysis.html">Noise Analysis</a></li>
+      <li><a href="../../upstream/01_physics/06_calibration_theory.html">Calibration</a></li>
+      <li><a href="../../upstream/02_hardware/01_system_overview.html">HW Overview</a></li>
+      <li><a href="../../upstream/04_research/01_cfar_variants.html">CFAR Variants</a></li>
+    </ul>
+    <div class="sidebar-footer">
+      <a href="https://github.com/brkay54/radarv2-docs" target="_blank">GitHub</a>
+    </div>
+  </nav>
+  <div class="main-content">
+
+<div class="markdown-preview-section">
+<h1 id="aeris-10-project-wide-symbol-table">AERIS-10 Project-Wide Symbol Table<a class="ha" href="#aeris-10-project-wide-symbol-table" aria-hidden="true">¶</a></h1>
+
+<p class="kv-line"><span class="kv-key">Purpose:</span> <span class="kv-value">This is the <strong>single authoritative source</strong> for all mathematical symbols used across the AERIS-10 documentation set. Every symbol appearing in any project document must be defined here. No ad-hoc symbol definitions are permitted.</span></p>
+
+<p class="kv-line"><span class="kv-key">Notation authority:</span> <span class="kv-value">IEEE 686-2024 (IEEE Standard Radar Definitions) is the primary reference for terminology. Where IEEE 686 does not specify a symbol, standard radar textbook conventions (Skolnik, Richards) are used.</span></p>
+
+<p class="kv-line"><span class="kv-key">Formatting rules:</span> <span class="kv-value">See <a href="conventions.md"><code>conventions.md</code></a> for equation numbering, cross-reference format, and MathJax usage guidelines.</span></p>
+
+<p class="kv-line"><span class="kv-key">Numerical values:</span> <span class="kv-value">This table defines symbols and their meanings only. For actual parameter values (both AERIS-10 Nexus and Extended variants), see <a href="parameter_table.md"><code>parameter_table.md</code></a>.</span></p>
+
+<hr>
+
+<h2 id="1-waveform-and-timing-parameters">1. Waveform and Timing Parameters<a class="ha" href="#1-waveform-and-timing-parameters" aria-hidden="true">¶</a></h2>
+
+<table class="md-table"><thead><tr><th>Symbol</th><th>Definition</th><th>Units</th><th>IEEE 686 Ref</th></tr></thead><tbody><tr><td>$f_c$</td><td>Center (carrier) frequency</td><td>Hz</td><td>carrier frequency</td></tr><tr><td>$B$</td><td>Chirp bandwidth (sweep range)</td><td>Hz</td><td>bandwidth</td></tr><tr><td>$T_c$</td><td>Chirp duration (pulse width)</td><td>s</td><td>pulse duration</td></tr><tr><td>$T_{c,1}$</td><td>Long chirp duration</td><td>s</td><td>--</td></tr><tr><td>$T_{c,2}$</td><td>Short chirp duration</td><td>s</td><td>--</td></tr><tr><td>$\mu$</td><td>Chirp rate (sweep slope), $\mu = B / T_c$</td><td>Hz/s</td><td>chirp rate</td></tr><tr><td>$f_b$</td><td>Beat frequency (IF after dechirp)</td><td>Hz</td><td>beat frequency</td></tr><tr><td>$f_r$</td><td>Pulse repetition frequency (PRF)</td><td>Hz</td><td>pulse repetition frequency</td></tr><tr><td>$f_{r,1}$</td><td>PRF for long chirp mode</td><td>Hz</td><td>--</td></tr><tr><td>$f_{r,2}$</td><td>PRF for short chirp mode</td><td>Hz</td><td>--</td></tr><tr><td>$T_r$</td><td>Pulse repetition interval (PRI), $T_r = 1/f_r$</td><td>s</td><td>pulse repetition interval</td></tr><tr><td>$T_{r,1}$</td><td>PRI for long chirp mode</td><td>s</td><td>--</td></tr><tr><td>$T_{r,2}$</td><td>PRI for short chirp mode</td><td>s</td><td>--</td></tr><tr><td>$\tau$</td><td>Round-trip delay, $\tau = 2R/c$</td><td>s</td><td>--</td></tr><tr><td>$T_\text{guard}$</td><td>Guard time between chirp sequences</td><td>s</td><td>--</td></tr><tr><td>$M$</td><td>Number of chirps per CPI (per beam position)</td><td>--</td><td>--</td></tr></tbody></table>
+
+<h2 id="2-range-and-velocity">2. Range and Velocity<a class="ha" href="#2-range-and-velocity" aria-hidden="true">¶</a></h2>
+
+<table class="md-table"><thead><tr><th>Symbol</th><th>Definition</th><th>Units</th><th>IEEE 686 Ref</th></tr></thead><tbody><tr><td>$R$</td><td>Range to target</td><td>m</td><td>range</td></tr><tr><td>$R_\text{max}$</td><td>Maximum unambiguous range</td><td>m</td><td>--</td></tr><tr><td>$\Delta R$</td><td>Range resolution</td><td>m</td><td>range resolution</td></tr><tr><td>$v$</td><td>Target radial velocity</td><td>m/s</td><td>radial velocity</td></tr><tr><td>$f_d$</td><td>Doppler frequency shift</td><td>Hz</td><td>Doppler frequency</td></tr><tr><td>$\Delta v$</td><td>Velocity resolution</td><td>m/s</td><td>--</td></tr><tr><td>$c$</td><td>Speed of light, $c \approx 2.998 \times 10^8~\text{m/s}$</td><td>m/s</td><td>--</td></tr><tr><td>$\lambda$</td><td>Wavelength, $\lambda = c / f_c$</td><td>m</td><td>wavelength</td></tr></tbody></table>
+
+<h2 id="3-antenna-and-beamforming">3. Antenna and Beamforming<a class="ha" href="#3-antenna-and-beamforming" aria-hidden="true">¶</a></h2>
+
+<table class="md-table"><thead><tr><th>Symbol</th><th>Definition</th><th>Units</th><th>IEEE 686 Ref</th></tr></thead><tbody><tr><td>$N$</td><td>Number of array elements</td><td>--</td><td>--</td></tr><tr><td>$N_\text{el}$</td><td>Number of beam elevation positions</td><td>--</td><td>--</td></tr><tr><td>$N_\text{az}$</td><td>Number of azimuth positions per revolution</td><td>--</td><td>--</td></tr><tr><td>$d$</td><td>Inter-element spacing</td><td>m</td><td>element spacing</td></tr><tr><td>$\theta$</td><td>Beam steering angle from broadside</td><td>rad or deg</td><td>scan angle</td></tr><tr><td>$\Delta\phi$</td><td>Phase shift per element</td><td>rad or deg</td><td>--</td></tr><tr><td>$\Delta\phi_n$</td><td>Phase difference for elevation position $n$</td><td>rad or deg</td><td>--</td></tr><tr><td>$G$</td><td>Antenna gain (combined Tx/Rx unless subscripted)</td><td>dBi</td><td>antenna gain</td></tr><tr><td>$G_t$</td><td>Transmit antenna gain</td><td>dBi</td><td>--</td></tr><tr><td>$G_r$</td><td>Receive antenna gain</td><td>dBi</td><td>--</td></tr><tr><td>$k$</td><td>Wavenumber, $k = 2\pi/\lambda$</td><td>rad/m</td><td>wavenumber</td></tr><tr><td>$\psi$</td><td>Electrical angle, $\psi = kd\sin\theta + \Delta\phi$</td><td>rad</td><td>--</td></tr><tr><td>$\theta_0$</td><td>Beam steering angle (desired)</td><td>rad or deg</td><td>scan angle</td></tr><tr><td>$\theta_{3\text{dB}}$</td><td>Half-power beamwidth</td><td>rad or deg</td><td>beamwidth</td></tr><tr><td>$w_n$</td><td>Amplitude weight for array element $n$ (dimensionless). Applying a window function $w[n]$ to the array is equivalent to amplitude tapering with weights $w_n = w[n]$.</td><td>--</td><td>--</td></tr><tr><td>$a_n$</td><td>Nominal amplitude weight for element $n$</td><td>--</td><td>--</td></tr><tr><td>$\delta\phi_n$</td><td>Phase error for element $n$</td><td>rad</td><td>--</td></tr><tr><td>$\delta a_n$</td><td>Amplitude error for element $n$</td><td>--</td><td>--</td></tr><tr><td>$AF(\theta)$</td><td>Array factor as function of angle</td><td>--</td><td>array factor</td></tr></tbody></table>
+
+<h2 id="4-detection-and-signal">4. Detection and Signal<a class="ha" href="#4-detection-and-signal" aria-hidden="true">¶</a></h2>
+
+<table class="md-table"><thead><tr><th>Symbol</th><th>Definition</th><th>Units</th><th>IEEE 686 Ref</th></tr></thead><tbody><tr><td>$P_t$</td><td>Transmit power (per element)</td><td>W</td><td>transmitted power</td></tr><tr><td>$P_r$</td><td>Received power</td><td>W</td><td>received power</td></tr><tr><td>$\sigma$</td><td>Radar cross section (RCS)</td><td>m$^2$</td><td>radar cross section</td></tr><tr><td>$L$</td><td>Total system losses (linear ratio)</td><td>--</td><td>system loss</td></tr><tr><td>$F$</td><td>Noise figure (linear ratio)</td><td>--</td><td>noise figure</td></tr><tr><td>$\text{NF}$</td><td>Noise figure (dB scale)</td><td>dB</td><td>--</td></tr><tr><td>$T_0$</td><td>Reference noise temperature, $T_0 = 290~\text{K}$</td><td>K</td><td>--</td></tr><tr><td>$k_B$</td><td>Boltzmann constant, $k_B = 1.381 \times 10^{-23}~\text{J/K}$</td><td>J/K</td><td>--</td></tr><tr><td>$P_{fa}$</td><td>Probability of false alarm</td><td>--</td><td>false alarm probability</td></tr><tr><td>$P_d$</td><td>Probability of detection</td><td>--</td><td>detection probability</td></tr><tr><td>$\text{SNR}$</td><td>Signal-to-noise ratio</td><td>dB</td><td>signal-to-noise ratio</td></tr><tr><td>$\alpha$</td><td>CFAR threshold multiplier</td><td>--</td><td>--</td></tr><tr><td>$N_\text{ref}$</td><td>Number of CFAR reference cells, total</td><td>--</td><td>--</td></tr><tr><td>$N_\text{guard}$</td><td>Number of CFAR guard cells, total</td><td>--</td><td>--</td></tr><tr><td>$T_e$</td><td>Equivalent noise temperature</td><td>K</td><td>noise temperature</td></tr><tr><td>$B_n$</td><td>Noise bandwidth</td><td>Hz</td><td>noise bandwidth</td></tr><tr><td>$\text{SNR}_\text{min}$</td><td>Minimum detectable SNR</td><td>dB</td><td>--</td></tr></tbody></table>
+
+<h2 id="5-signal-processing">5. Signal Processing<a class="ha" href="#5-signal-processing" aria-hidden="true">¶</a></h2>
+
+<table class="md-table"><thead><tr><th>Symbol</th><th>Definition</th><th>Units</th><th>IEEE 686 Ref</th></tr></thead><tbody><tr><td>$f_s$</td><td>ADC sampling frequency</td><td>Hz</td><td>sampling rate</td></tr><tr><td>$f_\text{IF}$</td><td>Intermediate frequency</td><td>Hz</td><td>intermediate frequency</td></tr><tr><td>$N_\text{FFT}$</td><td>FFT size (range dimension)</td><td>--</td><td>--</td></tr><tr><td>$N_\text{Doppler}$</td><td>Doppler FFT size</td><td>--</td><td>--</td></tr><tr><td>$N_R$</td><td>Number of range bins</td><td>--</td><td>--</td></tr><tr><td>$N_\text{CIC}$</td><td>CIC filter stages</td><td>--</td><td>--</td></tr><tr><td>$D_\text{CIC}$</td><td>CIC decimation factor</td><td>--</td><td>--</td></tr><tr><td>$w[n]$</td><td>Window function (discrete)</td><td>--</td><td>--</td></tr><tr><td>$\chi(\tau, \nu)$</td><td>Ambiguity function</td><td>--</td><td>--</td></tr></tbody></table>
+
+<h2 id="6-software-signal-processing">6. Software Signal Processing<a class="ha" href="#6-software-signal-processing" aria-hidden="true">¶</a></h2>
+
+<table class="md-table"><thead><tr><th>Symbol</th><th>Definition</th><th>Units</th><th>IEEE 686 Ref</th></tr></thead><tbody><tr><td>$\Delta\phi_\text{NCO}$</td><td>NCO phase accumulator increment per clock cycle</td><td>--</td><td>--</td></tr><tr><td>$G_\text{CIC}$</td><td>CIC filter DC gain, $G_\text{CIC} = D_\text{CIC}^{N_\text{CIC}}$</td><td>--</td><td>--</td></tr><tr><td>$N_\text{seg}$</td><td>Number of overlap-save segments for matched filter</td><td>--</td><td>--</td></tr><tr><td>$L_\text{adv}$</td><td>Overlap-save segment advance length</td><td>samples</td><td>--</td></tr><tr><td>$L_\text{overlap}$</td><td>Overlap-save overlap length</td><td>samples</td><td>--</td></tr><tr><td>$N_\text{rb}$</td><td>Number of output range bins after decimation</td><td>--</td><td>--</td></tr><tr><td>$D_\text{rb}$</td><td>Range bin decimation factor</td><td>--</td><td>--</td></tr></tbody></table>
+
+<h2 id="8-hardware-and-power">8. Hardware and Power<a class="ha" href="#8-hardware-and-power" aria-hidden="true">¶</a></h2>
+
+<table class="md-table"><thead><tr><th>Symbol</th><th>Definition</th><th>Units</th><th>IEEE 686 Ref</th></tr></thead><tbody><tr><td>$V_\text{rail}$</td><td>Voltage rail value</td><td>V</td><td>--</td></tr><tr><td>$I_\text{rail}$</td><td>Current draw per rail</td><td>A</td><td>--</td></tr><tr><td>$P_\text{diss}$</td><td>Power dissipation</td><td>W</td><td>--</td></tr><tr><td>$T_\text{junction}$</td><td>Junction temperature</td><td>C or K</td><td>--</td></tr><tr><td>$\theta_{JA}$</td><td>Thermal resistance, junction-to-ambient</td><td>C/W or K/W</td><td>--</td></tr><tr><td>$t_\text{lock}$</td><td>PLL lock time</td><td>s</td><td>lock time</td></tr><tr><td>$\mathcal{L}(f_m)$</td><td>Phase noise at offset $f_m$ from carrier</td><td>dBc/Hz</td><td>phase noise</td></tr><tr><td>$t_\text{pipeline}$</td><td>End-to-end pipeline latency</td><td>s</td><td>--</td></tr><tr><td>$N_\text{LUT}$</td><td>FPGA look-up table count</td><td>--</td><td>--</td></tr><tr><td>$N_\text{FF}$</td><td>FPGA flip-flop count</td><td>--</td><td>--</td></tr><tr><td>$N_\text{BRAM}$</td><td>FPGA Block RAM count</td><td>--</td><td>--</td></tr><tr><td>$N_\text{DSP}$</td><td>FPGA DSP48E1 slice count</td><td>--</td><td>--</td></tr></tbody></table>
+
+<h2 id="9-physical-constants">9. Physical Constants<a class="ha" href="#9-physical-constants" aria-hidden="true">¶</a></h2>
+
+<table class="md-table"><thead><tr><th>Symbol</th><th>Definition</th><th>Value</th><th>Units</th></tr></thead><tbody><tr><td>$c$</td><td>Speed of light in vacuum</td><td>$2.998 \times 10^8$</td><td>m/s</td></tr><tr><td>$k_B$</td><td>Boltzmann constant</td><td>$1.381 \times 10^{-23}$</td><td>J/K</td></tr><tr><td>$T_0$</td><td>Standard reference noise temperature</td><td>$290$</td><td>K</td></tr></tbody></table>
+
+<hr>
+
+<p><strong>Symbols not listed here MUST be added to this table before use in any project document. No ad-hoc symbol definitions are permitted.</strong></p>
+
+<p>When adding a new symbol:</p>
+<ul><li>Check IEEE 686-2024 for the standard term and definition.</li><li>Verify no existing symbol in this table already covers the same concept.</li><li>Add the symbol to the appropriate domain section above.</li><li>Update any documents that previously used a non-standard symbol.</li></ul>
+
+</div>
+  </div><!-- main-content -->
+</div><!-- site-shell -->
+<script>
+mermaid.initialize({ startOnLoad: true, theme: 'dark', securityLevel: 'loose' });
+</script>
+</body>
+
+</html>

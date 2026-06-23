@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>radarv2 (AERIS-10) — Documentation Index — aros Vault</title>
+<style>
+
+:root {
+  --color-blue:    #007ACC;
+  --color-green:   #2DA44E;
+  --color-yellow:  #D29922;
+  --color-purple:  #8B5CF6;
+  --color-orange:  #F59E0B;
+  --color-red:     #E5534B;
+  --color-cyan:    #0BC5EA;
+  --color-accent:  #7C3AED;
+  --text-normal:   #DCDDDE;
+  --text-muted:    #8E8EA0;
+  --background-primary:         #1E1E2E;
+  --background-secondary:       #181825;
+  --background-modifier-border: #313244;
+  --color-base-30:              #45475A;
+}
+body {
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.6;
+  margin: 0;
+}
+
+</style>
+<!-- Mermaid -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<!-- MathJax -->
+<script>window.MathJax={tex:{inlineMath:[['$','$'],['\\(','\\)']],displayMath:[['$$','$$'],['\\[','\\]']]},options:{skipHtmlTags:['script','noscript','style','textarea','pre']}};</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+<!-- Site CSS -->
+<link rel="stylesheet" href="site.css">
+</head>
+<body class="markdown-reading-view">
+<div class="site-shell">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <a href="00-Index.html" class="site-title">radarv2 / AERIS-10</a>
+      <div class="site-subtitle">aros Radar Documentation</div>
+    </div>
+    <ul class="nav-list">
+      <li class="nav-section">Core Docs</li>
+      <li><a href="09-Concepts-Primer.html">Radar Primer</a></li>
+      <li><a href="00-Index.html">Index</a></li>
+      <li><a href="01-System-Overview.html">System Overview</a></li>
+      <li><a href="02-Physics-and-Waveform.html">Physics &amp; Waveform</a></li>
+      <li><a href="03-Beamforming-and-Scan.html">Beamforming &amp; Scan</a></li>
+      <li><a href="04-Signal-Processing-Pipeline.html">Signal Processing</a></li>
+      <li><a href="05-Node-Architecture.html">Node Architecture</a></li>
+      <li><a href="06-Message-Catalog.html">Message Catalog</a></li>
+      <li><a href="07-Detection-and-Tracking.html">Detection &amp; Tracking</a></li>
+      <li><a href="08-Scenarios-and-Targets.html">Scenarios &amp; Targets</a></li>
+      <li class="nav-section">Advanced</li>
+      <li><a href="10-Radar-Model-Library.html">Radar Model Library</a></li>
+      <li><a href="11-Multi-Radar-Fusion.html">Multi-Radar Fusion</a></li>
+      <li><a href="12-3D-Scene.html">3-D Scene</a></li>
+      <li><a href="13-Reference-Tables.html">Reference Tables</a></li>
+      <li><a href="FUTURE-DEVELOPMENT.html">Future Development</a></li>
+      <li class="nav-section">Upstream Theory</li>
+      <li><a href="upstream/README.html">Upstream README</a></li>
+      <li><a href="upstream/00_notation/conventions.html">Notation</a></li>
+      <li><a href="upstream/01_physics/01_fmcw_theory.html">FMCW Theory</a></li>
+      <li><a href="upstream/01_physics/02_lfm_waveform_model.html">LFM Waveform</a></li>
+      <li><a href="upstream/01_physics/03_beamforming_theory.html">Beamforming Theory</a></li>
+      <li><a href="upstream/01_physics/04_detection_theory.html">Detection Theory</a></li>
+      <li><a href="upstream/01_physics/05_noise_analysis.html">Noise Analysis</a></li>
+      <li><a href="upstream/01_physics/06_calibration_theory.html">Calibration</a></li>
+      <li><a href="upstream/02_hardware/01_system_overview.html">HW Overview</a></li>
+      <li><a href="upstream/04_research/01_cfar_variants.html">CFAR Variants</a></li>
+    </ul>
+    <div class="sidebar-footer">
+      <a href="https://github.com/brkay54/radarv2-docs" target="_blank">GitHub</a>
+    </div>
+  </nav>
+  <div class="main-content">
+
+<div class="markdown-preview-section">
+<h1 id="radarv2-aeris-10-pulse-lfm-phased-array-radar-aros-example">radarv2 — AERIS-10 Pulse-LFM Phased-Array Radar (aros example)<a class="ha" href="#radarv2-aeris-10-pulse-lfm-phased-array-radar-aros-example" aria-hidden="true">¶</a></h1>
+
+<div class="callout" data-callout="abstract"><div class="callout-title">What this is</div><div class="callout-content"><p><code>examples/radarv2</code> is an aros reference example that models the <strong>AERIS-10</strong></p>
+<p>open-source 10.5 GHz pulse-LFM phased-array radar as a graph of aros nodes.</p>
+<p>Where the existing <span class="wikilink-unresolved">radar example</span> is an abstract <em>tracking</em></p>
+<p>pipeline, radarv2 reproduces AERIS-10&#x27;s actual **receive signal-processing</p>
+<p>chain** — digital down-conversion, matched-filter pulse compression, Doppler</p>
+<p>FFT, and CFAR detection — plus its scan/beam control and GPS/IMU telemetry,</p>
+<p>with every interface defined as an aros message.</p>
+
+<p>Upstream source: <code>github.com/mitgor/PLFM_RADAR</code> (project name <strong>AERIS-10</strong>),</p>
+<p>cloned and read in full. This vault declares the algorithms, flows, and</p>
+<p>messages; the implementation lives in <code>examples/radarv2/</code>.</p></div></div>
+
+<hr>
+
+<h2 id="read-in-this-order">Read in this order<a class="ha" href="#read-in-this-order" aria-hidden="true">¶</a></h2>
+
+<table class="md-table"><thead><tr><th>#</th><th>Document</th><th>Covers</th></tr></thead><tbody><tr><td>0</td><td><a href="09-Concepts-Primer.html" class="internal-link">09-Concepts-Primer</a></td><td><strong>New to radar? Start here.</strong> Plain-language &quot;radar 101&quot; — chirp, beat frequency, range-Doppler map, beamforming, CFAR — one diagram per concept</td></tr><tr><td>1</td><td><a href="01-System-Overview.html" class="internal-link">01-System-Overview</a></td><td>What AERIS-10 is, the two variants, how radarv2 maps it onto aros, scope vs. the original radar example</td></tr><tr><td>2</td><td><a href="02-Physics-and-Waveform.html" class="internal-link">02-Physics-and-Waveform</a></td><td>FMCW/LFM theory, the governing equations, range/velocity resolution &amp; ambiguity, the full parameter table for both variants</td></tr><tr><td>3</td><td><a href="03-Beamforming-and-Scan.html" class="internal-link">03-Beamforming-and-Scan</a></td><td>Array geometry, electronic steering, the chirp→elevation→azimuth scan hierarchy and its timing budget</td></tr><tr><td>4</td><td><a href="04-Signal-Processing-Pipeline.html" class="internal-link">04-Signal-Processing-Pipeline</a></td><td>The 10-stage AERIS-10 FPGA pipeline, the math per stage, and how it folds into radarv2&#x27;s RX nodes</td></tr><tr><td>5</td><td><a href="05-Node-Architecture.html" class="internal-link">05-Node-Architecture</a></td><td>The aros node graph, executors, DKMs, transports, and lifecycle wiring</td></tr><tr><td>6</td><td><a href="06-Message-Catalog.html" class="internal-link">06-Message-Catalog</a></td><td>Every radarv2 message type (fields, sizes, diagtree paths) and the upstream wire structures they model</td></tr><tr><td>7</td><td><a href="07-Detection-and-Tracking.html" class="internal-link">07-Detection-and-Tracking</a></td><td>Detection theory, the CA-CFAR design (upgrading the placeholder), and the tracking roadmap</td></tr><tr><td>8</td><td><a href="08-Scenarios-and-Targets.html" class="internal-link">08-Scenarios-and-Targets</a></td><td>The scenario format, target/vehicle modelling, and the seam for realistic vehicles</td></tr><tr><td>9</td><td><a href="10-Radar-Model-Library.html" class="internal-link">10-Radar-Model-Library</a></td><td>The model-driven refactor — twelve real professional radars as selectable parameter profiles (FD-3, <strong>shipped</strong>)</td></tr><tr><td>10</td><td><a href="11-Multi-Radar-Fusion.html" class="internal-link">11-Multi-Radar-Fusion</a></td><td>Running several radars together, track-to-track fusion, and central control (FD-4, <strong>shipped</strong>)</td></tr><tr><td>11</td><td><a href="12-3D-Scene.html" class="internal-link">12-3D-Scene</a></td><td>The 3-D Lichtblick scene — beams, detections, predicted tracks, vehicle meshes, multi-radar (FD-5, <strong>pending</strong>)</td></tr><tr><td>A</td><td><a href="13-Reference-Tables.html" class="internal-link">13-Reference-Tables</a></td><td><strong>Appendix</strong> — consolidated quantitative tables (windows, tapers, Swerling, CFAR, pulse-compression, direction-finding, FPGA constants) with AERIS-10-vs-literature provenance</td></tr><tr><td>—</td><td><a href="FUTURE-DEVELOPMENT.html" class="internal-link">FUTURE-DEVELOPMENT</a></td><td>Post-v1 backlog index (FD-1 vehicles, FD-2 maps, and the FD-3/4/5 designs detailed above)</td></tr></tbody></table>
+
+<hr>
+
+<h2 id="one-paragraph-summary">One-paragraph summary<a class="ha" href="#one-paragraph-summary" aria-hidden="true">¶</a></h2>
+
+<p>AERIS-10 transmits linear-FM chirps through a 16-element electronically-steered</p>
+<p>X-band array, sweeps 31 elevation beam positions per azimuth step, and mechanically</p>
+<p>rotates through 50 azimuth positions for a full revolution (~9 s, ~0.11 Hz). Each</p>
+<p>beam dwell coherently integrates <strong>M = 32</strong> chirps. The receive echo is digitized</p>
+<p>at 400 MSPS, down-converted to complex baseband, pulse-compressed against the</p>
+<p>reference chirp into a 64-bin range profile, Doppler-processed with a 32-point FFT</p>
+<p>into a 64×32 range-Doppler map, thresholded for detections, tracked, and streamed to a</p>
+<p>host. radarv2 reproduces this end to end — through detection, plot conditioning, and</p>
+<p>tracking — as eleven aros nodes across seven DKMs in the single-radar spine (a multi-radar</p>
+<p>fleet adds per-radar fusion + control nodes), exercising</p>
+<p>all four aros transports (DirectHandoff, LocalChannel, SHM, UDP/TCP) on a faithful</p>
+<p>but tractable software model — and overlays real **DTED terrain + road/coastline</p>
+<p>maps** (<a href="05-Node-Architecture.html" class="internal-link">MapProvider</a>) for terrain-aware clutter, masking,</p>
+<p>and visualization.</p>
+
+<hr>
+
+<h2 id="node-graph-at-a-glance">Node graph at a glance<a class="ha" href="#node-graph-at-a-glance" aria-hidden="true">¶</a></h2>
+
+<div class="mermaid">flowchart LR
+  TICK([aros tick]):::sys
+  SCAN[ScanController<br/>scan.scan_controller]:::scan
+  NAV[NavSource<br/>nav.nav_source]:::nav
+  MAP[MapProvider<br/>map.map_provider]:::map
+  RX[RxSynthesizer<br/>rx.rx_synthesizer]:::rx
+  PC[PulseCompressor<br/>rx.pulse_compressor]:::rx
+  DOP[DopplerProcessor<br/>rx.doppler_processor]:::rx
+  CFAR[CfarDetector<br/>det.cfar_detector]:::det
+  HOST[HostEgress<br/>host.host_egress]:::host
+
+  TICK --> SCAN
+  TICK --> NAV
+  SCAN -->|ScanCommand| RX
+  NAV -->|PlatformNav| RX
+  MAP -->|MapLayer| RX
+  RX -->|IqFrame| PC
+  PC -->|RangeProfile| DOP
+  DOP -->|RangeDopplerMap| CFAR
+  NAV -->|PlatformNav| CFAR
+  MAP -->|MapLayer| CFAR
+  CFAR -->|DetectionReport| HOST
+  NAV -->|PlatformNav| HOST
+  MAP -->|MapLayer| HOST
+
+  classDef sys fill:#1f2937,color:#e5e7eb,stroke:#374151
+  classDef scan fill:#0e7490,color:#ecfeff,stroke:#155e75
+  classDef nav fill:#4d7c0f,color:#f7fee7,stroke:#3f6212
+  classDef map fill:#9d174d,color:#fff1f2,stroke:#831843
+  classDef rx fill:#1d4ed8,color:#eff6ff,stroke:#1e40af
+  classDef det fill:#a16207,color:#fefce8,stroke:#854d0e
+  classDef host fill:#7c3aed,color:#f5f3ff,stroke:#6d28d9</div>
+
+<div class="callout" data-callout="info"><div class="callout-title">Legend — node subsystems</div><div class="callout-content"><p><strong>Teal</strong> = SCAN (beam/scan control) · <strong>Green</strong> = NAV (GPS/IMU telemetry) ·</p>
+<p><strong>Pink</strong> = MAP (DTED/road-map provider) · <strong>Blue</strong> = RX (receive DSP chain) ·</p>
+<p><strong>Amber</strong> = DET (detection) · <strong>Purple</strong> = HOST (egress / world-frame report).</p>
+<p>Arrows are labelled with the aros message type carried on each link. Full</p>
+<p>field-level detail in <a href="06-Message-Catalog.html" class="internal-link">06-Message-Catalog</a>.</p></div></div>
+
+<hr>
+
+<h2 id="status">Status<a class="ha" href="#status" aria-hidden="true">¶</a></h2>
+
+<table class="md-table"><thead><tr><th>Phase</th><th>State</th></tr></thead><tbody><tr><td>Upstream read (PLFM_RADAR / AERIS-10)</td><td>Done — full digest</td></tr><tr><td><code>examples/radar</code> convention map (template)</td><td>Done</td></tr><tr><td>Architecture + message design</td><td>Locked — see this vault</td></tr><tr><td>Self-review vs. source (gaps / errors)</td><td>Done — corrections applied; see [[01-System-Overview#6-known-upstream-inconsistencies-radarv2-modeling-decisions\</td><td>§I]]</td></tr><tr><td>Physical-map feature (DTED/road) in demo</td><td>Folded in — [[05-Node-Architecture\</td><td>MapProvider]] (depends on ASSET-01)</td></tr><tr><td>Vault documentation (educational pass)</td><td>Done — 00–09 core + 10–13 design/reference</td></tr><tr><td>Radar model library + fusion (FD-3/FD-4)</td><td><strong>Shipped, Linux-verified</strong> — <a href="10-Radar-Model-Library.html" class="internal-link">10-Radar-Model-Library</a>, <a href="11-Multi-Radar-Fusion.html" class="internal-link">11-Multi-Radar-Fusion</a></td></tr><tr><td>Tracking, CFAR variants, clutter/multipath/JEM, config+CLI hub</td><td><strong>Shipped</strong> — see <a href="07-Detection-and-Tracking.html" class="internal-link">07-Detection-and-Tracking</a>, <a href="04-Signal-Processing-Pipeline.html" class="internal-link">04-Signal-Processing-Pipeline</a></td></tr><tr><td>Implementation (<code>examples/radarv2/</code>)</td><td><strong>Live</strong> — runs the full single- and multi-radar demos end to end</td></tr><tr><td>3-D Lichtblick scene (FD-5)</td><td>Pending — design in <a href="12-3D-Scene.html" class="internal-link">12-3D-Scene</a></td></tr></tbody></table>
+
+<div class="callout" data-callout="note"><div class="callout-title">Vault reflects the shipped implementation</div><div class="callout-content"><p>The pipeline through detection, tracking, fusion, and central control is built and</p>
+<p>Linux-verified; the <a href="12-3D-Scene.html" class="internal-link">3-D scene (FD-5)</a> is the remaining design item.</p>
+<p>Open the documents in order above.</p></div></div>
+
+</div>
+  </div><!-- main-content -->
+</div><!-- site-shell -->
+<script>
+mermaid.initialize({ startOnLoad: true, theme: 'dark', securityLevel: 'loose' });
+</script>
+</body>
+
+</html>

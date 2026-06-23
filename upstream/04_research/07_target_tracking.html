@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>07_target_tracking — aros Vault</title>
+<style>
+
+:root {
+  --color-blue:    #007ACC;
+  --color-green:   #2DA44E;
+  --color-yellow:  #D29922;
+  --color-purple:  #8B5CF6;
+  --color-orange:  #F59E0B;
+  --color-red:     #E5534B;
+  --color-cyan:    #0BC5EA;
+  --color-accent:  #7C3AED;
+  --text-normal:   #DCDDDE;
+  --text-muted:    #8E8EA0;
+  --background-primary:         #1E1E2E;
+  --background-secondary:       #181825;
+  --background-modifier-border: #313244;
+  --color-base-30:              #45475A;
+}
+body {
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.6;
+  margin: 0;
+}
+
+</style>
+<!-- Mermaid -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<!-- MathJax -->
+<script>window.MathJax={tex:{inlineMath:[['$','$'],['\\(','\\)']],displayMath:[['$$','$$'],['\\[','\\]']]},options:{skipHtmlTags:['script','noscript','style','textarea','pre']}};</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+<!-- Site CSS -->
+<link rel="stylesheet" href="../../site.css">
+</head>
+<body class="markdown-reading-view">
+<div class="site-shell">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <a href="../../00-Index.html" class="site-title">radarv2 / AERIS-10</a>
+      <div class="site-subtitle">aros Radar Documentation</div>
+    </div>
+    <ul class="nav-list">
+      <li class="nav-section">Core Docs</li>
+      <li><a href="../../09-Concepts-Primer.html">Radar Primer</a></li>
+      <li><a href="../../00-Index.html">Index</a></li>
+      <li><a href="../../01-System-Overview.html">System Overview</a></li>
+      <li><a href="../../02-Physics-and-Waveform.html">Physics &amp; Waveform</a></li>
+      <li><a href="../../03-Beamforming-and-Scan.html">Beamforming &amp; Scan</a></li>
+      <li><a href="../../04-Signal-Processing-Pipeline.html">Signal Processing</a></li>
+      <li><a href="../../05-Node-Architecture.html">Node Architecture</a></li>
+      <li><a href="../../06-Message-Catalog.html">Message Catalog</a></li>
+      <li><a href="../../07-Detection-and-Tracking.html">Detection &amp; Tracking</a></li>
+      <li><a href="../../08-Scenarios-and-Targets.html">Scenarios &amp; Targets</a></li>
+      <li class="nav-section">Advanced</li>
+      <li><a href="../../10-Radar-Model-Library.html">Radar Model Library</a></li>
+      <li><a href="../../11-Multi-Radar-Fusion.html">Multi-Radar Fusion</a></li>
+      <li><a href="../../12-3D-Scene.html">3-D Scene</a></li>
+      <li><a href="../../13-Reference-Tables.html">Reference Tables</a></li>
+      <li><a href="../../FUTURE-DEVELOPMENT.html">Future Development</a></li>
+      <li class="nav-section">Upstream Theory</li>
+      <li><a href="../../upstream/README.html">Upstream README</a></li>
+      <li><a href="../../upstream/00_notation/conventions.html">Notation</a></li>
+      <li><a href="../../upstream/01_physics/01_fmcw_theory.html">FMCW Theory</a></li>
+      <li><a href="../../upstream/01_physics/02_lfm_waveform_model.html">LFM Waveform</a></li>
+      <li><a href="../../upstream/01_physics/03_beamforming_theory.html">Beamforming Theory</a></li>
+      <li><a href="../../upstream/01_physics/04_detection_theory.html">Detection Theory</a></li>
+      <li><a href="../../upstream/01_physics/05_noise_analysis.html">Noise Analysis</a></li>
+      <li><a href="../../upstream/01_physics/06_calibration_theory.html">Calibration</a></li>
+      <li><a href="../../upstream/02_hardware/01_system_overview.html">HW Overview</a></li>
+      <li><a href="../../upstream/04_research/01_cfar_variants.html">CFAR Variants</a></li>
+    </ul>
+    <div class="sidebar-footer">
+      <a href="https://github.com/brkay54/radarv2-docs" target="_blank">GitHub</a>
+    </div>
+  </nav>
+  <div class="main-content">
+
+<div class="markdown-preview-section">
+<h1 id="target-tracking-improvements">Target Tracking Improvements<a class="ha" href="#target-tracking-improvements" aria-hidden="true">¶</a></h1>
+
+<p class="kv-line"><span class="kv-key">Purpose:</span> <span class="kv-value">Survey advanced Kalman filtering approaches for maneuvering target tracking in the AERIS-10 radar system, with feasibility assessment and ranked recommendations for the Python-based host processing pipeline.</span></p>
+
+<p class="kv-line"><span class="kv-key">Prerequisites:</span> <span class="kv-value">Familiarity with:</span></p>
+<ul><li><a href="../00_notation/symbol_table.md">Symbol Table</a> -- all symbols used herein</li><li><a href="../00_notation/parameter_table.md">Parameter Table</a> -- numerical values for both variants</li><li><a href="../00_notation/conventions.md">Conventions</a> -- equation formatting rules</li><li><a href="../03_software/03_python_gui.md">Python GUI V6</a> -- current Kalman filter baseline and RadarTarget dataclass</li><li><a href="../01_physics/04_detection_theory.md">Detection Theory</a> -- CFAR detection producing inputs to tracking</li></ul>
+
+<hr>
+
+<h2 id="1-current-state">1. Current State<a class="ha" href="#1-current-state" aria-hidden="true">¶</a></h2>
+
+<p>The AERIS-10 radar target tracking is implemented in the Python GUI application (<code>GUI_V6.py</code>) running on the host PC. All tracking computation executes in Python -- <strong>no FPGA resource constraint applies</strong> to any tracking algorithm. The FPGA pipeline produces detections that are transferred to the host via FT601 USB 3.0; tracking is a post-detection, host-side operation.</p>
+
+<h3 id="1-1-current-kalman-filter">1.1 Current Kalman Filter<a class="ha" href="#1-1-current-kalman-filter" aria-hidden="true">¶</a></h3>
+
+<p>The GUI imports <code>filterpy.kalman.KalmanFilter</code> for target tracking across consecutive scans (see Section 7.2 of <a href="../03_software/03_python_gui.md#72-kalman-filter-tracking"><code>03_software/03_python_gui.md</code></a>). The intended state model uses a <strong>fixed-parameter constant-velocity Kalman filter</strong>:</p>
+
+<p>$$</p>
+<p>\mathbf{x}_k = \begin{bmatrix} x \\ y \\ v_x \\ v_y \end{bmatrix}, \quad</p>
+<p>\mathbf{z}_k = \begin{bmatrix} x_\text{meas} \\ y_\text{meas} \end{bmatrix} \tag{SW-3}</p>
+<p>$$</p>
+
+<p>as documented in Eq. (SW-3) of the GUI documentation. The state vector tracks 2D position and velocity in Cartesian coordinates. The measurement vector contains the measured position from DBSCAN cluster centroids.</p>
+
+<p>The constant-velocity state transition model is:</p>
+
+<p>$$</p>
+<p>\mathbf{F} = \begin{bmatrix} 1 &amp; 0 &amp; \Delta t &amp; 0 \\ 0 &amp; 1 &amp; 0 &amp; \Delta t \\ 0 &amp; 0 &amp; 1 &amp; 0 \\ 0 &amp; 0 &amp; 0 &amp; 1 \end{bmatrix}</p>
+<p>$$</p>
+
+<p>where $\Delta t$ is the scan-to-scan time interval.</p>
+
+<p><strong>Key limitations of the current approach:</strong></p>
+<ul><li><strong>Fixed process noise</strong> $\mathbf{Q}$: Cannot adapt to changing target dynamics</li><li><strong>Single motion model</strong>: Assumes constant velocity -- no acceleration or turn modeling</li><li><strong>No model switching</strong>: Cannot detect transitions between cruise and maneuver</li><li><strong>Fixed measurement noise</strong> $\mathbf{R}$: Does not adapt to varying SNR conditions</li></ul>
+
+<blockquote><strong>Note:</strong> The <code>RadarProcessor</code> class is currently a stub (<code>pass</code> body). The Kalman filter and DBSCAN clustering described here represent the <strong>designed intent</strong> from the import list, not a working implementation. See Section 2 of <a href="../03_software/03_python_gui.md#2-implementation-status"><code>03_software/03_python_gui.md</code></a> for the implementation status table.</blockquote>
+
+<h3 id="1-2-dbscan-clustering-baseline">1.2 DBSCAN Clustering Baseline<a class="ha" href="#1-2-dbscan-clustering-baseline" aria-hidden="true">¶</a></h3>
+
+<p>The GUI imports <code>sklearn.cluster.DBSCAN</code> for spatial clustering of radar detections before tracking (see Section 7.1 of <a href="../03_software/03_python_gui.md#71-dbscan-clustering"><code>03_software/03_python_gui.md</code></a>):</p>
+
+<p>$$</p>
+<p>\text{cluster} = \text{DBSCAN}(\varepsilon, m_\text{min}, d(\mathbf{x}_i, \mathbf{x}_j)) \tag{SW-2}</p>
+<p>$$</p>
+
+<p>DBSCAN groups adjacent range-Doppler cell detections into unified target reports before Kalman filter association. The clustering quality directly affects tracking performance -- poorly separated clusters produce noisy measurements that degrade filter convergence.</p>
+
+<h3 id="1-3-radartarget-dataclass">1.3 RadarTarget Dataclass<a class="ha" href="#1-3-radartarget-dataclass" aria-hidden="true">¶</a></h3>
+
+<p>Each detected target is represented by the <code>RadarTarget</code> dataclass (Section 3 of <a href="../03_software/03_python_gui.md#3-radartarget-dataclass"><code>03_software/03_python_gui.md</code></a>), which includes a <code>track_id</code> field (default $-1$ for untracked). The Kalman tracker assigns persistent <code>track_id</code> values to enable track continuity across scans.</p>
+
+<h3 id="1-4-measurement-geometry">1.4 Measurement Geometry<a class="ha" href="#1-4-measurement-geometry" aria-hidden="true">¶</a></h3>
+
+<p>The radar provides measurements in polar coordinates $(R, \theta, \text{elevation})$ where $R$ is slant range and $\theta$ is azimuth beam steering angle. Converting these to Cartesian coordinates for the Kalman state vector introduces a <strong>nonlinear measurement model</strong>:</p>
+
+<p>$$</p>
+<p>\begin{aligned}</p>
+<p>x &amp;= R \cos\theta \cos\phi_\text{el} \\</p>
+<p>y &amp;= R \sin\theta \cos\phi_\text{el}</p>
+<p>\end{aligned}</p>
+<p>$$</p>
+
+<p>The current design converts to Cartesian before filtering, applying a linear measurement model $\mathbf{H} = [I_{2 \times 2} \mid 0_{2 \times 2}]$. This is an approximation that discards the nonlinear error structure of the polar-to-Cartesian conversion.</p>
+
+<hr>
+
+<h2 id="2-literature-survey">2. Literature Survey<a class="ha" href="#2-literature-survey" aria-hidden="true">¶</a></h2>
+
+<h3 id="2-1-imm-kalman-interacting-multiple-model">2.1 IMM-Kalman (Interacting Multiple Model)<a class="ha" href="#2-1-imm-kalman-interacting-multiple-model" aria-hidden="true">¶</a></h3>
+
+<p>The IMM estimator runs $r$ Kalman filters in parallel, each with a different motion model, and combines their estimates using model probabilities that are updated at each time step.</p>
+
+<p class="kv-line"><span class="kv-key">Architecture:</span> <span class="kv-value">For radar target tracking, a typical IMM uses $r = 2$ or $r = 3$ models:</span></p>
+
+<table class="md-table"><thead><tr><th>Model</th><th>State Transition</th><th>Use Case</th></tr></thead><tbody><tr><td>Constant velocity (CV)</td><td>$\mathbf{F}_\text{CV}$: linear motion, $\mathbf{Q}$ tuned for low process noise</td><td>Cruising targets, straight-line flight</td></tr><tr><td>Constant acceleration (CA)</td><td>$\mathbf{F}_\text{CA}$: includes acceleration states $[a_x, a_y]^T$</td><td>Accelerating/decelerating targets</td></tr><tr><td>Coordinated turn (CT)</td><td>$\mathbf{F}_\text{CT}$: includes turn rate $\omega$ with nonlinear state propagation</td><td>Turning targets, orbital flight</td></tr></tbody></table>
+
+<p>The IMM algorithm proceeds in four steps at each time step $k$:</p>
+
+<ul><li><strong>Mixing:</strong> Combine previous model-conditioned state estimates using mixing probabilities derived from the model transition probability matrix $\pi_{ij} = P(M_j^k \mid M_i^{k-1})$</li><li><strong>Filtering:</strong> Run each Kalman filter independently with its mixed initial condition</li><li><strong>Model probability update:</strong> Compute likelihood of the current measurement under each model, update model probabilities $\mu_j^k$ using Bayes&#x27; rule</li><li><strong>Combination:</strong> Form the overall state estimate as the probability-weighted average of model-conditioned estimates:</li></ul>
+
+<p>$$</p>
+<p>\hat{\mathbf{x}}_k = \sum_{j=1}^{r} \mu_j^k \, \hat{\mathbf{x}}_k^j</p>
+<p>$$</p>
+
+<p class="kv-line"><span class="kv-key">Model transition probability matrix:</span> <span class="kv-value">The Markov transition matrix $\boldsymbol{\Pi}$ governs how likely each model is to transition to another. A typical initialization for 3-model IMM:</span></p>
+
+<p>$$</p>
+<p>\boldsymbol{\Pi} = \begin{bmatrix}</p>
+<p>0.95 &amp; 0.025 &amp; 0.025 \\</p>
+<p>0.025 &amp; 0.95 &amp; 0.025 \\</p>
+<p>0.025 &amp; 0.025 &amp; 0.95</p>
+<p>\end{bmatrix}</p>
+<p>$$</p>
+
+<p>The diagonal elements (0.95) reflect the assumption that targets usually maintain their current behavior. Off-diagonal elements control mode transition sensitivity -- higher values enable faster mode switching but increase false transitions. Tuning $\boldsymbol{\Pi}$ requires balancing maneuver detection latency against steady-state noise.</p>
+
+<p class="kv-line"><span class="kv-key">Computational overhead:</span> <span class="kv-value">Running $r$ Kalman filters requires $r$ matrix multiplications and inversions per update. For $r = 3$ with a 4-state model, this is approximately 3x the computation of a single Kalman filter. In Python with NumPy, this amounts to microseconds per update -- negligible compared to the radar scan rate.</span></p>
+
+<p class="kv-line"><span class="kv-key">Performance advantage over fixed-model Kalman:</span> <span class="kv-value">The IMM automatically increases the weight of the acceleration or turn model when the measurement innovations from the CV model grow large. This allows rapid adaptation to maneuvers without the lag inherent in a single filter with high process noise (which would degrade steady-state tracking accuracy).</span></p>
+
+<p><strong>References:</strong></p>
+<ul><li>Blom, H.A.P. and Bar-Shalom, Y., &quot;The interacting multiple model algorithm for systems with Markovian switching coefficients,&quot; <em>IEEE Trans. Automatic Control</em>, vol. 33, no. 8, pp. 780-783, 1988</li><li>Bar-Shalom, Y., Li, X.R., and Kirubarajan, T., <em>Estimation with Applications to Tracking and Navigation</em>, Wiley, 2001</li></ul>
+
+<h3 id="2-2-variational-bayesian-imm">2.2 Variational Bayesian IMM<a class="ha" href="#2-2-variational-bayesian-imm" aria-hidden="true">¶</a></h3>
+
+<p>Recent work extends the IMM framework using variational Bayesian (VB) inference to improve maneuver detection responsiveness. The 2025 MDPI Electronics paper proposes a model-adaptive Kalman filter that uses variational inference to adapt change-point statistics in real time.</p>
+
+<p class="kv-line"><span class="kv-key">Key innovation:</span> <span class="kv-value">Rather than relying solely on the fixed Markov transition matrix $\boldsymbol{\Pi}$ for mode switching, the VB-IMM method treats the model transition probabilities as random variables and estimates them jointly with the target state. This provides:</span></p>
+
+<ul><li><strong>Faster maneuver detection:</strong> The transition probabilities adapt based on measurement evidence, allowing the filter to switch models more aggressively when strong innovation sequences indicate a mode change</li><li><strong>RMSE improvement:</strong> Published results show 10-25% RMSE reduction compared to standard IMM for maneuvering targets, with the improvement concentrated during transition periods</li><li><strong>Automatic tuning:</strong> Reduces sensitivity to the initial choice of $\boldsymbol{\Pi}$, a key practical advantage since transition matrix tuning is often the most difficult aspect of IMM deployment</li></ul>
+
+<p class="kv-line"><span class="kv-key">Computational requirements:</span> <span class="kv-value">The variational inference adds an iterative optimization step (typically 3-5 iterations per time step) to the standard IMM update. Total overhead is approximately 5-8x a single Kalman filter -- still trivial in Python on a modern host PC.</span></p>
+
+<p><strong>Limitations:</strong></p>
+<ul><li>Newer algorithm with fewer field-validated deployments than standard IMM</li><li>Convergence of the variational iterations is not always guaranteed for poorly conditioned problems</li><li>More complex to implement and debug than standard IMM</li></ul>
+
+<p><strong>Reference:</strong></p>
+<ul><li>&quot;Model Adaptive Kalman Filter for Maneuvering Target Tracking,&quot; <em>MDPI Electronics</em>, vol. 14, no. 10, 2025 (Article 1908)</li></ul>
+
+<h3 id="2-3-adaptive-kalman-process-noise-estimation">2.3 Adaptive Kalman (Process Noise Estimation)<a class="ha" href="#2-3-adaptive-kalman-process-noise-estimation" aria-hidden="true">¶</a></h3>
+
+<p>Adaptive Kalman filtering adjusts the process noise covariance $\mathbf{Q}$ online, without switching between discrete models. This is a simpler alternative to IMM that can improve tracking of maneuvering targets without the complexity of multiple parallel filters.</p>
+
+<p><strong>Innovation-Based Adaptive Estimation (IAE):</strong></p>
+
+<p>The innovation sequence $\boldsymbol{\nu}_k = \mathbf{z}_k - \mathbf{H}\hat{\mathbf{x}}_{k|k-1}$ provides a real-time measure of filter consistency. The expected innovation covariance is:</p>
+
+<p>$$</p>
+<p>\mathbf{S}_k = \mathbf{H}\mathbf{P}_{k|k-1}\mathbf{H}^T + \mathbf{R}</p>
+<p>$$</p>
+
+<p>When the actual innovations consistently exceed $\mathbf{S}_k$ (indicating the filter is not tracking well), the process noise $\mathbf{Q}$ is increased. A common IAE estimator uses a sliding window of $W$ innovations:</p>
+
+<p>$$</p>
+<p>\hat{\mathbf{Q}}_k = \frac{1}{W}\sum_{i=k-W+1}^{k} \left(\boldsymbol{\nu}_i \boldsymbol{\nu}_i^T - \mathbf{H}\mathbf{P}_{i|i-1}\mathbf{H}^T - \mathbf{R}\right)</p>
+<p>$$</p>
+
+<p><strong>Maximum Likelihood Estimation (MLE):</strong></p>
+
+<p>An alternative approach estimates $\mathbf{Q}$ by maximizing the likelihood of the observed measurement sequence. This provides statistically optimal estimates but requires more computation (typically iterative optimization).</p>
+
+<p><strong>Advantages over IMM:</strong></p>
+<ul><li>Simpler implementation -- single filter, no mixing step</li><li>Continuous adaptation rather than discrete model switching</li><li>Fewer tuning parameters (window size $W$ vs. full transition matrix)</li></ul>
+
+<p><strong>Disadvantages:</strong></p>
+<ul><li>Cannot capture distinct motion modes (e.g., cruise vs. coordinated turn)</li><li>Slower to respond to abrupt maneuvers than IMM (requires several innovations to build evidence)</li><li>The IAE estimate of $\mathbf{Q}$ can become negative semi-definite, requiring projection to ensure validity</li></ul>
+
+<p><strong>References:</strong></p>
+<ul><li>Mehra, R.K., &quot;On the identification of variances and adaptive Kalman filtering,&quot; <em>IEEE Trans. Automatic Control</em>, vol. 15, no. 2, pp. 175-184, 1970</li><li>Mohamed, A.H. and Schwarz, K.P., &quot;Adaptive Kalman filtering for INS/GPS,&quot; <em>Journal of Geodesy</em>, vol. 73, pp. 193-203, 1999</li></ul>
+
+<h3 id="2-4-extended-kalman-filter-ekf-and-unscented-kalman-filter-ukf">2.4 Extended Kalman Filter (EKF) and Unscented Kalman Filter (UKF)<a class="ha" href="#2-4-extended-kalman-filter-ekf-and-unscented-kalman-filter-ukf" aria-hidden="true">¶</a></h3>
+
+<p>The current design converts radar measurements from polar $(R, \theta)$ to Cartesian $(x, y)$ before applying a linear Kalman filter. This introduces systematic errors from the nonlinear coordinate transformation. The EKF and UKF operate directly in the measurement space, avoiding this approximation.</p>
+
+<p><strong>Extended Kalman Filter (EKF):</strong></p>
+
+<p>The EKF linearizes the nonlinear measurement function $\mathbf{h}(\mathbf{x})$ around the current state estimate:</p>
+
+<p>$$</p>
+<p>\mathbf{H}_k = \frac{\partial \mathbf{h}}{\partial \mathbf{x}}\bigg|_{\mathbf{x}=\hat{\mathbf{x}}_{k|k-1}}</p>
+<p>$$</p>
+
+<p>For the radar measurement model $\mathbf{h}(\mathbf{x}) = [R, \theta]^T = [\sqrt{x^2 + y^2}, \arctan(y/x)]^T$, the Jacobian is:</p>
+
+<p>$$</p>
+<p>\mathbf{H}_k = \begin{bmatrix}</p>
+<p>\frac{x}{\sqrt{x^2+y^2}} &amp; \frac{y}{\sqrt{x^2+y^2}} &amp; 0 &amp; 0 \\[4pt]</p>
+<p>\frac{-y}{x^2+y^2} &amp; \frac{x}{x^2+y^2} &amp; 0 &amp; 0</p>
+<p>\end{bmatrix}</p>
+<p>$$</p>
+
+<p>The EKF uses this linearized Jacobian in place of the constant $\mathbf{H}$ matrix, providing better handling of the nonlinear measurement geometry.</p>
+
+<p><strong>Unscented Kalman Filter (UKF):</strong></p>
+
+<p>The UKF uses deterministic sigma points to propagate the state distribution through the nonlinear functions, avoiding the Jacobian computation entirely. For a state dimension $n$, the UKF generates $2n + 1 = 9$ sigma points (for $n = 4$), propagates each through the measurement function, and reconstructs the predicted measurement statistics from the transformed points.</p>
+
+<p><strong>Comparison for radar tracking:</strong></p>
+
+<table class="md-table"><thead><tr><th>Property</th><th>Linear KF (current)</th><th>EKF</th><th>UKF</th></tr></thead><tbody><tr><td>Measurement model</td><td>Linear ($\mathbf{H}$ constant)</td><td>Linearized Jacobian</td><td>Sigma point propagation</td></tr><tr><td>Coordinate conversion</td><td>Pre-filter (introduces error)</td><td>In-filter (measurement space)</td><td>In-filter (measurement space)</td></tr><tr><td>Accuracy at close range</td><td>Good (small angular spread)</td><td>Better (captures nonlinearity)</td><td>Best (no linearization error)</td></tr><tr><td>Accuracy at long range</td><td>Good (narrow angular spread)</td><td>Good</td><td>Good</td></tr><tr><td>Computational cost</td><td>Lowest</td><td>Moderate (Jacobian computation)</td><td>Moderate (sigma point propagation)</td></tr><tr><td>Python library support</td><td><code>filterpy.kalman.KalmanFilter</code></td><td><code>filterpy.kalman.ExtendedKalmanFilter</code></td><td><code>filterpy.kalman.UnscentedKalmanFilter</code></td></tr></tbody></table>
+
+<p class="kv-line"><span class="kv-key">When EKF/UKF matters:</span> <span class="kv-value">The benefit is most significant at short ranges where the angular measurement uncertainty maps to a large Cartesian position uncertainty, and at extreme steering angles where the polar-to-Cartesian nonlinearity is strongest. For the AERIS-10 scan range of approximately $\pm 33°$ (from beam steering analysis in <a href="../02_hardware/04_antenna_beamforming.md#32-steering-angle-derivation"><code>02_hardware/04_antenna_beamforming.md</code></a>), the nonlinearity is moderate.</span></p>
+
+<p><strong>References:</strong></p>
+<ul><li>Julier, S.J. and Uhlmann, J.K., &quot;Unscented filtering and nonlinear estimation,&quot; <em>Proceedings of the IEEE</em>, vol. 92, no. 3, pp. 401-422, 2004</li><li>Ristic, B., Arulampalam, S., and Gordon, N., <em>Beyond the Kalman Filter: Particle Filters for Tracking Applications</em>, Artech House, 2004</li></ul>
+
+<hr>
+
+<h2 id="3-gap-analysis">3. Gap Analysis<a class="ha" href="#3-gap-analysis" aria-hidden="true">¶</a></h2>
+
+<p>The current fixed-parameter constant-velocity Kalman filter has the following gaps relative to state-of-the-art radar target tracking:</p>
+
+<table class="md-table"><thead><tr><th>Gap</th><th>Impact</th><th>Severity</th></tr></thead><tbody><tr><td><strong>No model switching</strong></td><td>Cannot adapt to maneuvering targets; track diverges during acceleration or turns</td><td>HIGH</td></tr><tr><td><strong>Fixed process noise</strong> $\mathbf{Q}$</td><td>Noise tuned for steady state is too low for maneuvers; noise tuned for maneuvers degrades steady-state accuracy</td><td>HIGH</td></tr><tr><td><strong>Single motion model</strong> (constant velocity)</td><td>No representation of acceleration or turn dynamics</td><td>HIGH</td></tr><tr><td><strong>Linear measurement model</strong></td><td>Polar-to-Cartesian conversion error not captured in filter covariance</td><td>MEDIUM</td></tr><tr><td><strong>Fixed measurement noise</strong> $\mathbf{R}$</td><td>Does not account for SNR-dependent measurement accuracy</td><td>LOW-MEDIUM</td></tr><tr><td><strong>No track management</strong></td><td>No track initiation logic (M-of-N), no track quality scoring, no track deletion</td><td>MEDIUM</td></tr></tbody></table>
+
+<p><strong>Prioritized gap summary:</strong></p>
+<ul><li><strong>Model adaptation</strong> (IMM or adaptive Q): The most impactful improvement. Maneuvering targets are the primary failure mode of the current tracker.</li><li><strong>Nonlinear measurement handling</strong> (EKF/UKF): Moderate improvement, most beneficial at short range and wide scan angles.</li><li><strong>Track management</strong>: Important for operational robustness but orthogonal to filter algorithm choice.</li></ul>
+
+<hr>
+
+<h2 id="4-feasibility-assessment">4. Feasibility Assessment<a class="ha" href="#4-feasibility-assessment" aria-hidden="true">¶</a></h2>
+
+<p>Since all tracking algorithms run in Python on the host PC, feasibility is <strong>HIGH for all approaches</strong>. There is no FPGA resource constraint. The relevant constraints are:</p>
+
+<ul><li><strong>Computational latency:</strong> Must complete tracking update within the scan-to-scan interval (order of milliseconds for 31 beam positions with $M = 32$ chirps each)</li><li><strong>Python library support:</strong> Availability of well-tested implementations reduces development risk</li><li><strong>Integration complexity:</strong> How much of the existing GUI codebase needs modification</li></ul>
+
+<h3 id="4-1-imm-kalman-2-3-models">4.1 IMM-Kalman (2-3 Models)<a class="ha" href="#4-1-imm-kalman-2-3-models" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Property</th><th>Value</th></tr></thead><tbody><tr><td>Algorithm complexity</td><td>$O(r \cdot n^3)$ per update, where $r$ = number of models, $n$ = state dimension</td></tr><tr><td>Computational time (Python)</td><td>~50-200 us per update (NumPy matrix operations)</td></tr><tr><td>Python library support</td><td><code>filterpy.IMM</code> (direct support), <code>pykalman</code> (requires custom wrapper)</td></tr><tr><td>Estimated latency impact</td><td>Negligible -- well within scan interval</td></tr><tr><td>Accuracy improvement</td><td>30-50% RMSE reduction for maneuvering targets (published benchmarks)</td></tr><tr><td>Implementation effort</td><td>Moderate -- requires defining motion models and tuning transition matrix</td></tr><tr><td><strong>Verdict</strong></td><td><strong>FEASIBLE</strong> -- well-supported, proven improvement</td></tr></tbody></table>
+
+<h3 id="4-2-variational-bayesian-imm">4.2 Variational Bayesian IMM<a class="ha" href="#4-2-variational-bayesian-imm" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Property</th><th>Value</th></tr></thead><tbody><tr><td>Algorithm complexity</td><td>$O(r \cdot n^3 \cdot N_\text{iter})$ per update, $N_\text{iter} \approx 3$-$5$</td></tr><tr><td>Computational time (Python)</td><td>~200-800 us per update</td></tr><tr><td>Python library support</td><td>No off-the-shelf library; requires custom implementation (~200-400 lines)</td></tr><tr><td>Estimated latency impact</td><td>Negligible</td></tr><tr><td>Accuracy improvement</td><td>10-25% RMSE improvement over standard IMM during maneuver transitions</td></tr><tr><td>Implementation effort</td><td>High -- variational inference requires careful derivation and testing</td></tr><tr><td><strong>Verdict</strong></td><td><strong>FEASIBLE</strong> -- but higher development risk than standard IMM</td></tr></tbody></table>
+
+<h3 id="4-3-adaptive-kalman-iae">4.3 Adaptive Kalman (IAE)<a class="ha" href="#4-3-adaptive-kalman-iae" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Property</th><th>Value</th></tr></thead><tbody><tr><td>Algorithm complexity</td><td>$O(n^3 + W \cdot n^2)$ per update, $W$ = window size</td></tr><tr><td>Computational time (Python)</td><td>~30-100 us per update</td></tr><tr><td>Python library support</td><td>Straightforward extension of <code>filterpy.KalmanFilter</code> (~50 lines)</td></tr><tr><td>Estimated latency impact</td><td>Negligible</td></tr><tr><td>Accuracy improvement</td><td>15-30% RMSE improvement for smoothly varying dynamics</td></tr><tr><td>Implementation effort</td><td>Low -- minimal modification to existing filter</td></tr><tr><td><strong>Verdict</strong></td><td><strong>FEASIBLE</strong> -- simplest path to improvement</td></tr></tbody></table>
+
+<h3 id="4-4-ekf-ukf-for-nonlinear-measurements">4.4 EKF/UKF for Nonlinear Measurements<a class="ha" href="#4-4-ekf-ukf-for-nonlinear-measurements" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Property</th><th>Value</th></tr></thead><tbody><tr><td>Algorithm complexity</td><td>EKF: $O(n^3)$; UKF: $O((2n+1) \cdot n^2)$</td></tr><tr><td>Computational time (Python)</td><td>EKF: ~30-80 us; UKF: ~50-150 us per update</td></tr><tr><td>Python library support</td><td><code>filterpy.kalman.ExtendedKalmanFilter</code>, <code>filterpy.kalman.UnscentedKalmanFilter</code></td></tr><tr><td>Estimated latency impact</td><td>Negligible</td></tr><tr><td>Accuracy improvement</td><td>5-15% position accuracy improvement at short range and wide scan angles</td></tr><tr><td>Implementation effort</td><td>Low-Moderate -- requires defining measurement function and Jacobian</td></tr><tr><td><strong>Verdict</strong></td><td><strong>FEASIBLE</strong> -- complementary to IMM/adaptive approaches</td></tr></tbody></table>
+
+<h3 id="4-5-why-no-fpga-feasibility-table">4.5 Why No FPGA Feasibility Table<a class="ha" href="#4-5-why-no-fpga-feasibility-table" aria-hidden="true">¶</a></h3>
+
+<p>All tracking algorithms execute in Python on the host PC, as documented in Section 7 of <a href="../03_software/03_python_gui.md#7-radarprocessor-designed-interface--stub"><code>03_software/03_python_gui.md</code></a>. The FPGA pipeline terminates at detection (USB transfer to host). No FPGA resource table is needed because:</p>
+
+<ul><li>The FPGA performs signal processing up to and including detection (Stages 1-9 in <a href="../03_software/01_fpga_pipeline.md"><code>03_software/01_fpga_pipeline.md</code></a>)</li><li>Detection results are transferred to the host via FT601 USB 3.0</li><li>DBSCAN clustering and Kalman tracking are Python-side post-processing</li><li>All proposed improvements operate within this same Python-side architecture</li></ul>
+
+<p>The computational budget for Python tracking is bounded by the host PC&#x27;s CPU, which provides orders of magnitude more processing capability than needed for any of the surveyed algorithms operating on the AERIS-10&#x27;s target count (typically tens of targets per scan).</p>
+
+<hr>
+
+<h2 id="5-recommendations">5. Recommendations<a class="ha" href="#5-recommendations" aria-hidden="true">¶</a></h2>
+
+<h3 id="priority-1-imm-kalman-standard-2-3-model">Priority 1: IMM-Kalman (Standard 2-3 Model)<a class="ha" href="#priority-1-imm-kalman-standard-2-3-model" aria-hidden="true">¶</a></h3>
+
+<ul><li><strong>Expected improvement:</strong> 30-50% RMSE reduction for maneuvering targets; robust tracking through accelerations and turns</li><li><strong>Resource cost:</strong> Negligible CPU overhead; ~200-300 lines of Python</li><li><strong>Risk:</strong> LOW -- proven algorithm, direct <code>filterpy</code> support, extensive published radar tracking results</li><li><strong>Investigation steps:</strong></li><li>Define motion models: constant velocity, constant acceleration, and optionally coordinated turn</li><li>Tune transition probability matrix $\boldsymbol{\Pi}$ using expected target maneuver statistics</li><li>Implement using <code>filterpy.IMM</code> with <code>filterpy.kalman.KalmanFilter</code> for CV and CA models, <code>filterpy.kalman.ExtendedKalmanFilter</code> for CT model</li><li>Validate against simulated maneuvering target trajectories (straight segments, acceleration, turns)</li><li>Compare RMSE against current fixed-parameter Kalman baseline</li></ul>
+
+<h3 id="priority-2-variational-bayesian-imm">Priority 2: Variational Bayesian IMM<a class="ha" href="#priority-2-variational-bayesian-imm" aria-hidden="true">¶</a></h3>
+
+<ul><li><strong>Expected improvement:</strong> Additional 10-25% RMSE improvement over standard IMM during maneuver transitions; reduced sensitivity to transition matrix tuning</li><li><strong>Resource cost:</strong> Negligible CPU overhead; ~300-500 lines of custom Python</li><li><strong>Risk:</strong> MEDIUM -- newer algorithm, no off-the-shelf library, requires careful variational inference implementation</li><li><strong>Investigation steps:</strong></li><li>Complete Priority 1 (standard IMM) first as baseline</li><li>Implement variational Bayesian mode probability update following the MDPI Electronics 2025 methodology</li><li>Validate convergence of variational iterations across operational scenarios</li><li>Compare RMSE and maneuver detection latency against standard IMM</li><li>Evaluate whether the marginal improvement justifies the added complexity</li></ul>
+
+<h3 id="priority-3-adaptive-process-noise-iae">Priority 3: Adaptive Process Noise (IAE)<a class="ha" href="#priority-3-adaptive-process-noise-iae" aria-hidden="true">¶</a></h3>
+
+<ul><li><strong>Expected improvement:</strong> 15-30% RMSE improvement for smoothly varying dynamics; simpler alternative to IMM for moderate maneuvers</li><li><strong>Resource cost:</strong> Negligible; ~50 lines added to existing Kalman filter</li><li><strong>Risk:</strong> LOW -- straightforward extension of existing filter</li><li><strong>Investigation steps:</strong></li><li>Implement IAE with sliding window ($W = 10$-$20$ samples as starting point)</li><li>Add positive semi-definiteness projection for the estimated $\mathbf{Q}$</li><li>Compare against IMM for both smooth and abrupt maneuver scenarios</li><li>Consider as fallback if IMM complexity is not justified for the target environment</li></ul>
+
+<h3 id="supplementary-ekf-ukf-measurement-model">Supplementary: EKF/UKF Measurement Model<a class="ha" href="#supplementary-ekf-ukf-measurement-model" aria-hidden="true">¶</a></h3>
+
+<ul><li><strong>Expected improvement:</strong> 5-15% position accuracy improvement, primarily at short range</li><li><strong>Resource cost:</strong> Negligible; uses existing <code>filterpy</code> implementations</li><li><strong>Risk:</strong> LOW</li><li><strong>Investigation steps:</strong></li><li>Replace linear $\mathbf{H}$ with EKF Jacobian or UKF sigma points for the $(R, \theta) \to (x, y)$ measurement model</li><li>Can be combined with any of the above approaches (IMM-EKF, IMM-UKF, adaptive EKF)</li><li>Evaluate whether the improvement justifies the additional complexity for the AERIS-10 scan geometry ($\pm 33°$ azimuth)</li></ul>
+
+<hr>
+
+<h2 id="references">References<a class="ha" href="#references" aria-hidden="true">¶</a></h2>
+
+<h3 id="project-documentation">Project Documentation<a class="ha" href="#project-documentation" aria-hidden="true">¶</a></h3>
+<ul><li><a href="../00_notation/symbol_table.md">Symbol Table</a> -- canonical symbol definitions</li><li><a href="../00_notation/parameter_table.md">Parameter Table</a> -- numerical values for both variants</li><li><a href="../00_notation/conventions.md">Conventions</a> -- equation formatting rules</li><li><a href="../03_software/03_python_gui.md">Python GUI V6</a> -- current Kalman filter baseline (Eq. SW-3), RadarTarget dataclass, DBSCAN clustering (Eq. SW-2)</li><li><a href="../02_hardware/04_antenna_beamforming.md">Antenna &amp; Beamforming Hardware</a> -- beam steering angles and scan range</li><li><a href="../01_physics/04_detection_theory.md">Detection Theory</a> -- detection pipeline producing inputs to tracking</li></ul>
+
+<h3 id="literature">Literature<a class="ha" href="#literature" aria-hidden="true">¶</a></h3>
+<ul><li>Bar-Shalom, Y., Li, X.R., and Kirubarajan, T., <em>Estimation with Applications to Tracking and Navigation</em>, Wiley, 2001</li><li>Blom, H.A.P. and Bar-Shalom, Y., &quot;The interacting multiple model algorithm for systems with Markovian switching coefficients,&quot; <em>IEEE Trans. Automatic Control</em>, vol. 33, no. 8, pp. 780-783, 1988</li><li>Julier, S.J. and Uhlmann, J.K., &quot;Unscented filtering and nonlinear estimation,&quot; <em>Proceedings of the IEEE</em>, vol. 92, no. 3, pp. 401-422, 2004</li><li>Mehra, R.K., &quot;On the identification of variances and adaptive Kalman filtering,&quot; <em>IEEE Trans. Automatic Control</em>, vol. 15, no. 2, pp. 175-184, 1970</li><li>Mohamed, A.H. and Schwarz, K.P., &quot;Adaptive Kalman filtering for INS/GPS,&quot; <em>Journal of Geodesy</em>, vol. 73, pp. 193-203, 1999</li><li>Ristic, B., Arulampalam, S., and Gordon, N., <em>Beyond the Kalman Filter: Particle Filters for Tracking Applications</em>, Artech House, 2004</li><li>&quot;Model Adaptive Kalman Filter for Maneuvering Target Tracking,&quot; <em>MDPI Electronics</em>, vol. 14, no. 10, Article 1908, 2025</li></ul>
+
+</div>
+  </div><!-- main-content -->
+</div><!-- site-shell -->
+<script>
+mermaid.initialize({ startOnLoad: true, theme: 'dark', securityLevel: 'loose' });
+</script>
+</body>
+
+</html>

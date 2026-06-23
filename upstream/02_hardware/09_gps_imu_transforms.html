@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>09_gps_imu_transforms — aros Vault</title>
+<style>
+
+:root {
+  --color-blue:    #007ACC;
+  --color-green:   #2DA44E;
+  --color-yellow:  #D29922;
+  --color-purple:  #8B5CF6;
+  --color-orange:  #F59E0B;
+  --color-red:     #E5534B;
+  --color-cyan:    #0BC5EA;
+  --color-accent:  #7C3AED;
+  --text-normal:   #DCDDDE;
+  --text-muted:    #8E8EA0;
+  --background-primary:         #1E1E2E;
+  --background-secondary:       #181825;
+  --background-modifier-border: #313244;
+  --color-base-30:              #45475A;
+}
+body {
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.6;
+  margin: 0;
+}
+
+</style>
+<!-- Mermaid -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<!-- MathJax -->
+<script>window.MathJax={tex:{inlineMath:[['$','$'],['\\(','\\)']],displayMath:[['$$','$$'],['\\[','\\]']]},options:{skipHtmlTags:['script','noscript','style','textarea','pre']}};</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+<!-- Site CSS -->
+<link rel="stylesheet" href="../../site.css">
+</head>
+<body class="markdown-reading-view">
+<div class="site-shell">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <a href="../../00-Index.html" class="site-title">radarv2 / AERIS-10</a>
+      <div class="site-subtitle">aros Radar Documentation</div>
+    </div>
+    <ul class="nav-list">
+      <li class="nav-section">Core Docs</li>
+      <li><a href="../../09-Concepts-Primer.html">Radar Primer</a></li>
+      <li><a href="../../00-Index.html">Index</a></li>
+      <li><a href="../../01-System-Overview.html">System Overview</a></li>
+      <li><a href="../../02-Physics-and-Waveform.html">Physics &amp; Waveform</a></li>
+      <li><a href="../../03-Beamforming-and-Scan.html">Beamforming &amp; Scan</a></li>
+      <li><a href="../../04-Signal-Processing-Pipeline.html">Signal Processing</a></li>
+      <li><a href="../../05-Node-Architecture.html">Node Architecture</a></li>
+      <li><a href="../../06-Message-Catalog.html">Message Catalog</a></li>
+      <li><a href="../../07-Detection-and-Tracking.html">Detection &amp; Tracking</a></li>
+      <li><a href="../../08-Scenarios-and-Targets.html">Scenarios &amp; Targets</a></li>
+      <li class="nav-section">Advanced</li>
+      <li><a href="../../10-Radar-Model-Library.html">Radar Model Library</a></li>
+      <li><a href="../../11-Multi-Radar-Fusion.html">Multi-Radar Fusion</a></li>
+      <li><a href="../../12-3D-Scene.html">3-D Scene</a></li>
+      <li><a href="../../13-Reference-Tables.html">Reference Tables</a></li>
+      <li><a href="../../FUTURE-DEVELOPMENT.html">Future Development</a></li>
+      <li class="nav-section">Upstream Theory</li>
+      <li><a href="../../upstream/README.html">Upstream README</a></li>
+      <li><a href="../../upstream/00_notation/conventions.html">Notation</a></li>
+      <li><a href="../../upstream/01_physics/01_fmcw_theory.html">FMCW Theory</a></li>
+      <li><a href="../../upstream/01_physics/02_lfm_waveform_model.html">LFM Waveform</a></li>
+      <li><a href="../../upstream/01_physics/03_beamforming_theory.html">Beamforming Theory</a></li>
+      <li><a href="../../upstream/01_physics/04_detection_theory.html">Detection Theory</a></li>
+      <li><a href="../../upstream/01_physics/05_noise_analysis.html">Noise Analysis</a></li>
+      <li><a href="../../upstream/01_physics/06_calibration_theory.html">Calibration</a></li>
+      <li><a href="../../upstream/02_hardware/01_system_overview.html">HW Overview</a></li>
+      <li><a href="../../upstream/04_research/01_cfar_variants.html">CFAR Variants</a></li>
+    </ul>
+    <div class="sidebar-footer">
+      <a href="https://github.com/brkay54/radarv2-docs" target="_blank">GitHub</a>
+    </div>
+  </nav>
+  <div class="main-content">
+
+<div class="markdown-preview-section">
+<h1 id="gps-imu-coordinate-transforms">GPS/IMU Coordinate Transforms<a class="ha" href="#gps-imu-coordinate-transforms" aria-hidden="true">¶</a></h1>
+
+<p class="kv-line"><span class="kv-key">Purpose:</span> <span class="kv-value">Document the AERIS-10 navigation subsystem that converts radar-relative detections (range, azimuth, elevation) into GPS-absolute coordinates for map display. Covers the GY-85 IMU sensor suite, complementary filter attitude estimation, magnetometer calibration, barometric altitude, and the complete radar-to-world coordinate transform chain.</span></p>
+
+<p class="kv-line"><span class="kv-key">Prerequisites:</span> <span class="kv-value">Familiarity with:</span></p>
+<ul><li><a href="../00_notation/symbol_table.md">Symbol Table</a> -- all symbols used herein</li><li><a href="../00_notation/parameter_table.md">Parameter Table</a> -- numerical values for both variants</li><li><a href="../00_notation/conventions.md">Conventions</a> -- equation formatting rules</li><li><a href="04_antenna_beamforming.md">Antenna &amp; Beamforming</a> -- beam position to steering angle mapping</li></ul>
+
+<hr>
+
+<h2 id="1-overview">1. Overview<a class="ha" href="#1-overview" aria-hidden="true">¶</a></h2>
+
+<p>The AERIS-10 navigation subsystem converts radar detections from the radar&#x27;s local spherical coordinate frame (range, azimuth angle, elevation angle) into GPS-absolute coordinates (latitude, longitude, altitude) for display on a map interface. This requires:</p>
+
+<ul><li><strong>Attitude estimation</strong> -- determining the radar platform&#x27;s orientation (pitch, roll, yaw) using IMU sensors</li><li><strong>Position determination</strong> -- obtaining the platform&#x27;s GPS coordinates (latitude, longitude) and barometric altitude</li><li><strong>Coordinate transformation</strong> -- rotating radar-frame target vectors into the world frame and adding the platform&#x27;s GPS position</li></ul>
+
+<p>The navigation sensor suite consists of:</p>
+
+<table class="md-table"><thead><tr><th>Sensor</th><th>IC</th><th>Interface</th><th>Function</th></tr></thead><tbody><tr><td>3-axis accelerometer</td><td>ADXL345</td><td>I2C (0x53)</td><td>Pitch and roll from gravity vector</td></tr><tr><td>3-axis gyroscope</td><td>ITG3200</td><td>I2C (0x68)</td><td>Angular rate for complementary filter</td></tr><tr><td>3-axis magnetometer</td><td>HMC5883</td><td>I2C (0x1E)</td><td>Yaw (heading) from magnetic field</td></tr><tr><td>Barometric pressure</td><td>BMP180</td><td>I2C</td><td>Altitude from atmospheric pressure</td></tr><tr><td>GPS receiver</td><td>--</td><td>UART5 (TinyGPS++)</td><td>Latitude, longitude, altitude</td></tr></tbody></table>
+
+<p>All IMU sensors are integrated into the GY-85 9-DOF module. The firmware driver is implemented in <code>GY_85_HAL.h</code> / <code>GY_85_HAL.c</code>, and the sensor fusion is performed in <code>main.cpp:1279--1386</code>.</p>
+
+<hr>
+
+<h2 id="2-gy-85-imu-sensors">2. GY-85 IMU Sensors<a class="ha" href="#2-gy-85-imu-sensors" aria-hidden="true">¶</a></h2>
+
+<p>The GY-85 is a 9-DOF (degrees of freedom) inertial measurement unit combining three sensor ICs on a single breakout board.</p>
+
+<h3 id="2-1-adxl345-accelerometer">2.1 ADXL345 Accelerometer<a class="ha" href="#2-1-adxl345-accelerometer" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Parameter</th><th>Value</th><th>Source</th></tr></thead><tbody><tr><td>I2C address</td><td><code>0x53</code></td><td><code>GY_85_HAL.h:7</code></td></tr><tr><td>Range</td><td>$\pm 2g$</td><td>Firmware scaling factor</td></tr><tr><td>Resolution</td><td>13-bit (full resolution mode)</td><td>ADXL345 datasheet</td></tr><tr><td>Output</td><td>16-bit signed integer (raw)</td><td><code>GY85_t.ax</code>, <code>GY85_t.ay</code>, <code>GY85_t.az</code></td></tr><tr><td>Scaling</td><td>$6.10351 \times 10^{-5}~\text{g/LSB}$ ($= 2.0 / 32768$)</td><td><code>main.cpp:1294</code></td></tr></tbody></table>
+
+<p>The raw accelerometer readings are converted to units of $g$ and bias-corrected:</p>
+
+<p>$$</p>
+<p>a_i = a_{i,\text{raw}} \times \frac{2.0}{32768} - a_{i,\text{bias}} \quad (i = x, y, z) \tag{HW-NAV-1}</p>
+<p>$$</p>
+
+<p>where $a_{i,\text{bias}}$ are the stored calibration biases (<code>abias[3] = {-0.108, -0.038, -0.006}</code> in <code>main.cpp:139</code>).</p>
+
+<h3 id="2-2-itg3200-gyroscope">2.2 ITG3200 Gyroscope<a class="ha" href="#2-2-itg3200-gyroscope" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Parameter</th><th>Value</th><th>Source</th></tr></thead><tbody><tr><td>I2C address</td><td><code>0x68</code></td><td><code>GY_85_HAL.h:9</code></td></tr><tr><td>Range</td><td>$\pm 500~\text{deg/s}$</td><td>Firmware scaling factor</td></tr><tr><td>Output</td><td>16-bit signed float (after HAL)</td><td><code>GY85_t.gx</code>, <code>GY85_t.gy</code>, <code>GY85_t.gz</code></td></tr><tr><td>Scaling</td><td>$0.0152588~\text{deg/s/LSB}$ ($= 500.0 / 32768$)</td><td><code>main.cpp:1302</code></td></tr></tbody></table>
+
+<p>The raw gyroscope readings are converted to degrees per second and bias-corrected. Note that the firmware inverts the $x$ and $y$ axes (<code>gx = -imu.gx</code>, <code>gy = -imu.gy</code> in <code>main.cpp:1287--1288</code>) to align the gyroscope axes with the accelerometer frame:</p>
+
+<p>$$</p>
+<p>\omega_i = \omega_{i,\text{raw}} \times \frac{500.0}{32768} - \omega_{i,\text{bias}} \quad (i = x, y, z) \tag{HW-NAV-2}</p>
+<p>$$</p>
+
+<p>where $\omega_{i,\text{bias}}$ are the gyroscope biases (<code>gbias[3] = {-10, 6, -12}</code> in <code>main.cpp:139</code>). The gyroscope values are subsequently converted from degrees/s to radians/s by multiplying by $\pi/180 \approx 0.01745$ (<code>main.cpp:1338--1340</code>).</p>
+
+<h3 id="2-3-hmc5883-magnetometer">2.3 HMC5883 Magnetometer<a class="ha" href="#2-3-hmc5883-magnetometer" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Parameter</th><th>Value</th><th>Source</th></tr></thead><tbody><tr><td>I2C address</td><td><code>0x1E</code></td><td><code>GY_85_HAL.h:8</code></td></tr><tr><td>Range</td><td>$\pm 2~\text{Ga}$ (implied by scaling)</td><td>Firmware scaling factor</td></tr><tr><td>Output</td><td>16-bit signed integer (raw)</td><td><code>GY85_t.mx</code>, <code>GY85_t.my</code>, <code>GY85_t.mz</code></td></tr><tr><td>Scaling</td><td>$6.10351 \times 10^{-5}~\text{Ga/LSB}$ ($= 2.0 / 32768$)</td><td><code>main.cpp:1310</code></td></tr></tbody></table>
+
+<p>The magnetometer readings require both bias correction and rotation matrix calibration (see Section 4).</p>
+
+<h3 id="2-4-i2c-initialization">2.4 I2C Initialization<a class="ha" href="#2-4-i2c-initialization" aria-hidden="true">¶</a></h3>
+
+<p>The <code>GY85_Init()</code> function (<code>GY_85_HAL.h:22</code>) initializes all three sensor ICs via the STM32 I2C3 peripheral (<code>hi2c3</code>). Sensor data is read by <code>GY85_Update()</code>, which populates the <code>GY85_t</code> struct with raw readings from all three sensors in a single call.</p>
+
+<hr>
+
+<h2 id="3-attitude-estimation-complementary-filter">3. Attitude Estimation: Complementary Filter<a class="ha" href="#3-attitude-estimation-complementary-filter" aria-hidden="true">¶</a></h2>
+
+<p>The firmware implements a complementary filter (<code>main.cpp:1327--1383</code>) that fuses accelerometer and gyroscope data to estimate platform attitude (pitch, roll, yaw). The complementary filter combines:</p>
+
+<ul><li><strong>Accelerometer:</strong> Accurate over long time scales (measures gravity direction) but noisy at short time scales (vibration-sensitive)</li><li><strong>Gyroscope:</strong> Accurate over short time scales (measures angular rate) but drifts over long time scales (integration error)</li></ul>
+
+<h3 id="3-1-accelerometer-based-angle-estimates">3.1 Accelerometer-Based Angle Estimates<a class="ha" href="#3-1-accelerometer-based-angle-estimates" aria-hidden="true">¶</a></h3>
+
+<p>The accelerometer provides absolute angle estimates from the gravity vector. Using the sensor-frame acceleration components $(a_x, a_y, a_z)$ after bias correction:</p>
+
+<p>$$</p>
+<p>\theta_\text{pitch,acc} = \arctan\!\left(\frac{a_x}{\sqrt{a_y^2 + a_z^2}}\right) \tag{HW-NAV-3}</p>
+<p>$$</p>
+
+<p>$$</p>
+<p>\theta_\text{roll,acc} = \arctan\!\left(\frac{a_y}{\sqrt{a_x^2 + a_z^2}}\right) \tag{HW-NAV-4}</p>
+<p>$$</p>
+
+<p>In the firmware, these are computed as <code>RxAcc = ax</code> and <code>RyAcc = ay</code>, with the final pitch and roll extracted from the fused estimates (see Section 3.3).</p>
+
+<h3 id="3-2-gyroscope-integration">3.2 Gyroscope Integration<a class="ha" href="#3-2-gyroscope-integration" aria-hidden="true">¶</a></h3>
+
+<p>The gyroscope provides angular rates that are integrated over the sampling interval $\Delta t$ to estimate angle changes. The firmware (<code>main.cpp:1343--1353</code>) computes the angle from the previous estimate plus the integrated rate:</p>
+
+<p>$$</p>
+<p>\theta_{\text{gyro},k} = \theta_{k-1} + \omega \cdot \Delta t \tag{HW-NAV-5}</p>
+<p>$$</p>
+
+<p>where $\omega$ is the angular rate in radians/s (after the deg/s to rad/s conversion) and $\Delta t$ is the time since the last update, computed from the hardware timer: <code>Time_Period = now_timeperiod - lasttime_timeperiod</code> in microseconds, converted to seconds by multiplying by $10^{-6}$ (<code>main.cpp:1351</code>).</p>
+
+<p>The firmware uses a direction-cosine approach to convert from Euler angle rates to estimated gravity vector components:</p>
+
+<p>$$</p>
+<p>\begin{aligned}</p>
+<p>R_{x,\text{gyro}} &amp;= \frac{\sin(\theta_{xz,1})}{\sqrt{1 + \cos^2(\theta_{xz,1}) \cdot \tan^2(\theta_{yz,1})}} \\</p>
+<p>R_{y,\text{gyro}} &amp;= \frac{\sin(\theta_{yz,1})}{\sqrt{1 + \cos^2(\theta_{yz,1}) \cdot \tan^2(\theta_{xz,1})}}</p>
+<p>\end{aligned}</p>
+<p>\tag{HW-NAV-6}</p>
+<p>$$</p>
+
+<p>$$</p>
+<p>R_{z,\text{gyro}} = \pm\sqrt{1 - R_{x,\text{gyro}}^2 - R_{y,\text{gyro}}^2} \tag{HW-NAV-7}</p>
+<p>$$</p>
+
+<p>The sign of $R_{z,\text{gyro}}$ is determined by the sign of the previous estimate $R_{z,\text{est},0}$ (<code>main.cpp:1359--1364</code>), ensuring continuity when the platform is inverted.</p>
+
+<h3 id="3-3-complementary-filter-fusion">3.3 Complementary Filter Fusion<a class="ha" href="#3-3-complementary-filter-fusion" aria-hidden="true">¶</a></h3>
+
+<p>The complementary filter combines the accelerometer and gyroscope estimates with equal weighting $\alpha = 0.5$ (<code>main.cpp:1366--1368</code>):</p>
+
+<p>$$</p>
+<p>R_{i,\text{est}} = \alpha \cdot R_{i,\text{acc}} + (1 - \alpha) \cdot R_{i,\text{gyro}} \quad (i = x, y, z) \tag{HW-NAV-8}</p>
+<p>$$</p>
+
+<p>with $\alpha = 0.5$. This 50/50 weighting gives equal trust to the accelerometer and gyroscope, which is appropriate for moderate dynamics. The fused estimate is then normalized:</p>
+
+<p>$$</p>
+<p>R_\text{est} = \sqrt{R_{x,\text{est}}^2 + R_{y,\text{est}}^2 + R_{z,\text{est}}^2} \tag{HW-NAV-9}</p>
+<p>$$</p>
+
+<h3 id="3-4-pitch-and-roll-extraction">3.4 Pitch and Roll Extraction<a class="ha" href="#3-4-pitch-and-roll-extraction" aria-hidden="true">¶</a></h3>
+
+<p>The pitch and roll angles are extracted from the fused gravity vector estimate:</p>
+
+<p>$$</p>
+<p>\theta_\text{pitch} = \arctan\!\left(\frac{R_{x,\text{est}}}{\sqrt{R_{y,\text{est}}^2 + R_{z,\text{est}}^2}}\right) \tag{HW-NAV-10}</p>
+<p>$$</p>
+
+<p>$$</p>
+<p>\theta_\text{roll} = \arctan\!\left(\frac{R_{y,\text{est}}}{\sqrt{R_{x,\text{est}}^2 + R_{z,\text{est}}^2}}\right) \tag{HW-NAV-11}</p>
+<p>$$</p>
+
+<p>These are computed in <code>main.cpp:1372--1373</code> with output in degrees (multiplied by $180/\pi$) and stored in <code>Pitch_Sensor</code> and <code>Roll_Sensor</code>.</p>
+
+<h3 id="3-5-firmware-variable-mapping">3.5 Firmware Variable Mapping<a class="ha" href="#3-5-firmware-variable-mapping" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Standard Symbol</th><th>Firmware Variable</th><th>Description</th></tr></thead><tbody><tr><td>$a_x, a_y, a_z$</td><td><code>ax</code>, <code>ay</code>, <code>az</code></td><td>Bias-corrected accelerometer ($g$)</td></tr><tr><td>$\omega_x, \omega_y, \omega_z$</td><td><code>gx</code>, <code>gy</code>, <code>gz</code></td><td>Bias-corrected gyroscope (deg/s)</td></tr><tr><td>$R_{x,\text{acc}}$</td><td><code>RxAcc</code></td><td>Accelerometer gravity estimate</td></tr><tr><td>$R_{x,\text{gyro}}$</td><td><code>RxGyro</code></td><td>Gyroscope gravity estimate</td></tr><tr><td>$R_{x,\text{est}}$</td><td><code>RxEst_1</code></td><td>Fused gravity estimate (current)</td></tr><tr><td>$R_{x,\text{est},0}$</td><td><code>RxEst_0</code></td><td>Fused gravity estimate (previous)</td></tr><tr><td>$\theta_\text{pitch}$</td><td><code>Pitch_Sensor</code></td><td>Output pitch (degrees)</td></tr><tr><td>$\theta_\text{roll}$</td><td><code>Roll_Sensor</code></td><td>Output roll (degrees)</td></tr><tr><td>$\alpha$</td><td>0.5 (literal)</td><td>Complementary filter weight</td></tr><tr><td>$\Delta t$</td><td><code>Time_Period * 1e-6</code></td><td>Sampling interval (seconds)</td></tr></tbody></table>
+
+<hr>
+
+<h2 id="4-magnetometer-calibration-and-yaw">4. Magnetometer Calibration and Yaw<a class="ha" href="#4-magnetometer-calibration-and-yaw" aria-hidden="true">¶</a></h2>
+
+<p>The magnetometer provides heading (yaw) information by measuring the Earth&#x27;s magnetic field. Raw magnetometer data requires calibration to remove hard-iron and soft-iron distortions, followed by tilt compensation using the pitch and roll from the complementary filter.</p>
+
+<h3 id="4-1-magnetometer-calibration-transform">4.1 Magnetometer Calibration Transform<a class="ha" href="#4-1-magnetometer-calibration-transform" aria-hidden="true">¶</a></h3>
+
+<p>The firmware applies a 3x3 rotation/scaling matrix and bias correction to the raw magnetometer readings (<code>main.cpp:1314--1316</code>):</p>
+
+<p>$$</p>
+<p>\begin{bmatrix} m_{x,c} \\ m_{y,c} \\ m_{z,c} \end{bmatrix} = \begin{bmatrix} M_{11} &amp; M_{12} &amp; M_{13} \\ M_{21} &amp; M_{22} &amp; M_{23} \\ M_{31} &amp; M_{32} &amp; M_{33} \end{bmatrix} \begin{bmatrix} m_x - m_{x,\text{bias}} \\ m_y - m_{y,\text{bias}} \\ m_z - m_{z,\text{bias}} \end{bmatrix} \tag{HW-NAV-12}</p>
+<p>$$</p>
+
+<p>The calibration matrix corrects for:</p>
+<ul><li><strong>Hard-iron distortion</strong> (bias vector $\mathbf{m}_\text{bias}$): constant magnetic field offsets from nearby ferromagnetic materials</li><li><strong>Soft-iron distortion</strong> (matrix $\mathbf{M}$): scaling and cross-axis coupling from nearby magnetically permeable materials</li></ul>
+
+<p>The default calibration values from <code>main.cpp:139--142</code>:</p>
+
+<table class="md-table"><thead><tr><th>Parameter</th><th>Value</th><th>Description</th></tr></thead><tbody><tr><td><code>mbias[3]</code></td><td>$\{0.0, 0.0, 0.0\}$</td><td>Hard-iron bias (uncalibrated default)</td></tr><tr><td>$\mathbf{M}$</td><td>$\mathbf{I}_{3\times3}$ (identity)</td><td>Soft-iron matrix (uncalibrated default)</td></tr></tbody></table>
+
+<blockquote><strong>Note:</strong> The default calibration values are identity/zero, indicating that magnetometer calibration has not been performed for the current installation. Proper calibration requires collecting magnetometer data while rotating the sensor through all orientations and fitting an ellipsoid model to extract the bias vector and correction matrix.</blockquote>
+
+<p>After calibration, the corrected values are normalized to unit magnitude (<code>main.cpp:1322--1325</code>):</p>
+
+<p>$$</p>
+<p>\hat{m}_i = \frac{m_{i,c}}{\|\mathbf{m}_c\|} \quad \text{where} \quad \|\mathbf{m}_c\| = \sqrt{m_{x,c}^2 + m_{y,c}^2 + m_{z,c}^2} \tag{HW-NAV-13}</p>
+<p>$$</p>
+
+<h3 id="4-2-tilt-compensated-heading">4.2 Tilt-Compensated Heading<a class="ha" href="#4-2-tilt-compensated-heading" aria-hidden="true">¶</a></h3>
+
+<p>The raw magnetometer heading is only accurate when the sensor is level. For a tilted platform, the magnetic field components must be projected onto the horizontal plane using the pitch and roll angles from the complementary filter.</p>
+
+<p>The firmware computes tilt-compensated magnetic field components (<code>main.cpp:1375--1376</code>):</p>
+
+<p>$$</p>
+<p>m_{x,\text{horiz}} = \hat{m}_x \cos\theta_\text{pitch} - \hat{m}_z \sin\theta_\text{pitch} \tag{HW-NAV-14}</p>
+<p>$$</p>
+
+<p>$$</p>
+<p>m_{y,\text{horiz}} = \hat{m}_x \sin\theta_\text{roll} \sin\theta_\text{pitch} + \hat{m}_y \cos\theta_\text{roll} - \hat{m}_z \sin\theta_\text{roll} \cos\theta_\text{pitch} \tag{HW-NAV-15}</p>
+<p>$$</p>
+
+<h3 id="4-3-yaw-computation">4.3 Yaw Computation<a class="ha" href="#4-3-yaw-computation" aria-hidden="true">¶</a></h3>
+
+<p>The yaw (heading) angle is computed from the tilt-compensated horizontal magnetic field components, corrected for magnetic declination (<code>main.cpp:1377</code>):</p>
+
+<p>$$</p>
+<p>\psi_\text{yaw} = \arctan2(m_{y,\text{horiz}},\; m_{x,\text{horiz}}) - \delta_\text{mag} \tag{HW-NAV-16}</p>
+<p>$$</p>
+
+<p>where $\delta_\text{mag}$ is the local magnetic declination (<code>Mag_Declination = -0.61</code> degrees in <code>main.cpp:146</code>, see <a href="../00_notation/parameter_table.md#system-level-derivedtbd">Parameter Table</a>).</p>
+
+<p>The result is normalized to $[0^\circ, 360^\circ)$ by adding $360^\circ$ if negative (<code>main.cpp:1379</code>).</p>
+
+<table class="md-table"><thead><tr><th>Firmware Variable</th><th>Symbol</th><th>Description</th></tr></thead><tbody><tr><td><code>magRawX</code></td><td>$m_{x,\text{horiz}}$</td><td>Tilt-compensated magnetic X</td></tr><tr><td><code>magRawY</code></td><td>$m_{y,\text{horiz}}$</td><td>Tilt-compensated magnetic Y</td></tr><tr><td><code>Yaw_Sensor</code></td><td>$\psi_\text{yaw}$</td><td>Output yaw (degrees, 0--360)</td></tr><tr><td><code>Mag_Declination</code></td><td>$\delta_\text{mag}$</td><td>Magnetic declination ($-0.61^\circ$)</td></tr></tbody></table>
+
+<hr>
+
+<h2 id="5-barometric-altitude">5. Barometric Altitude<a class="ha" href="#5-barometric-altitude" aria-hidden="true">¶</a></h2>
+
+<p>The BMP180 barometric pressure sensor provides altitude estimation independent of GPS.</p>
+
+<h3 id="5-1-bmp180-configuration">5.1 BMP180 Configuration<a class="ha" href="#5-1-bmp180-configuration" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Parameter</th><th>Value</th><th>Source</th></tr></thead><tbody><tr><td>Resolution mode</td><td><code>BMP180_ULTRAHIGHRES</code></td><td><code>main.cpp:166</code></td></tr><tr><td>Oversampling</td><td>8x</td><td>BMP180 datasheet</td></tr><tr><td>Power consumption</td><td>$12~\mu\text{A}$</td><td>BMP180 datasheet</td></tr></tbody></table>
+
+<h3 id="5-2-hypsometric-formula">5.2 Hypsometric Formula<a class="ha" href="#5-2-hypsometric-formula" aria-hidden="true">¶</a></h3>
+
+<p>The firmware computes altitude from pressure using a simplified hypsometric formula (<code>main.cpp:1393</code>):</p>
+
+<p>$$</p>
+<p>h = 44330 \left(1 - \left(\frac{P}{P_0}\right)^{1/5.255}\right) \tag{HW-NAV-17}</p>
+<p>$$</p>
+
+<p>where $P$ is the measured pressure (Pa) from the BMP180 and $P_0 = 101325~\text{Pa}$ is the standard sea-level pressure. The exponent $1/5.255 \approx 0.1903$ is derived from the international barometric formula:</p>
+
+<p>$$</p>
+<p>h = \frac{T_0}{L} \left[\left(\frac{P_0}{P}\right)^{R_\text{air} L / (g \, M_\text{air})} - 1\right] \tag{HW-NAV-18}</p>
+<p>$$</p>
+
+<p>where $T_0 = 288.15~\text{K}$ (standard temperature), $L = 0.0065~\text{K/m}$ (temperature lapse rate), $R_\text{air} = 8.31447~\text{J/(mol\cdot K)}$ (universal gas constant), $g = 9.80665~\text{m/s}^2$ (standard gravity), and $M_\text{air} = 0.0289644~\text{kg/mol}$ (molar mass of dry air). Substituting the standard atmosphere constants yields the coefficient 44330 and exponent 1/5.255 used in the firmware.</p>
+
+<p>The firmware averages 5 consecutive readings with 100 ms intervals for noise reduction (<code>main.cpp:1391--1395</code>). The altitude is stored in <code>RADAR_Altitude</code>.</p>
+
+<hr>
+
+<h2 id="6-radar-to-world-coordinate-transform">6. Radar-to-World Coordinate Transform<a class="ha" href="#6-radar-to-world-coordinate-transform" aria-hidden="true">¶</a></h2>
+
+<p>The complete coordinate transform converts a target detection in the radar&#x27;s local frame to a world-frame position relative to the radar&#x27;s GPS coordinates.</p>
+
+<h3 id="6-1-radar-frame">6.1 Radar Frame<a class="ha" href="#6-1-radar-frame" aria-hidden="true">¶</a></h3>
+
+<p>In the radar&#x27;s local spherical coordinate frame, a target is described by:</p>
+<ul><li><strong>Range</strong> $R$ -- distance from the radar (from beat frequency, see Eq. (FMCW-1) in <a href="../01_physics/01_fmcw_theory.md"><code>01_fmcw_theory.md</code></a>)</li><li><strong>Azimuth angle</strong> $\phi_\text{az}$ -- determined by the stepper motor position (mechanical rotation, $N_\text{az} = 50$ positions per revolution)</li><li><strong>Elevation angle</strong> $\theta_\text{el}$ -- determined by the electronic beam steering position (ADAR1000 phase shifts, $N_\text{el} = 31$ positions, see <a href="04_antenna_beamforming.md"><code>04_antenna_beamforming.md</code></a>)</li></ul>
+
+<p>The target position in radar-frame Cartesian coordinates is:</p>
+
+<p>$$</p>
+<p>\mathbf{p}_\text{radar} = \begin{bmatrix} R \cos\theta_\text{el} \cos\phi_\text{az} \\ R \cos\theta_\text{el} \sin\phi_\text{az} \\ R \sin\theta_\text{el} \end{bmatrix} \tag{HW-NAV-19}</p>
+<p>$$</p>
+
+<h3 id="6-2-rotation-matrices">6.2 Rotation Matrices<a class="ha" href="#6-2-rotation-matrices" aria-hidden="true">¶</a></h3>
+
+<p>To transform from the radar body frame to the world (North-East-Down or East-North-Up) frame, three successive rotations are applied for roll ($\theta_\text{roll}$), pitch ($\theta_\text{pitch}$), and yaw ($\psi_\text{yaw}$):</p>
+
+<p><strong>Roll rotation</strong> (about the $x$-axis):</p>
+
+<p>$$</p>
+<p>\mathbf{R}_\text{roll} = \begin{bmatrix} 1 &amp; 0 &amp; 0 \\ 0 &amp; \cos\theta_\text{roll} &amp; -\sin\theta_\text{roll} \\ 0 &amp; \sin\theta_\text{roll} &amp; \cos\theta_\text{roll} \end{bmatrix} \tag{HW-NAV-20}</p>
+<p>$$</p>
+
+<p><strong>Pitch rotation</strong> (about the $y$-axis):</p>
+
+<p>$$</p>
+<p>\mathbf{R}_\text{pitch} = \begin{bmatrix} \cos\theta_\text{pitch} &amp; 0 &amp; \sin\theta_\text{pitch} \\ 0 &amp; 1 &amp; 0 \\ -\sin\theta_\text{pitch} &amp; 0 &amp; \cos\theta_\text{pitch} \end{bmatrix} \tag{HW-NAV-21}</p>
+<p>$$</p>
+
+<p><strong>Yaw rotation</strong> (about the $z$-axis):</p>
+
+<p>$$</p>
+<p>\mathbf{R}_\text{yaw} = \begin{bmatrix} \cos\psi_\text{yaw} &amp; -\sin\psi_\text{yaw} &amp; 0 \\ \sin\psi_\text{yaw} &amp; \cos\psi_\text{yaw} &amp; 0 \\ 0 &amp; 0 &amp; 1 \end{bmatrix} \tag{HW-NAV-22}</p>
+<p>$$</p>
+
+<h3 id="6-3-complete-body-to-world-transform">6.3 Complete Body-to-World Transform<a class="ha" href="#6-3-complete-body-to-world-transform" aria-hidden="true">¶</a></h3>
+
+<p>The world-frame target position is obtained by applying the rotation sequence yaw, then pitch, then roll (Tait-Bryan ZYX convention):</p>
+
+<p>$$</p>
+<p>\mathbf{p}_\text{world} = \mathbf{R}_\text{yaw} \, \mathbf{R}_\text{pitch} \, \mathbf{R}_\text{roll} \, \mathbf{p}_\text{radar} \tag{HW-NAV-23}</p>
+<p>$$</p>
+
+<p>The combined rotation matrix $\mathbf{R} = \mathbf{R}_\text{yaw} \, \mathbf{R}_\text{pitch} \, \mathbf{R}_\text{roll}$ expands to:</p>
+
+<p>$$</p>
+<p>\mathbf{R} = \begin{bmatrix}</p>
+<p>c_\psi c_\theta &amp; c_\psi s_\theta s_\phi - s_\psi c_\phi &amp; c_\psi s_\theta c_\phi + s_\psi s_\phi \\</p>
+<p>s_\psi c_\theta &amp; s_\psi s_\theta s_\phi + c_\psi c_\phi &amp; s_\psi s_\theta c_\phi - c_\psi s_\phi \\</p>
+<p>-s_\theta &amp; c_\theta s_\phi &amp; c_\theta c_\phi</p>
+<p>\end{bmatrix} \tag{HW-NAV-24}</p>
+<p>$$</p>
+
+<p>where $c_\psi = \cos\psi_\text{yaw}$, $s_\psi = \sin\psi_\text{yaw}$, $c_\theta = \cos\theta_\text{pitch}$, $s_\theta = \sin\theta_\text{pitch}$, $c_\phi = \cos\theta_\text{roll}$, $s_\phi = \sin\theta_\text{roll}$.</p>
+
+<h3 id="6-4-quaternion-representation">6.4 Quaternion Representation<a class="ha" href="#6-4-quaternion-representation" aria-hidden="true">¶</a></h3>
+
+<p>The firmware initializes a quaternion array <code>q[4] = {1.0, 0.0, 0.0, 0.0}</code> (<code>main.cpp:144</code>), representing the identity rotation in quaternion form $q = (w, x, y, z)$. However, the actual attitude estimation uses the <strong>Euler-angle complementary filter</strong> (Section 3), not a quaternion-based filter.</p>
+
+<p>For reference, the conversion from Euler angles to quaternion is:</p>
+
+<p>$$</p>
+<p>\begin{aligned}</p>
+<p>q_w &amp;= \cos(\psi/2)\cos(\theta/2)\cos(\phi/2) + \sin(\psi/2)\sin(\theta/2)\sin(\phi/2) \\</p>
+<p>q_x &amp;= \cos(\psi/2)\cos(\theta/2)\sin(\phi/2) - \sin(\psi/2)\sin(\theta/2)\cos(\phi/2) \\</p>
+<p>q_y &amp;= \cos(\psi/2)\sin(\theta/2)\cos(\phi/2) + \sin(\psi/2)\cos(\theta/2)\sin(\phi/2) \\</p>
+<p>q_z &amp;= \sin(\psi/2)\cos(\theta/2)\cos(\phi/2) - \cos(\psi/2)\sin(\theta/2)\sin(\phi/2)</p>
+<p>\end{aligned}</p>
+<p>\tag{HW-NAV-25}</p>
+<p>$$</p>
+
+<blockquote><strong>Implementation Note:</strong> The <code>q[4]</code> array is initialized but <strong>not updated</strong> in the current firmware. The complementary filter outputs Euler angles directly (<code>Pitch_Sensor</code>, <code>Roll_Sensor</code>, <code>Yaw_Sensor</code>). A future firmware revision could implement a quaternion-based Madgwick or Mahony filter to avoid gimbal lock near $\pm 90^\circ$ pitch, but the current Euler-angle approach is adequate for the AERIS-10&#x27;s expected operating tilt range.</blockquote>
+
+<hr>
+
+<h2 id="7-gps-integration">7. GPS Integration<a class="ha" href="#7-gps-integration" aria-hidden="true">¶</a></h2>
+
+<h3 id="7-1-gps-receiver">7.1 GPS Receiver<a class="ha" href="#7-1-gps-receiver" aria-hidden="true">¶</a></h3>
+
+<p>The AERIS-10 uses a GPS receiver connected via UART5 on the STM32F746 microcontroller. GPS data is parsed using the TinyGPS++ library (<code>TinyGPSPlus.h</code>, <code>main.cpp:122</code>).</p>
+
+<p>UART5 is initialized in <code>MX_UART5_Init()</code> (<code>main.cpp:2143--2169</code>). Incoming bytes are passed to <code>gps.encode(ch)</code> (<code>main.cpp:909</code>) for NMEA sentence parsing.</p>
+
+<h3 id="7-2-gps-data-structure">7.2 GPS Data Structure<a class="ha" href="#7-2-gps-data-structure" aria-hidden="true">¶</a></h3>
+
+<p>The firmware defines a <code>GPS_Data_t</code> structure for packaging navigation data (<code>main.cpp:125,1530</code>):</p>
+
+<table class="md-table"><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody><tr><td>Latitude</td><td><code>double</code></td><td>Radar position latitude (degrees)</td></tr><tr><td>Longitude</td><td><code>double</code></td><td>Radar position longitude (degrees)</td></tr><tr><td>Altitude</td><td><code>float</code></td><td>Radar altitude from BMP180 (meters)</td></tr><tr><td>Pitch</td><td><code>float</code></td><td>Platform pitch from IMU (degrees)</td></tr><tr><td>Timestamp</td><td><code>uint32_t</code></td><td>System tick count (<code>HAL_GetTick()</code>)</td></tr></tbody></table>
+
+<p>This data is transmitted to the GUI via USB using <code>GPS_SendBinaryToGUI()</code> (<code>main.cpp:1531</code>) as a binary packet: <code>[Header 4B][Latitude 8B][Longitude 8B][Altitude 4B][CRC 2B]</code>.</p>
+
+<h3 id="7-3-radar-to-absolute-position">7.3 Radar-to-Absolute Position<a class="ha" href="#7-3-radar-to-absolute-position" aria-hidden="true">¶</a></h3>
+
+<p>Given the radar&#x27;s GPS position $(\lambda_\text{radar}, \varphi_\text{radar}, h_\text{radar})$ (latitude, longitude, altitude) and a target at world-frame offset $\mathbf{p}_\text{world} = (p_E, p_N, p_U)$ (East, North, Up components from Eq. (HW-NAV-23)), the target&#x27;s absolute GPS position is approximated by:</p>
+
+<p>$$</p>
+<p>\begin{aligned}</p>
+<p>\lambda_\text{target} &amp;= \lambda_\text{radar} + \frac{p_N}{R_\oplus} \cdot \frac{180}{\pi} \\</p>
+<p>\varphi_\text{target} &amp;= \varphi_\text{radar} + \frac{p_E}{R_\oplus \cos(\lambda_\text{radar} \cdot \pi / 180)} \cdot \frac{180}{\pi} \\</p>
+<p>h_\text{target} &amp;= h_\text{radar} + p_U</p>
+<p>\end{aligned}</p>
+<p>\tag{HW-NAV-26}</p>
+<p>$$</p>
+
+<p>where $R_\oplus \approx 6{,}371{,}000~\text{m}$ is the mean Earth radius. This flat-Earth approximation is valid for the AERIS-10&#x27;s detection ranges ($R_\text{max} \leq 20~\text{km}$, see <a href="../00_notation/parameter_table.md#system-level-derivedtbd">Parameter Table</a>), where the curvature error is negligible ($&lt; 0.003\%$ at 20 km).</p>
+
+<hr>
+
+<h2 id="8-references">8. References<a class="ha" href="#8-references" aria-hidden="true">¶</a></h2>
+
+<h3 id="project-documentation">Project Documentation<a class="ha" href="#project-documentation" aria-hidden="true">¶</a></h3>
+<ul><li><a href="../00_notation/symbol_table.md">Symbol Table</a> -- symbols for $N_\text{el}$, $N_\text{az}$, $\theta$, $R$</li><li><a href="../00_notation/parameter_table.md">Parameter Table</a> -- magnetic declination, beam position count, detection range</li><li><a href="../00_notation/conventions.md">Conventions</a> -- equation numbering and formatting rules</li></ul>
+
+<h3 id="hardware-cross-references">Hardware Cross-References<a class="ha" href="#hardware-cross-references" aria-hidden="true">¶</a></h3>
+<ul><li><a href="04_antenna_beamforming.md"><code>04_antenna_beamforming.md</code></a> -- beam position to steering angle mapping ($N_\text{el} = 31$ positions, phase shift array <code>phase_differences[31]</code>)</li><li><a href="01_system_overview.md"><code>01_system_overview.md</code></a> -- STM32 I2C bus to IMU sensors, UART to GPS</li></ul>
+
+<h3 id="firmware-sources">Firmware Sources<a class="ha" href="#firmware-sources" aria-hidden="true">¶</a></h3>
+<ul><li><code>GY_85_HAL.h</code> -- GY-85 IMU driver: I2C addresses (ADXL345: 0x53, ITG3200: 0x68, HMC5883: 0x1E), sensor struct, init/update API</li><li><code>main.cpp:139--156</code> -- IMU calibration constants (accelerometer, gyroscope, magnetometer biases; calibration matrix M; quaternion array; magnetic declination)</li><li><code>main.cpp:1279--1386</code> -- Complementary filter implementation: sensor reading, bias correction, scaling, gravity vector estimation, pitch/roll/yaw computation</li><li><code>main.cpp:1388--1395</code> -- BMP180 barometric altitude computation</li><li><code>main.cpp:1527--1531</code> -- GPS data packaging and transmission to GUI</li><li><code>BMP180.h</code> -- BMP180 barometric pressure sensor driver</li></ul>
+
+<h3 id="component-datasheets">Component Datasheets<a class="ha" href="#component-datasheets" aria-hidden="true">¶</a></h3>
+<ul><li>ADXL345 -- 3-axis digital accelerometer (Analog Devices)</li><li>ITG3200 -- 3-axis digital gyroscope (InvenSense)</li><li>HMC5883L -- 3-axis digital magnetometer (Honeywell)</li><li>BMP180 -- Digital pressure sensor (Bosch Sensortec)</li><li>TinyGPS++ -- Arduino/STM32 GPS parsing library</li></ul>
+
+</div>
+  </div><!-- main-content -->
+</div><!-- site-shell -->
+<script>
+mermaid.initialize({ startOnLoad: true, theme: 'dark', securityLevel: 'loose' });
+</script>
+</body>
+
+</html>

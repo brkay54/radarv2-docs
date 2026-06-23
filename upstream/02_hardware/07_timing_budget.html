@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>07_timing_budget — aros Vault</title>
+<style>
+
+:root {
+  --color-blue:    #007ACC;
+  --color-green:   #2DA44E;
+  --color-yellow:  #D29922;
+  --color-purple:  #8B5CF6;
+  --color-orange:  #F59E0B;
+  --color-red:     #E5534B;
+  --color-cyan:    #0BC5EA;
+  --color-accent:  #7C3AED;
+  --text-normal:   #DCDDDE;
+  --text-muted:    #8E8EA0;
+  --background-primary:         #1E1E2E;
+  --background-secondary:       #181825;
+  --background-modifier-border: #313244;
+  --color-base-30:              #45475A;
+}
+body {
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.6;
+  margin: 0;
+}
+
+</style>
+<!-- Mermaid -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<!-- MathJax -->
+<script>window.MathJax={tex:{inlineMath:[['$','$'],['\\(','\\)']],displayMath:[['$$','$$'],['\\[','\\]']]},options:{skipHtmlTags:['script','noscript','style','textarea','pre']}};</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+<!-- Site CSS -->
+<link rel="stylesheet" href="../../site.css">
+</head>
+<body class="markdown-reading-view">
+<div class="site-shell">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <a href="../../00-Index.html" class="site-title">radarv2 / AERIS-10</a>
+      <div class="site-subtitle">aros Radar Documentation</div>
+    </div>
+    <ul class="nav-list">
+      <li class="nav-section">Core Docs</li>
+      <li><a href="../../09-Concepts-Primer.html">Radar Primer</a></li>
+      <li><a href="../../00-Index.html">Index</a></li>
+      <li><a href="../../01-System-Overview.html">System Overview</a></li>
+      <li><a href="../../02-Physics-and-Waveform.html">Physics &amp; Waveform</a></li>
+      <li><a href="../../03-Beamforming-and-Scan.html">Beamforming &amp; Scan</a></li>
+      <li><a href="../../04-Signal-Processing-Pipeline.html">Signal Processing</a></li>
+      <li><a href="../../05-Node-Architecture.html">Node Architecture</a></li>
+      <li><a href="../../06-Message-Catalog.html">Message Catalog</a></li>
+      <li><a href="../../07-Detection-and-Tracking.html">Detection &amp; Tracking</a></li>
+      <li><a href="../../08-Scenarios-and-Targets.html">Scenarios &amp; Targets</a></li>
+      <li class="nav-section">Advanced</li>
+      <li><a href="../../10-Radar-Model-Library.html">Radar Model Library</a></li>
+      <li><a href="../../11-Multi-Radar-Fusion.html">Multi-Radar Fusion</a></li>
+      <li><a href="../../12-3D-Scene.html">3-D Scene</a></li>
+      <li><a href="../../13-Reference-Tables.html">Reference Tables</a></li>
+      <li><a href="../../FUTURE-DEVELOPMENT.html">Future Development</a></li>
+      <li class="nav-section">Upstream Theory</li>
+      <li><a href="../../upstream/README.html">Upstream README</a></li>
+      <li><a href="../../upstream/00_notation/conventions.html">Notation</a></li>
+      <li><a href="../../upstream/01_physics/01_fmcw_theory.html">FMCW Theory</a></li>
+      <li><a href="../../upstream/01_physics/02_lfm_waveform_model.html">LFM Waveform</a></li>
+      <li><a href="../../upstream/01_physics/03_beamforming_theory.html">Beamforming Theory</a></li>
+      <li><a href="../../upstream/01_physics/04_detection_theory.html">Detection Theory</a></li>
+      <li><a href="../../upstream/01_physics/05_noise_analysis.html">Noise Analysis</a></li>
+      <li><a href="../../upstream/01_physics/06_calibration_theory.html">Calibration</a></li>
+      <li><a href="../../upstream/02_hardware/01_system_overview.html">HW Overview</a></li>
+      <li><a href="../../upstream/04_research/01_cfar_variants.html">CFAR Variants</a></li>
+    </ul>
+    <div class="sidebar-footer">
+      <a href="https://github.com/brkay54/radarv2-docs" target="_blank">GitHub</a>
+    </div>
+  </nav>
+  <div class="main-content">
+
+<div class="markdown-preview-section">
+<h1 id="end-to-end-timing-budget">End-to-End Timing Budget<a class="ha" href="#end-to-end-timing-budget" aria-hidden="true">¶</a></h1>
+
+<p class="kv-line"><span class="kv-key">Purpose:</span> <span class="kv-value">Trace latency from antenna to display for the complete AERIS-10 signal processing pipeline, documenting chirp sequence timing (including guard time), full scan timing, stage-by-stage FPGA pipeline latency, and overall system responsiveness.</span></p>
+
+<p class="kv-line"><span class="kv-key">Prerequisites:</span> <span class="kv-value">Familiarity with:</span></p>
+<ul><li><a href="../00_notation/symbol_table.md">Symbol Table</a> -- all symbols used herein</li><li><a href="../00_notation/parameter_table.md">Parameter Table</a> -- numerical values for both variants</li><li><a href="../00_notation/conventions.md">Conventions</a> -- equation formatting rules</li><li><a href="05_fpga_board.md">FPGA Board</a> -- clock domains and module inventory</li><li><a href="03_frequency_synthesis.md">Frequency Synthesis</a> -- clock sources and rates</li></ul>
+
+<hr>
+
+<h2 id="1-overview">1. Overview<a class="ha" href="#1-overview" aria-hidden="true">¶</a></h2>
+
+<p>The AERIS-10 timing budget quantifies the time required for each stage of the radar&#x27;s operation, from chirp transmission through digital processing to display output. Understanding this budget is essential for:</p>
+
+<ul><li>Computing the total scan time for a full 360-degree revolution</li><li>Identifying processing bottlenecks in the FPGA pipeline</li><li>Determining system responsiveness (time from target illumination to detection display)</li><li>Verifying that processing completes within the available chirp interval</li></ul>
+
+<p>The timing budget is organized into three levels:</p>
+
+<ul><li><strong>Chirp sequence timing</strong> -- the per-beam-position waveform schedule including guard time</li><li><strong>Full scan timing</strong> -- the time for a complete azimuth revolution with stepper motor movement</li><li><strong>FPGA pipeline latency</strong> -- stage-by-stage processing delay from ADC input to USB output</li></ul>
+
+<hr>
+
+<h2 id="2-chirp-sequence-timing">2. Chirp Sequence Timing<a class="ha" href="#2-chirp-sequence-timing" aria-hidden="true">¶</a></h2>
+
+<p>The firmware function <code>executeChirpSequence()</code> (<code>main.cpp:445--466</code>) implements the per-beam-position waveform schedule. Each beam position transmits $M$ chirps split into two subsequences separated by a guard interval.</p>
+
+<h3 id="2-1-chirp-sequence-structure">2.1 Chirp Sequence Structure<a class="ha" href="#2-1-chirp-sequence-structure" aria-hidden="true">¶</a></h3>
+
+<p>For each beam position, the chirp sequence consists of:</p>
+
+<ul><li><strong>Long chirp subsequence:</strong> $M/2$ chirps at PRI $T_{r,1}$, each with chirp duration $T_{c,1}$ (<code>T1</code> in <code>main.cpp</code>) followed by a listen interval of $T_{r,1} - T_{c,1}$</li><li><strong>Guard time:</strong> $T_\text{guard}$ (<code>Guard</code> in <code>main.cpp</code>) -- a dead time separating the two chirp modes to allow transients to settle and prevent inter-mode interference</li><li><strong>Short chirp subsequence:</strong> $M/2$ chirps at PRI $T_{r,2}$, each with chirp duration $T_{c,2}$ (<code>T2</code> in <code>main.cpp</code>) followed by a listen interval of $T_{r,2} - T_{c,2}$</li></ul>
+
+<h3 id="2-2-firmware-variable-mapping">2.2 Firmware Variable Mapping<a class="ha" href="#2-2-firmware-variable-mapping" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Standard Symbol</th><th>Firmware Variable</th><th>Value</th><th>Description</th></tr></thead><tbody><tr><td>$M$</td><td><code>m_max</code></td><td>32</td><td>Total chirps per beam position</td></tr><tr><td>$T_{c,1}$</td><td><code>T1</code></td><td>$30~\mu\text{s}$</td><td>Long chirp duration</td></tr><tr><td>$T_{c,2}$</td><td><code>T2</code></td><td>$0.5~\mu\text{s}$</td><td>Short chirp duration</td></tr><tr><td>$T_{r,1}$</td><td><code>PRI1</code></td><td>$167~\mu\text{s}$</td><td>Long chirp PRI</td></tr><tr><td>$T_{r,2}$</td><td><code>PRI2</code></td><td>$175~\mu\text{s}$</td><td>Short chirp PRI</td></tr><tr><td>$T_\text{guard}$</td><td><code>Guard</code></td><td>$175.4~\mu\text{s}$</td><td>Guard time between subsequences</td></tr></tbody></table>
+
+<p>All values are from <code>main.cpp:178--184</code> and documented in the <a href="../00_notation/parameter_table.md#waveform-and-timing">Parameter Table</a>.</p>
+
+<h3 id="2-3-per-beam-position-time">2.3 Per-Beam-Position Time<a class="ha" href="#2-3-per-beam-position-time" aria-hidden="true">¶</a></h3>
+
+<p>The total time for one beam position is the sum of the two chirp subsequences and the guard interval:</p>
+
+<p>$$</p>
+<p>T_\text{pos} = \frac{M}{2} \cdot T_{r,1} + T_\text{guard} + \frac{M}{2} \cdot T_{r,2} \tag{HW-TIM-1}</p>
+<p>$$</p>
+
+<p>The long chirp subsequence duration is:</p>
+
+<p>$$</p>
+<p>T_\text{long} = \frac{M}{2} \cdot T_{r,1} \tag{HW-TIM-2}</p>
+<p>$$</p>
+
+<p>The short chirp subsequence duration is:</p>
+
+<p>$$</p>
+<p>T_\text{short} = \frac{M}{2} \cdot T_{r,2} \tag{HW-TIM-3}</p>
+<p>$$</p>
+
+<p>Using the system parameters from the <a href="../00_notation/parameter_table.md#waveform-and-timing">Parameter Table</a>:</p>
+
+<p>$$</p>
+<p>\begin{aligned}</p>
+<p>T_\text{long} &amp;= 16 \times 167~\mu\text{s} = 2672~\mu\text{s} \\</p>
+<p>T_\text{short} &amp;= 16 \times 175~\mu\text{s} = 2800~\mu\text{s} \\</p>
+<p>T_\text{pos} &amp;= 2672 + 175.4 + 2800 = 5647.4~\mu\text{s} \approx 5.65~\text{ms}</p>
+<p>\end{aligned}</p>
+<p>\tag{HW-TIM-4}</p>
+<p>$$</p>
+
+<blockquote><strong>Pitfall Warning (Pitfall 7):</strong> The guard time $T_\text{guard} = 175.4~\mu\text{s}$ is critical and must not be omitted from timing calculations. It accounts for approximately 3.1% of the per-position time. Omitting it leads to an underestimate of $T_\text{pos}$ by $175.4~\mu\text{s}$ per beam position, accumulating to a significant error over a full scan.</blockquote>
+
+<h3 id="2-4-chirp-duty-cycle">2.4 Chirp Duty Cycle<a class="ha" href="#2-4-chirp-duty-cycle" aria-hidden="true">¶</a></h3>
+
+<p>The fraction of each PRI spent transmitting (chirp duty cycle) differs between the two modes:</p>
+
+<p>$$</p>
+<p>\eta_\text{long} = \frac{T_{c,1}}{T_{r,1}} \tag{HW-TIM-5}</p>
+<p>$$</p>
+
+<p>$$</p>
+<p>\eta_\text{short} = \frac{T_{c,2}}{T_{r,2}} \tag{HW-TIM-6}</p>
+<p>$$</p>
+
+<p>For the long chirp mode, $\eta_\text{long} = 30/167 \approx 18.0\%$. For the short chirp mode, $\eta_\text{short} = 0.5/175 \approx 0.29\%$. The low duty cycle of the short chirp mode reflects the very short pulse duration $T_{c,2}$ relative to the PRI.</p>
+
+<hr>
+
+<h2 id="3-full-scan-timing">3. Full Scan Timing<a class="ha" href="#3-full-scan-timing" aria-hidden="true">¶</a></h2>
+
+<p>The AERIS-10 performs a 360-degree azimuth scan using a stepper motor while electronically steering the beam through $N_\text{el}$ elevation positions at each azimuth step.</p>
+
+<h3 id="3-1-elevation-scan">3.1 Elevation Scan<a class="ha" href="#3-1-elevation-scan" aria-hidden="true">¶</a></h3>
+
+<p>At each azimuth position, the beam is steered through all $N_\text{el}$ elevation positions. The firmware (<code>main.cpp:482--512</code>) iterates through beam positions using the <code>matrix1</code>, <code>vector_0</code>, and <code>matrix2</code> steering vectors. The total elevation scan time is:</p>
+
+<p>$$</p>
+<p>T_\text{el} = N_\text{el} \times T_\text{pos} \tag{HW-TIM-7}</p>
+<p>$$</p>
+
+<p>Using $N_\text{el} = 31$ positions (see <a href="../00_notation/parameter_table.md#waveform-and-timing">Parameter Table</a>):</p>
+
+<p>$$</p>
+<p>T_\text{el} = 31 \times 5647.4~\mu\text{s} = 175{,}069.4~\mu\text{s} \approx 175.1~\text{ms}</p>
+<p>$$</p>
+
+<h3 id="3-2-stepper-motor-movement">3.2 Stepper Motor Movement<a class="ha" href="#3-2-stepper-motor-movement" aria-hidden="true">¶</a></h3>
+
+<p>Between azimuth positions, the stepper motor rotates to the next azimuth angle. The stepper motor parameters from <code>main.cpp:195,518--523</code>:</p>
+
+<table class="md-table"><thead><tr><th>Parameter</th><th>Value</th><th>Firmware Variable</th></tr></thead><tbody><tr><td>Steps per revolution</td><td>200</td><td><code>Stepper_steps</code></td></tr><tr><td>Azimuth positions per revolution</td><td>50</td><td><code>y_max</code></td></tr><tr><td>Steps per azimuth move</td><td>4</td><td><code>Stepper_steps / y_max</code></td></tr><tr><td>Step pulse high time</td><td>$500~\mu\text{s}$</td><td><code>delay_us(500)</code></td></tr><tr><td>Step pulse low time</td><td>$500~\mu\text{s}$</td><td><code>delay_us(500)</code></td></tr><tr><td>Time per step</td><td>$1~\text{ms}$</td><td>High + low</td></tr></tbody></table>
+
+<p>The stepper movement time per azimuth position is:</p>
+
+<p>$$</p>
+<p>T_\text{step} = \frac{S_\text{rev}}{N_\text{az}} \times t_\text{step} \tag{HW-TIM-8}</p>
+<p>$$</p>
+
+<p>where $S_\text{rev} = 200$ is the total steps per revolution, $N_\text{az} = 50$ is the number of azimuth positions, and $t_\text{step} = 1~\text{ms}$ is the time per step (500 us high + 500 us low). Thus $T_\text{step} = 4 \times 1~\text{ms} = 4~\text{ms}$.</p>
+
+<h3 id="3-3-full-revolution-time">3.3 Full Revolution Time<a class="ha" href="#3-3-full-revolution-time" aria-hidden="true">¶</a></h3>
+
+<p>The total time for one complete 360-degree revolution is:</p>
+
+<p>$$</p>
+<p>T_\text{rev} = N_\text{az} \times (T_\text{el} + T_\text{step}) \tag{HW-TIM-9}</p>
+<p>$$</p>
+
+<p>Substituting the computed values:</p>
+
+<p>$$</p>
+<p>\begin{aligned}</p>
+<p>T_\text{rev} &amp;= 50 \times (175.1~\text{ms} + 4~\text{ms}) \\</p>
+<p>&amp;= 50 \times 179.1~\text{ms} \\</p>
+<p>&amp;= 8955~\text{ms} \approx 8.96~\text{s}</p>
+<p>\end{aligned}</p>
+<p>\tag{HW-TIM-10}</p>
+<p>$$</p>
+
+<p>This gives a scan rate of approximately $1 / T_\text{rev} \approx 0.112~\text{Hz}$, or roughly one revolution every 9 seconds. The scan rate is dominated by the elevation scan time; stepper motor movement contributes only $4 / 179.1 \approx 2.2\%$ of the per-azimuth time.</p>
+
+<hr>
+
+<h2 id="4-fpga-pipeline-latency">4. FPGA Pipeline Latency<a class="ha" href="#4-fpga-pipeline-latency" aria-hidden="true">¶</a></h2>
+
+<p>The FPGA signal processing pipeline transforms raw ADC samples into range-Doppler detection maps. Each processing stage introduces latency measured in clock cycles within its respective clock domain. This section estimates the per-stage latency; actual values require Vivado timing reports (see <a href="../.planning/STATE.md">STATE.md blockers</a>).</p>
+
+<p>All stage references correspond to Verilog modules documented in <a href="05_fpga_board.md#5-fpga-module-inventory"><code>05_fpga_board.md</code> Section 5</a>.</p>
+
+<h3 id="4-1-adc-capture">4.1 ADC Capture<a class="ha" href="#4-1-adc-capture" aria-hidden="true">¶</a></h3>
+
+<p class="kv-line"><span class="kv-key">Module:</span> <span class="kv-value"><code>ad9484_interface_400m</code> (400 MHz domain)</span></p>
+
+<p>The AD9484 LVDS DDR interface captures one 8-bit sample per clock cycle using <code>IDDR</code> primitives in <code>SAME_EDGE_PIPELINED</code> mode. The pipeline mode adds 1 clock cycle of latency for output registration.</p>
+
+<p>$$</p>
+<p>t_\text{ADC} = \frac{N_\text{ADC,cyc}}{f_\text{ADC}} \tag{HW-TIM-11}</p>
+<p>$$</p>
+
+<p>where $N_\text{ADC,cyc} \approx 2$ cycles (IBUFDS + IDDR pipeline) at $f_\text{ADC} = 400~\text{MHz}$, giving $t_\text{ADC} \approx 5~\text{ns}$.</p>
+
+<h3 id="4-2-clock-domain-crossing-400-mhz-to-100-mhz">4.2 Clock Domain Crossing (400 MHz to 100 MHz)<a class="ha" href="#4-2-clock-domain-crossing-400-mhz-to-100-mhz" aria-hidden="true">¶</a></h3>
+
+<p class="kv-line"><span class="kv-key">Module:</span> <span class="kv-value"><code>cdc_adc_to_processing</code> (400 MHz source, 100 MHz destination)</span></p>
+
+<p>The 3-stage Gray-coded CDC synchronizer (<code>cdc_modules.v</code>, documented in <a href="05_fpga_board.md#4-cdc-synchronizers"><code>05_fpga_board.md</code> Section 4</a>) introduces synchronization latency:</p>
+
+<p>$$</p>
+<p>t_\text{CDC} = \frac{S_\text{CDC}}{f_\text{dst}} \tag{HW-TIM-12}</p>
+<p>$$</p>
+
+<p>where $S_\text{CDC} = 3$ synchronizer stages and $f_\text{dst} = 100~\text{MHz}$. This gives $t_\text{CDC} = 30~\text{ns}$.</p>
+
+<h3 id="4-3-digital-down-conversion-ddc">4.3 Digital Down-Conversion (DDC)<a class="ha" href="#4-3-digital-down-conversion-ddc" aria-hidden="true">¶</a></h3>
+
+<p class="kv-line"><span class="kv-key">Module:</span> <span class="kv-value"><code>ddc_400m_enhanced</code> (400 MHz front-end, 100 MHz output)</span></p>
+
+<p>The DDC performs NCO mixing to translate the IF signal ($f_\text{IF}$, see <a href="../00_notation/parameter_table.md#signal-processing-fpga">Parameter Table</a>) to baseband. The NCO uses a 16-bit phase accumulator (<code>NCO_WIDTH = 16</code> in <code>ddc_400m.v</code>). The DDC latency is dominated by the mixer multiply and output registration:</p>
+
+<p>$$</p>
+<p>t_\text{DDC} \approx \frac{3}{f_\text{ADC}} = \frac{3}{400~\text{MHz}} = 7.5~\text{ns} \tag{HW-TIM-13}</p>
+<p>$$</p>
+
+<p>This accounts for the NCO lookup (1 cycle), multiply (1 cycle), and output register (1 cycle).</p>
+
+<h3 id="4-4-cic-decimation">4.4 CIC Decimation<a class="ha" href="#4-4-cic-decimation" aria-hidden="true">¶</a></h3>
+
+<p class="kv-line"><span class="kv-key">Module:</span> <span class="kv-value"><code>cic_decimator_4x_enhanced</code> (100 MHz domain)</span></p>
+
+<p>The CIC filter has $N_\text{CIC} = 5$ stages with decimation factor $D_\text{CIC} = 4$ and comb delay $M_\text{comb} = 1$ (<code>STAGES = 5</code>, <code>DECIMATION = 4</code>, <code>COMB_DELAY = 1</code> in <code>cic_decimator_4x_enhanced.v</code>). The CIC group delay at DC for a single-stage CIC with decimation $D$ and comb delay $M_\text{comb}$ is:</p>
+
+<p>$$</p>
+<p>\tau_\text{CIC,group} = \frac{N_\text{CIC} \cdot D_\text{CIC} \cdot M_\text{comb}}{2 \cdot f_s} \tag{HW-TIM-14}</p>
+<p>$$</p>
+
+<p>For the AERIS-10 configuration: $\tau_\text{CIC,group} = (5 \times 4 \times 1) / (2 \times 400~\text{MHz}) = 25~\text{ns}$. However, the CIC filter also requires $D_\text{CIC}$ input samples to produce one output, so the effective latency includes the decimation fill time:</p>
+
+<p>$$</p>
+<p>t_\text{CIC} = \tau_\text{CIC,group} + \frac{D_\text{CIC}}{f_s} = 25~\text{ns} + 10~\text{ns} = 35~\text{ns} \tag{HW-TIM-15}</p>
+<p>$$</p>
+
+<p>After CIC decimation, the output rate is $f_s / D_\text{CIC} = 100~\text{MSPS}$ per Eq. (HW-FPGA-5) in <a href="05_fpga_board.md#7-signal-processing-pipeline-data-flow"><code>05_fpga_board.md</code></a>.</p>
+
+<h3 id="4-5-fir-compensation-filter">4.5 FIR Compensation Filter<a class="ha" href="#4-5-fir-compensation-filter" aria-hidden="true">¶</a></h3>
+
+<p class="kv-line"><span class="kv-key">Module:</span> <span class="kv-value"><code>fir_lowpass_parallel_enhanced</code> (100 MHz domain)</span></p>
+
+<p>The FIR droop compensation filter has 32 taps (<code>TAPS = 32</code> in <code>fir_lowpass.v</code>). For a parallel multiply-accumulate architecture, the latency is approximately:</p>
+
+<p>$$</p>
+<p>t_\text{FIR} = \frac{N_\text{taps}}{f_\text{sys}} = \frac{32}{100~\text{MHz}} = 320~\text{ns} \tag{HW-TIM-16}</p>
+<p>$$</p>
+
+<blockquote><strong>Note:</strong> A pipelined parallel implementation may reduce this to a few clock cycles; the estimate above assumes sequential accumulation. Actual latency depends on Vivado synthesis decisions.</blockquote>
+
+<h3 id="4-6-matched-filter-pulse-compression">4.6 Matched Filter (Pulse Compression)<a class="ha" href="#4-6-matched-filter-pulse-compression" aria-hidden="true">¶</a></h3>
+
+<p class="kv-line"><span class="kv-key">Module:</span> <span class="kv-value"><code>matched_filter_multi_segment</code> (100 MHz domain)</span></p>
+
+<p>The matched filter performs frequency-domain convolution using $N_\text{FFT}$-point forward and inverse FFTs (<code>BUFFER_SIZE = 1024</code> in <code>matched_filter_multi_segment.v</code>). The long chirp requires multiple segments:</p>
+
+<ul><li>Long chirp: <code>LONG_CHIRP_SAMPLES = 3000</code>, processed in <code>LONG_SEGMENTS = 4</code> overlapping segments of 1024 samples with <code>OVERLAP_SAMPLES = 128</code></li><li>Short chirp: <code>SHORT_CHIRP_SAMPLES = 50</code>, processed in <code>SHORT_SEGMENTS = 1</code> segment (zero-padded to 1024)</li></ul>
+
+<p>The matched filter latency per segment includes buffer fill time plus two FFTs (forward and inverse):</p>
+
+<p>$$</p>
+<p>t_\text{MF,seg} = \frac{N_\text{FFT}}{f_\text{out}} + 2 \cdot t_\text{FFT} \tag{HW-TIM-17}</p>
+<p>$$</p>
+
+<p>where $f_\text{out} = f_s / D_\text{CIC} = 100~\text{MHz}$ is the CIC output rate. The buffer fill time is $1024 / 100~\text{MHz} = 10.24~\mu\text{s}$. Each 1024-point radix-2 FFT requires $\log_2(1024) = 10$ butterfly stages, with pipeline latency approximately $10 \times 1024 / 100~\text{MHz} \approx 102.4~\mu\text{s}$ for a streaming architecture, or as few as $\sim 1024$ cycles for a pipelined radix-2 butterfly.</p>
+
+<p>For a single long chirp, the total matched filter time across all segments is:</p>
+
+<p>$$</p>
+<p>t_\text{MF,long} = N_\text{seg,long} \times t_\text{MF,seg} \tag{HW-TIM-18}</p>
+<p>$$</p>
+
+<p>Estimating $t_\text{FFT} \approx 10.24~\mu\text{s}$ (1024 cycles at 100 MHz):</p>
+
+<p>$$</p>
+<p>t_\text{MF,long} \approx 4 \times (10.24 + 2 \times 10.24)~\mu\text{s} = 4 \times 30.72~\mu\text{s} \approx 122.9~\mu\text{s}</p>
+<p>$$</p>
+
+<p>For the short chirp: $t_\text{MF,short} \approx 1 \times 30.72~\mu\text{s} \approx 30.7~\mu\text{s}$.</p>
+
+<h3 id="4-7-doppler-processing">4.7 Doppler Processing<a class="ha" href="#4-7-doppler-processing" aria-hidden="true">¶</a></h3>
+
+<p class="kv-line"><span class="kv-key">Module:</span> <span class="kv-value"><code>doppler_processor_optimized</code> (100 MHz domain)</span></p>
+
+<p>The Doppler processor accumulates range profiles across $M$ chirps and applies a $N_\text{Doppler}$-point FFT to $N_R$ range bins (<code>DOPPLER_FFT_SIZE = 32</code>, <code>RANGE_BINS = 64</code>, <code>CHIRPS_PER_FRAME = 32</code> in <code>doppler_processor.v</code>).</p>
+
+<p>The Doppler processing latency has two components:</p>
+
+<p class="kv-line"><span class="kv-key">Accumulation latency:</span> <span class="kv-value">Data is collected across all $M$ chirps in a beam position. This is not additional wall-clock latency because accumulation occurs during the chirp sequence, but the Doppler FFT cannot begin until all $M$ chirps have been received:</span></p>
+
+<p>$$</p>
+<p>t_\text{Doppler,acc} = M \times T_{r,\text{avg}} \approx T_\text{pos} \tag{HW-TIM-19}</p>
+<p>$$</p>
+
+<p>This is inherent to the coherent processing interval and is already accounted for in $T_\text{pos}$.</p>
+
+<p class="kv-line"><span class="kv-key">Processing latency:</span> <span class="kv-value">After accumulation, the 32-point Doppler FFT is applied to each of the 64 range bins:</span></p>
+
+<p>$$</p>
+<p>t_\text{Doppler,proc} = N_R \times \frac{N_\text{Doppler} \cdot \log_2 N_\text{Doppler}}{f_\text{sys}} \tag{HW-TIM-20}</p>
+<p>$$</p>
+
+<p>Estimating: $t_\text{Doppler,proc} = 64 \times (32 \times 5) / 100~\text{MHz} = 64 \times 1.6~\mu\text{s} = 102.4~\mu\text{s}$.</p>
+
+<blockquote><strong>Note:</strong> A pipelined implementation processing multiple range bins in parallel would significantly reduce this estimate.</blockquote>
+
+<h3 id="4-8-cfar-detection">4.8 CFAR Detection<a class="ha" href="#4-8-cfar-detection" aria-hidden="true">¶</a></h3>
+
+<p>The CFAR detector scans the range-Doppler map to identify targets exceeding the adaptive threshold. The processing time depends on the reference cell window size ($N_\text{ref}$, $N_\text{guard}$) and the map dimensions ($N_R \times N_\text{Doppler}$):</p>
+
+<p>$$</p>
+<p>t_\text{CFAR} \approx \frac{N_R \times N_\text{Doppler}}{f_\text{sys}} = \frac{64 \times 32}{100~\text{MHz}} = 20.48~\mu\text{s} \tag{HW-TIM-21}</p>
+<p>$$</p>
+
+<p>This assumes one clock cycle per cell for threshold comparison after the reference window has been accumulated.</p>
+
+<h3 id="4-9-usb-output-ft601">4.9 USB Output (FT601)<a class="ha" href="#4-9-usb-output-ft601" aria-hidden="true">¶</a></h3>
+
+<p class="kv-line"><span class="kv-key">Module:</span> <span class="kv-value"><code>usb_data_interface</code> (100 MHz system to 100 MHz FT601 domain)</span></p>
+
+<p>Data transfer from the FPGA to the host PC uses the FT601 USB 3.0 interface. The CDC handshake crossing (<code>cdc_handshake</code>, documented in <a href="05_fpga_board.md#43-handshake-based-cdc"><code>05_fpga_board.md</code> Section 4.3</a>) introduces approximately 4 destination clock cycles per transfer.</p>
+
+<p>For a range-Doppler map of $N_R \times N_\text{Doppler} = 64 \times 32 = 2048$ complex values at 32 bits each:</p>
+
+<p>$$</p>
+<p>t_\text{USB} = \frac{N_R \times N_\text{Doppler} \times W_\text{data}}{f_\text{FT601} \times W_\text{bus}} \tag{HW-TIM-22}</p>
+<p>$$</p>
+
+<p>where $W_\text{data} = 32$ bits per value and $W_\text{bus} = 32$ bits (FT601 bus width). This gives $t_\text{USB} = 2048 / 100~\text{MHz} = 20.48~\mu\text{s}$ for raw data transfer, plus CDC handshake overhead.</p>
+
+<h3 id="4-10-pipeline-latency-summary">4.10 Pipeline Latency Summary<a class="ha" href="#4-10-pipeline-latency-summary" aria-hidden="true">¶</a></h3>
+
+<p>The total FPGA pipeline latency from ADC input to USB output is:</p>
+
+<p>$$</p>
+<p>t_\text{pipeline} = t_\text{ADC} + t_\text{CDC} + t_\text{DDC} + t_\text{CIC} + t_\text{FIR} + t_\text{MF} + t_\text{Doppler,proc} + t_\text{CFAR} + t_\text{USB} \tag{HW-TIM-23}</p>
+<p>$$</p>
+
+<table class="md-table"><thead><tr><th>Stage</th><th>Symbol</th><th>Est. Latency</th><th>Clock Domain</th><th>Notes</th></tr></thead><tbody><tr><td>ADC capture</td><td>$t_\text{ADC}$</td><td>$\sim 5~\text{ns}$</td><td>400 MHz</td><td>IBUFDS + IDDR</td></tr><tr><td>CDC (400 to 100 MHz)</td><td>$t_\text{CDC}$</td><td>$\sim 30~\text{ns}$</td><td>100 MHz</td><td>3-stage Gray sync</td></tr><tr><td>DDC</td><td>$t_\text{DDC}$</td><td>$\sim 7.5~\text{ns}$</td><td>400 MHz</td><td>NCO + mixer</td></tr><tr><td>CIC decimation</td><td>$t_\text{CIC}$</td><td>$\sim 35~\text{ns}$</td><td>100 MHz</td><td>5-stage, 4x decim</td></tr><tr><td>FIR compensation</td><td>$t_\text{FIR}$</td><td>$\sim 320~\text{ns}$</td><td>100 MHz</td><td>32-tap parallel</td></tr><tr><td>Matched filter (long)</td><td>$t_\text{MF}$</td><td>$\sim 123~\mu\text{s}$</td><td>100 MHz</td><td>4 segments, FFT-based</td></tr><tr><td>Doppler processing</td><td>$t_\text{Doppler,proc}$</td><td>$\sim 102~\mu\text{s}$</td><td>100 MHz</td><td>32-pt FFT, 64 bins</td></tr><tr><td>CFAR detection</td><td>$t_\text{CFAR}$</td><td>$\sim 20.5~\mu\text{s}$</td><td>100 MHz</td><td>Map scan</td></tr><tr><td>USB output</td><td>$t_\text{USB}$</td><td>$\sim 20.5~\mu\text{s}$</td><td>FT601 100 MHz</td><td>2048 values</td></tr><tr><td><strong>Total pipeline</strong></td><td>$t_\text{pipeline}$</td><td>$\sim 266~\mu\text{s}$</td><td>--</td><td>Theoretical estimate</td></tr></tbody></table>
+
+<blockquote><strong>Important:</strong> These latency values are theoretical estimates based on module parameters and assumed architectures. Actual latency requires Vivado implementation timing reports, which are not currently available. The matched filter and Doppler processor dominate the pipeline latency and are the most sensitive to implementation details.</blockquote>
+
+<hr>
+
+<h2 id="5-end-to-end-latency-summary">5. End-to-End Latency Summary<a class="ha" href="#5-end-to-end-latency-summary" aria-hidden="true">¶</a></h2>
+
+<p>The complete latency from &quot;target illuminated by radar beam&quot; to &quot;target displayed on GUI&quot; comprises four contributions:</p>
+
+<p>$$</p>
+<p>t_\text{total} = T_\text{pos} + t_\text{pipeline} + t_\text{USB,xfer} + t_\text{PC} \tag{HW-TIM-24}</p>
+<p>$$</p>
+
+<table class="md-table"><thead><tr><th>Contributor</th><th>Symbol</th><th>Est. Time</th><th>Fraction</th><th>Notes</th></tr></thead><tbody><tr><td>Chirp acquisition (CPI)</td><td>$T_\text{pos}$</td><td>$5.65~\text{ms}$</td><td>93.4%</td><td>Dominated by $M = 32$ chirps</td></tr><tr><td>FPGA processing</td><td>$t_\text{pipeline}$</td><td>$\sim 0.27~\text{ms}$</td><td>4.5%</td><td>Matched filter + Doppler</td></tr><tr><td>USB transfer to PC</td><td>$t_\text{USB,xfer}$</td><td>$&lt; 0.1~\text{ms}$</td><td>$&lt; 1.7\%$</td><td>USB 3.0 bulk transfer</td></tr><tr><td>PC processing (GUI)</td><td>$t_\text{PC}$</td><td>$\sim 1\text{--}10~\text{ms}$</td><td>Variable</td><td>DBSCAN, Kalman, rendering</td></tr></tbody></table>
+
+<p class="kv-line"><span class="kv-key">Key insight:</span> <span class="kv-value">The per-beam-position dwell time $T_\text{pos}$ dominates the end-to-end latency. FPGA processing completes well within the available inter-position time, confirming that the processing pipeline does not bottleneck the scan rate.</span></p>
+
+<h3 id="5-1-timing-margin">5.1 Timing Margin<a class="ha" href="#5-1-timing-margin" aria-hidden="true">¶</a></h3>
+
+<p>The FPGA must complete processing of one beam position&#x27;s data before the next position&#x27;s data arrives. The available processing window is $T_\text{pos} \approx 5.65~\text{ms}$, and the estimated pipeline latency is $t_\text{pipeline} \approx 0.27~\text{ms}$, leaving a timing margin of:</p>
+
+<p>$$</p>
+<p>t_\text{margin} = T_\text{pos} - t_\text{pipeline} \approx 5.38~\text{ms} \tag{HW-TIM-25}</p>
+<p>$$</p>
+
+<p>This represents a margin factor of $\sim 21\times$, indicating that the FPGA pipeline has substantial headroom.</p>
+
+<hr>
+
+<h2 id="6-references">6. References<a class="ha" href="#6-references" aria-hidden="true">¶</a></h2>
+
+<h3 id="project-documentation">Project Documentation<a class="ha" href="#project-documentation" aria-hidden="true">¶</a></h3>
+<ul><li><a href="../00_notation/symbol_table.md">Symbol Table</a> -- symbols for $T_{r,1}$, $T_{r,2}$, $T_\text{guard}$, $M$, $N_\text{el}$, $N_\text{az}$, $f_s$, $N_\text{FFT}$, $t_\text{pipeline}$</li><li><a href="../00_notation/parameter_table.md">Parameter Table</a> -- canonical timing values, FPGA parameters, stepper motor steps</li><li><a href="../00_notation/conventions.md">Conventions</a> -- equation numbering and formatting rules</li></ul>
+
+<h3 id="hardware-cross-references">Hardware Cross-References<a class="ha" href="#hardware-cross-references" aria-hidden="true">¶</a></h3>
+<ul><li><a href="05_fpga_board.md"><code>05_fpga_board.md</code></a> -- FPGA module inventory (Section 5), clock domains (Section 3), CDC synchronizers (Section 4), pipeline data flow Eq. (HW-FPGA-5) and Eq. (HW-FPGA-6)</li><li><a href="03_frequency_synthesis.md"><code>03_frequency_synthesis.md</code></a> -- AD9523 clock tree providing ADC (400 MHz), system (100 MHz), and DAC (120 MHz) clocks</li><li><a href="02_rf_frontend.md"><code>02_rf_frontend.md</code></a> -- AD9484 ADC LVDS interface specifications</li></ul>
+
+<h3 id="firmware-sources">Firmware Sources<a class="ha" href="#firmware-sources" aria-hidden="true">¶</a></h3>
+<ul><li><code>main.cpp:178--184</code> -- Radar timing parameters ($T_{c,1}$, $T_{r,1}$, $T_{c,2}$, $T_{r,2}$, $T_\text{guard}$, $M$)</li><li><code>main.cpp:445--466</code> -- <code>executeChirpSequence()</code> function implementing the dual-mode chirp schedule with guard time</li><li><code>main.cpp:468--529</code> -- <code>runRadarPulseSequence()</code> function implementing beam steering loop and stepper motor control</li><li><code>main.cpp:195</code> -- Stepper motor steps per revolution (<code>Stepper_steps = 200</code>)</li></ul>
+
+<h3 id="fpga-sources">FPGA Sources<a class="ha" href="#fpga-sources" aria-hidden="true">¶</a></h3>
+<ul><li><code>ddc_400m.v</code> -- DDC parameters (<code>ADC_WIDTH = 8</code>, <code>NCO_WIDTH = 16</code>, <code>IF_FREQ</code>, <code>FS</code>)</li><li><code>cic_decimator_4x_enhanced.v</code> -- CIC parameters (<code>STAGES = 5</code>, <code>DECIMATION = 4</code>, <code>COMB_DELAY = 1</code>)</li><li><code>matched_filter_multi_segment.v</code> -- Matched filter parameters (<code>BUFFER_SIZE = 1024</code>, <code>LONG_CHIRP_SAMPLES = 3000</code>, <code>SHORT_CHIRP_SAMPLES = 50</code>, <code>LONG_SEGMENTS = 4</code>)</li><li><code>doppler_processor.v</code> -- Doppler parameters (<code>DOPPLER_FFT_SIZE = 32</code>, <code>RANGE_BINS = 64</code>, <code>CHIRPS_PER_FRAME = 32</code>)</li></ul>
+
+</div>
+  </div><!-- main-content -->
+</div><!-- site-shell -->
+<script>
+mermaid.initialize({ startOnLoad: true, theme: 'dark', securityLevel: 'loose' });
+</script>
+</body>
+
+</html>

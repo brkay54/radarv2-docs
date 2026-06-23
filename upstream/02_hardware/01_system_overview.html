@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>01_system_overview — aros Vault</title>
+<style>
+
+:root {
+  --color-blue:    #007ACC;
+  --color-green:   #2DA44E;
+  --color-yellow:  #D29922;
+  --color-purple:  #8B5CF6;
+  --color-orange:  #F59E0B;
+  --color-red:     #E5534B;
+  --color-cyan:    #0BC5EA;
+  --color-accent:  #7C3AED;
+  --text-normal:   #DCDDDE;
+  --text-muted:    #8E8EA0;
+  --background-primary:         #1E1E2E;
+  --background-secondary:       #181825;
+  --background-modifier-border: #313244;
+  --color-base-30:              #45475A;
+}
+body {
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.6;
+  margin: 0;
+}
+
+</style>
+<!-- Mermaid -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<!-- MathJax -->
+<script>window.MathJax={tex:{inlineMath:[['$','$'],['\\(','\\)']],displayMath:[['$$','$$'],['\\[','\\]']]},options:{skipHtmlTags:['script','noscript','style','textarea','pre']}};</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+<!-- Site CSS -->
+<link rel="stylesheet" href="../../site.css">
+</head>
+<body class="markdown-reading-view">
+<div class="site-shell">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <a href="../../00-Index.html" class="site-title">radarv2 / AERIS-10</a>
+      <div class="site-subtitle">aros Radar Documentation</div>
+    </div>
+    <ul class="nav-list">
+      <li class="nav-section">Core Docs</li>
+      <li><a href="../../09-Concepts-Primer.html">Radar Primer</a></li>
+      <li><a href="../../00-Index.html">Index</a></li>
+      <li><a href="../../01-System-Overview.html">System Overview</a></li>
+      <li><a href="../../02-Physics-and-Waveform.html">Physics &amp; Waveform</a></li>
+      <li><a href="../../03-Beamforming-and-Scan.html">Beamforming &amp; Scan</a></li>
+      <li><a href="../../04-Signal-Processing-Pipeline.html">Signal Processing</a></li>
+      <li><a href="../../05-Node-Architecture.html">Node Architecture</a></li>
+      <li><a href="../../06-Message-Catalog.html">Message Catalog</a></li>
+      <li><a href="../../07-Detection-and-Tracking.html">Detection &amp; Tracking</a></li>
+      <li><a href="../../08-Scenarios-and-Targets.html">Scenarios &amp; Targets</a></li>
+      <li class="nav-section">Advanced</li>
+      <li><a href="../../10-Radar-Model-Library.html">Radar Model Library</a></li>
+      <li><a href="../../11-Multi-Radar-Fusion.html">Multi-Radar Fusion</a></li>
+      <li><a href="../../12-3D-Scene.html">3-D Scene</a></li>
+      <li><a href="../../13-Reference-Tables.html">Reference Tables</a></li>
+      <li><a href="../../FUTURE-DEVELOPMENT.html">Future Development</a></li>
+      <li class="nav-section">Upstream Theory</li>
+      <li><a href="../../upstream/README.html">Upstream README</a></li>
+      <li><a href="../../upstream/00_notation/conventions.html">Notation</a></li>
+      <li><a href="../../upstream/01_physics/01_fmcw_theory.html">FMCW Theory</a></li>
+      <li><a href="../../upstream/01_physics/02_lfm_waveform_model.html">LFM Waveform</a></li>
+      <li><a href="../../upstream/01_physics/03_beamforming_theory.html">Beamforming Theory</a></li>
+      <li><a href="../../upstream/01_physics/04_detection_theory.html">Detection Theory</a></li>
+      <li><a href="../../upstream/01_physics/05_noise_analysis.html">Noise Analysis</a></li>
+      <li><a href="../../upstream/01_physics/06_calibration_theory.html">Calibration</a></li>
+      <li><a href="../../upstream/02_hardware/01_system_overview.html">HW Overview</a></li>
+      <li><a href="../../upstream/04_research/01_cfar_variants.html">CFAR Variants</a></li>
+    </ul>
+    <div class="sidebar-footer">
+      <a href="https://github.com/brkay54/radarv2-docs" target="_blank">GitHub</a>
+    </div>
+  </nav>
+  <div class="main-content">
+
+<div class="markdown-preview-section">
+<h1 id="aeris-10-hardware-system-overview">AERIS-10 Hardware System Overview<a class="ha" href="#aeris-10-hardware-system-overview" aria-hidden="true">¶</a></h1>
+
+<p class="kv-line"><span class="kv-key">Purpose:</span> <span class="kv-value">Provide the organizational anchor for all hardware subsystem documentation, including the functional block diagram description, two-variant summary, clock domain overview, and cross-references to every subsequent hardware document.</span></p>
+
+<p class="kv-line"><span class="kv-key">Prerequisites:</span> <span class="kv-value">Familiarity with:</span></p>
+<ul><li><a href="../00_notation/symbol_table.md">Symbol Table</a> -- all symbols used herein</li><li><a href="../00_notation/parameter_table.md">Parameter Table</a> -- numerical values for both variants</li><li><a href="../00_notation/conventions.md">Conventions</a> -- equation formatting rules</li></ul>
+
+<hr>
+
+<h2 id="1-overview">1. Overview<a class="ha" href="#1-overview" aria-hidden="true">¶</a></h2>
+
+<p>The AERIS-10 is a fully operational FMCW X-band phased array radar system. It transmits frequency-modulated continuous-wave chirps through a 16-element antenna array and processes the received echoes to produce range-Doppler detection maps with target tracking.</p>
+
+<h3 id="1-1-functional-block-diagram">1.1 Functional Block Diagram<a class="ha" href="#1-1-functional-block-diagram" aria-hidden="true">¶</a></h3>
+
+<p>The system-level block diagram is maintained in <a href="../2_Functional%20Diagram%20%26%20Interconnection%20Matrices/RADAR_V6.drawio"><code>RADAR_V6.drawio</code></a>. The signal path proceeds through the following functional stages:</p>
+
+<ul><li><strong>Antenna Elements</strong> -- 16-element phased array (8x2 subarrays on Nexus, cascaded on Extended)</li><li><strong>ADAR1000 Beamformer</strong> -- four ADAR1000 ICs providing per-element phase and amplitude control for beam steering across 31 elevation positions</li><li><strong>ADTR1107 T/R Module</strong> (Nexus) / <strong>QPA2962 GaN PA</strong> (Extended) -- integrated transmit/receive front-end with power amplifier and low-noise amplifier</li><li><strong>LT5552 Mixer</strong> -- down-conversion from X-band to IF using separate TX and RX local oscillators (ADF4382), yielding $f_\text{IF}$ (see <a href="../00_notation/parameter_table.md#signal-processing-fpga">Parameter Table</a>)</li><li><strong>AD9484 ADC</strong> -- 8-bit, 500 MSPS rated (operated at $f_s$), digitizing the IF signal with LVDS interface to FPGA</li><li><strong>FPGA Signal Processing Pipeline (XC7A100T):</strong></li><li><strong>DDC</strong> -- digital down-conversion from IF to baseband using a numerically controlled oscillator</li><li><strong>CIC Decimator</strong> -- $N_\text{CIC}$-stage cascaded integrator-comb filter with decimation factor $D_\text{CIC}$</li><li><strong>Matched Filter</strong> -- pulse compression via frequency-domain convolution using $N_\text{FFT}$-point FFT</li><li><strong>Range FFT</strong> -- $N_\text{FFT}$-point forward FFT for range bin extraction</li><li><strong>Doppler FFT</strong> -- $N_\text{Doppler}$-point FFT across $M$ chirps per beam position for velocity estimation</li><li><strong>CFAR Detector</strong> -- constant false alarm rate detection with adaptive threshold</li><li><strong>FT601 USB 3.0</strong> -- high-speed data transfer from FPGA to host PC at 100 MHz interface clock</li><li><strong>Host PC (Python GUI)</strong> -- visualization, DBSCAN clustering, Kalman tracking, and map rendering (GUI_V6.py)</li></ul>
+
+<h3 id="1-2-control-path">1.2 Control Path<a class="ha" href="#1-2-control-path" aria-hidden="true">¶</a></h3>
+
+<p>An <strong>STM32F746</strong> microcontroller orchestrates system operation:</p>
+<ul><li>SPI bus to ADF4382 (TX/RX LO configuration), AD9523 (clock tree), and ADAR1000 (beam steering)</li><li>I2C bus to DAC5578 (PA gate bias), ADS7830 (current/temperature monitoring), GY-85 IMU, and BMP180 barometer</li><li>UART to GPS module (TinyGPS++)</li><li>GPIO for power rail sequencing, fan control, and emergency stop</li></ul>
+
+<hr>
+
+<h2 id="2-system-parameter-quick-reference">2. System Parameter Quick Reference<a class="ha" href="#2-system-parameter-quick-reference" aria-hidden="true">¶</a></h2>
+
+<p>The <a href="../00_notation/parameter_table.md">Parameter Table</a> is the single source of truth for all numerical values. The table below lists key system parameters by symbol for quick lookup -- consult the parameter table for actual values and firmware/FPGA variable mappings.</p>
+
+<table class="md-table"><thead><tr><th>Parameter</th><th>Symbol</th><th>Description</th></tr></thead><tbody><tr><td>Center frequency</td><td>$f_c$</td><td>Carrier frequency (X-band)</td></tr><tr><td>Chirp bandwidth</td><td>$B$</td><td>Frequency sweep range (TBD -- see <a href="../00_notation/parameter_table.md#tbd-tracking">Parameter Table</a>)</td></tr><tr><td>Long chirp duration</td><td>$T_{c,1}$</td><td>Pulse width for long-range mode</td></tr><tr><td>Short chirp duration</td><td>$T_{c,2}$</td><td>Pulse width for short-range mode</td></tr><tr><td>Long chirp PRI</td><td>$T_{r,1}$</td><td>Pulse repetition interval (long)</td></tr><tr><td>Short chirp PRI</td><td>$T_{r,2}$</td><td>Pulse repetition interval (short)</td></tr><tr><td>Guard time</td><td>$T_\text{guard}$</td><td>Interval between chirp sequences</td></tr><tr><td>Chirps per position</td><td>$M$</td><td>Coherent processing interval length</td></tr><tr><td>ADC sample rate</td><td>$f_s$</td><td>Digitizer clock rate</td></tr><tr><td>IF frequency</td><td>$f_\text{IF}$</td><td>Intermediate frequency after mixing</td></tr><tr><td>FFT size</td><td>$N_\text{FFT}$</td><td>Range processing FFT length</td></tr><tr><td>Doppler FFT size</td><td>$N_\text{Doppler}$</td><td>Velocity processing FFT length</td></tr><tr><td>Array elements</td><td>$N$</td><td>Number of antenna elements</td></tr><tr><td>Elevation positions</td><td>$N_\text{el}$</td><td>Beam positions per azimuth</td></tr><tr><td>Azimuth positions</td><td>$N_\text{az}$</td><td>Steps per mechanical revolution</td></tr></tbody></table>
+
+<h3 id="2-1-variant-comparison-key-differences">2.1 Variant Comparison -- Key Differences<a class="ha" href="#2-1-variant-comparison-key-differences" aria-hidden="true">¶</a></h3>
+
+<p>The AERIS-10 is produced in two variants. Parameters not listed below are shared between variants. See the <a href="../00_notation/parameter_table.md">Parameter Table</a> for complete values.</p>
+
+<blockquote><strong>Variant Note:</strong></blockquote>
+<blockquote>| | Nexus (AERIS-10N) | Extended (AERIS-10X) |</blockquote>
+<blockquote>|--|-------|----------|</blockquote>
+<blockquote>| Transmit power $P_t$ per element | 1 W (ADTR1107) | 10 W (QPA2962 GaN) |</blockquote>
+<blockquote>| Antenna type | 8x16 patch array | 32x16 slotted waveguide |</blockquote>
+<blockquote>| Antenna gain $G$ | ~20 dBi (patch, TBD) | ~30 dBi (waveguide, TBD) |</blockquote>
+<blockquote>| Detection range $R_\text{max}$ | 3 km | 20 km |</blockquote>
+
+<hr>
+
+<h2 id="3-subsystem-index">3. Subsystem Index<a class="ha" href="#3-subsystem-index" aria-hidden="true">¶</a></h2>
+
+<p>The following documents cover each hardware subsystem in detail. All documents reside in <a href="./"><code>02_hardware/</code></a> and follow the conventions in <a href="../00_notation/conventions.md"><code>conventions.md</code></a>.</p>
+
+<table class="md-table"><thead><tr><th>Doc</th><th>Filename</th><th>Subsystem</th><th>Key Components</th><th>Requirement</th></tr></thead><tbody><tr><td>02</td><td><a href="02_rf_frontend.md"><code>02_rf_frontend.md</code></a></td><td>RF Front-End</td><td>ADTR1107, LT5552, AD9484</td><td>HDWR-02</td></tr><tr><td>03</td><td><a href="03_frequency_synthesis.md"><code>03_frequency_synthesis.md</code></a></td><td>Frequency Synthesis</td><td>ADF4382 (x2), AD9523-1</td><td>HDWR-03</td></tr><tr><td>04</td><td><a href="04_antenna_beamforming.md"><code>04_antenna_beamforming.md</code></a></td><td>Antenna Array &amp; Beamforming</td><td>ADAR1000 (x4), 16-element array</td><td>HDWR-04</td></tr><tr><td>05</td><td><a href="05_fpga_board.md"><code>05_fpga_board.md</code></a></td><td>FPGA Board</td><td>XC7A100T Artix-7</td><td>HDWR-05</td></tr><tr><td>06</td><td><a href="06_power_management.md"><code>06_power_management.md</code></a></td><td>Power Management</td><td>DAC5578, ADS7830, GPIO sequencing</td><td>HDWR-06</td></tr><tr><td>07</td><td><a href="07_timing_budget.md"><code>07_timing_budget.md</code></a></td><td>Timing Budget &amp; Latency</td><td>End-to-end pipeline analysis</td><td>HDWR-07</td></tr><tr><td>08</td><td><a href="08_power_budget.md"><code>08_power_budget.md</code></a></td><td>Power Budget</td><td>Per-rail current, thermal dissipation</td><td>HDWR-08</td></tr><tr><td>09</td><td><a href="09_gps_imu_transforms.md"><code>09_gps_imu_transforms.md</code></a></td><td>GPS/IMU Coordinate Transforms</td><td>GY-85 IMU, GPS, BMP180</td><td>HDWR-09</td></tr></tbody></table>
+
+<hr>
+
+<h2 id="4-clock-domain-overview">4. Clock Domain Overview<a class="ha" href="#4-clock-domain-overview" aria-hidden="true">¶</a></h2>
+
+<p>The AERIS-10 clock architecture is anchored by an <strong>AD9523-1</strong> clock distribution IC driven by a 100 MHz oven-controlled crystal oscillator (OCXO). The AD9523 internal VCO generates all system clocks through programmable integer dividers.</p>
+
+<h3 id="4-1-vco-frequency">4.1 VCO Frequency<a class="ha" href="#4-1-vco-frequency" aria-hidden="true">¶</a></h3>
+
+<p>The AD9523 PLL2 multiplies the VCXO reference to produce the VCO frequency:</p>
+
+<p>$$</p>
+<p>f_\text{VCO} = f_\text{VCXO} \times N_\text{PLL2} \tag{HW-SYS-1}</p>
+<p>$$</p>
+
+<p>where $f_\text{VCXO}$ is the 100 MHz VCXO frequency and $N_\text{PLL2} = 4 \times B_\text{cnt} + A_\text{cnt}$ is the PLL2 feedback divider. With $B_\text{cnt} = 9$ and $A_\text{cnt} = 0$, the divider is $N_\text{PLL2} = 36$, giving:</p>
+
+<p>$$</p>
+<p>f_\text{VCO} = 100~\text{MHz} \times 36 = 3.6~\text{GHz} \tag{HW-SYS-2}</p>
+<p>$$</p>
+
+<h3 id="4-2-clock-domain-summary">4.2 Clock Domain Summary<a class="ha" href="#4-2-clock-domain-summary" aria-hidden="true">¶</a></h3>
+
+<p>Each output clock is derived from the VCO by an integer divider $D_k$:</p>
+
+<p>$$</p>
+<p>f_{\text{out},k} = \frac{f_\text{VCO}}{D_k} \tag{HW-SYS-3}</p>
+<p>$$</p>
+
+<p>The system operates in four clock domains:</p>
+
+<table class="md-table"><thead><tr><th>Clock Domain</th><th>Frequency</th><th>AD9523 Output</th><th>Divider $D_k$</th><th>Destination</th></tr></thead><tbody><tr><td>ADC acquisition</td><td>400 MHz</td><td>OUT4, OUT5</td><td>9</td><td>AD9484, FPGA ADC interface</td></tr><tr><td>DAC output</td><td>120 MHz</td><td>OUT10, OUT11</td><td>30</td><td>DAC, FPGA DAC interface</td></tr><tr><td>System/processing</td><td>100 MHz</td><td>OUT6</td><td>36</td><td>FPGA main processing</td></tr><tr><td>FT601 interface</td><td>100 MHz</td><td>External (FT601 IC)</td><td>--</td><td>USB 3.0 data transfer</td></tr></tbody></table>
+
+<p>Additional AD9523 outputs provide reference clocks for the frequency synthesizers:</p>
+
+<table class="md-table"><thead><tr><th>Output</th><th>Frequency</th><th>Divider</th><th>Destination</th></tr></thead><tbody><tr><td>OUT0, OUT1</td><td>300 MHz</td><td>12</td><td>ADF4382 TX/RX reference</td></tr><tr><td>OUT8, OUT9</td><td>60 MHz</td><td>60</td><td>ADF4382 TX/RX SYNC</td></tr><tr><td>OUT7</td><td>20 MHz</td><td>180</td><td>Test/debug</td></tr></tbody></table>
+
+<p>Cross-domain data transfer between the 400 MHz ADC domain and the 100 MHz processing domain uses 3-stage Gray-coded CDC synchronizers (documented in <a href="05_fpga_board.md"><code>05_fpga_board.md</code></a>).</p>
+
+<h3 id="4-3-system-noise-temperature-reference">4.3 System Noise Temperature Reference<a class="ha" href="#4-3-system-noise-temperature-reference" aria-hidden="true">¶</a></h3>
+
+<p>The system equivalent noise temperature $T_e$ (defined in the <a href="../00_notation/symbol_table.md#detection-and-signal">Symbol Table</a>) relates to the system noise figure $F$ (linear) by:</p>
+
+<p>$$</p>
+<p>T_e = T_0 (F - 1) \tag{HW-SYS-4}</p>
+<p>$$</p>
+
+<p>where $T_0$ is the standard reference noise temperature (see <a href="../00_notation/symbol_table.md#physical-constants">Symbol Table -- Physical Constants</a>). The full cascaded noise figure analysis is derived in <a href="../01_physics/05_noise_analysis.md"><code>01_physics/05_noise_analysis.md</code></a> using the Friis formula, with hardware component values documented in <a href="02_rf_frontend.md"><code>02_rf_frontend.md</code></a>.</p>
+
+<hr>
+
+<h2 id="5-variant-comparison">5. Variant Comparison<a class="ha" href="#5-variant-comparison" aria-hidden="true">¶</a></h2>
+
+<p>The AERIS-10 system is produced in two variants optimized for different operational ranges. All shared parameters (waveform timing, signal processing pipeline, FPGA configuration, clock architecture) are identical between variants.</p>
+
+<blockquote><strong>Variant Note:</strong></blockquote>
+<blockquote>| | Nexus (AERIS-10N) | Extended (AERIS-10X) |</blockquote>
+<blockquote>|--|-------|----------|</blockquote>
+<blockquote>| Power amplifier | ADTR1107 (integrated T/R module) | QPA2962 (GaN PA, external LNA) |</blockquote>
+<blockquote>| $P_t$ per element | 1 W | 10 W |</blockquote>
+<blockquote>| Antenna | 8x16 patch array | 32x16 slotted waveguide |</blockquote>
+<blockquote>| Antenna gain $G$ | ~20 dBi (TBD) | ~30 dBi (TBD) |</blockquote>
+<blockquote>| Detection range $R_\text{max}$ | 3 km | 20 km |</blockquote>
+
+<h3 id="5-1-architectural-differences">5.1 Architectural Differences<a class="ha" href="#5-1-architectural-differences" aria-hidden="true">¶</a></h3>
+
+<p class="kv-line"><span class="kv-key">RF Front-End:</span> <span class="kv-value">The Nexus variant uses the ADTR1107, an Analog Devices integrated transmit/receive module that combines PA, LNA, and T/R switch in a single package. The Extended variant replaces this with a Qorvo QPA2962 GaN power amplifier providing 10x the transmit power, paired with a separate external LNA.</span></p>
+
+<p class="kv-line"><span class="kv-key">Antenna:</span> <span class="kv-value">The Nexus uses a compact 8x16 printed patch array. The Extended uses a 32x16 slotted waveguide array with higher directivity, yielding approximately 10 dB additional antenna gain.</span></p>
+
+<p class="kv-line"><span class="kv-key">Detection Range:</span> <span class="kv-value">The combined effect of higher transmit power (+10 dB) and higher antenna gain (~10 dB each way) extends the detection range from 3 km (Nexus) to 20 km (Extended). The range improvement follows from the radar range equation Eq. (FMCW-6) in <a href="../01_physics/01_fmcw_theory.md"><code>01_physics/01_fmcw_theory.md</code></a>, where $R_\text{max} \propto (P_t G^2)^{1/4}$.</span></p>
+
+<p class="kv-line"><span class="kv-key">Firmware:</span> <span class="kv-value">The STM32 firmware codebase is shared between both variants. The power sequencing differs slightly for the PA subsystem (ADTR1107 vs QPA2962 bias control), but all other initialization, beam steering, and data acquisition code is identical.</span></p>
+
+<hr>
+
+<h2 id="6-references">6. References<a class="ha" href="#6-references" aria-hidden="true">¶</a></h2>
+
+<h3 id="project-documentation">Project Documentation<a class="ha" href="#project-documentation" aria-hidden="true">¶</a></h3>
+<ul><li><a href="../00_notation/symbol_table.md">Symbol Table</a> -- authoritative symbol definitions</li><li><a href="../00_notation/parameter_table.md">Parameter Table</a> -- canonical numerical values for both variants</li><li><a href="../00_notation/conventions.md">Conventions</a> -- equation numbering and formatting rules</li></ul>
+
+<h3 id="physics-foundation-phase-2">Physics Foundation (Phase 2)<a class="ha" href="#physics-foundation-phase-2" aria-hidden="true">¶</a></h3>
+<ul><li><a href="../01_physics/01_fmcw_theory.md"><code>01_fmcw_theory.md</code></a> -- FMCW radar equation, beat frequency, range-Doppler coupling</li><li><a href="../01_physics/02_lfm_waveform_model.md"><code>02_lfm_waveform_model.md</code></a> -- LFM chirp signal model, pulse compression</li><li><a href="../01_physics/03_beamforming_theory.md"><code>03_beamforming_theory.md</code></a> -- Array factor, ADAR1000 phase quantization, grating lobes</li><li><a href="../01_physics/04_detection_theory.md"><code>04_detection_theory.md</code></a> -- CFAR detection, Neyman-Pearson criterion</li><li><a href="../01_physics/05_noise_analysis.md"><code>05_noise_analysis.md</code></a> -- Cascaded noise figure, system noise temperature</li><li><a href="../01_physics/06_calibration_theory.md"><code>06_calibration_theory.md</code></a> -- ADAR1000 phase/amplitude calibration</li></ul>
+
+<h3 id="block-diagram">Block Diagram<a class="ha" href="#block-diagram" aria-hidden="true">¶</a></h3>
+<ul><li><a href="../2_Functional%20Diagram%20%26%20Interconnection%20Matrices/RADAR_V6.drawio"><code>RADAR_V6.drawio</code></a> -- System-level functional block diagram (draw.io source)</li></ul>
+
+<h3 id="key-component-datasheets">Key Component Datasheets<a class="ha" href="#key-component-datasheets" aria-hidden="true">¶</a></h3>
+<ul><li>AD9523-1 -- Clock distribution IC (12-output, dual PLL)</li><li>ADF4382 -- Microwave wideband synthesizer (x2: TX and RX LO)</li><li>ADAR1000 -- X/Ku-band 4-channel analog beamformer (x4)</li><li>ADTR1107 -- 8 GHz to 16 GHz front-end T/R module (Nexus)</li><li>QPA2962 -- 6 GHz to 18 GHz 10 W GaN MMIC power amplifier (Extended)</li><li>LT5552 -- 3 GHz to 20 GHz high-linearity mixer</li><li>AD9484 -- 8-bit, 500 MSPS ADC</li><li>XC7A100T -- Artix-7 FPGA (101,440 LUTs, 126,800 FFs, 135 BRAMs, 240 DSP48E1s)</li></ul>
+
+</div>
+  </div><!-- main-content -->
+</div><!-- site-shell -->
+<script>
+mermaid.initialize({ startOnLoad: true, theme: 'dark', securityLevel: 'loose' });
+</script>
+</body>
+
+</html>

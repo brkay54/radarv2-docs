@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>04_antenna_beamforming — aros Vault</title>
+<style>
+
+:root {
+  --color-blue:    #007ACC;
+  --color-green:   #2DA44E;
+  --color-yellow:  #D29922;
+  --color-purple:  #8B5CF6;
+  --color-orange:  #F59E0B;
+  --color-red:     #E5534B;
+  --color-cyan:    #0BC5EA;
+  --color-accent:  #7C3AED;
+  --text-normal:   #DCDDDE;
+  --text-muted:    #8E8EA0;
+  --background-primary:         #1E1E2E;
+  --background-secondary:       #181825;
+  --background-modifier-border: #313244;
+  --color-base-30:              #45475A;
+}
+body {
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.6;
+  margin: 0;
+}
+
+</style>
+<!-- Mermaid -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<!-- MathJax -->
+<script>window.MathJax={tex:{inlineMath:[['$','$'],['\\(','\\)']],displayMath:[['$$','$$'],['\\[','\\]']]},options:{skipHtmlTags:['script','noscript','style','textarea','pre']}};</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+<!-- Site CSS -->
+<link rel="stylesheet" href="../../site.css">
+</head>
+<body class="markdown-reading-view">
+<div class="site-shell">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <a href="../../00-Index.html" class="site-title">radarv2 / AERIS-10</a>
+      <div class="site-subtitle">aros Radar Documentation</div>
+    </div>
+    <ul class="nav-list">
+      <li class="nav-section">Core Docs</li>
+      <li><a href="../../09-Concepts-Primer.html">Radar Primer</a></li>
+      <li><a href="../../00-Index.html">Index</a></li>
+      <li><a href="../../01-System-Overview.html">System Overview</a></li>
+      <li><a href="../../02-Physics-and-Waveform.html">Physics &amp; Waveform</a></li>
+      <li><a href="../../03-Beamforming-and-Scan.html">Beamforming &amp; Scan</a></li>
+      <li><a href="../../04-Signal-Processing-Pipeline.html">Signal Processing</a></li>
+      <li><a href="../../05-Node-Architecture.html">Node Architecture</a></li>
+      <li><a href="../../06-Message-Catalog.html">Message Catalog</a></li>
+      <li><a href="../../07-Detection-and-Tracking.html">Detection &amp; Tracking</a></li>
+      <li><a href="../../08-Scenarios-and-Targets.html">Scenarios &amp; Targets</a></li>
+      <li class="nav-section">Advanced</li>
+      <li><a href="../../10-Radar-Model-Library.html">Radar Model Library</a></li>
+      <li><a href="../../11-Multi-Radar-Fusion.html">Multi-Radar Fusion</a></li>
+      <li><a href="../../12-3D-Scene.html">3-D Scene</a></li>
+      <li><a href="../../13-Reference-Tables.html">Reference Tables</a></li>
+      <li><a href="../../FUTURE-DEVELOPMENT.html">Future Development</a></li>
+      <li class="nav-section">Upstream Theory</li>
+      <li><a href="../../upstream/README.html">Upstream README</a></li>
+      <li><a href="../../upstream/00_notation/conventions.html">Notation</a></li>
+      <li><a href="../../upstream/01_physics/01_fmcw_theory.html">FMCW Theory</a></li>
+      <li><a href="../../upstream/01_physics/02_lfm_waveform_model.html">LFM Waveform</a></li>
+      <li><a href="../../upstream/01_physics/03_beamforming_theory.html">Beamforming Theory</a></li>
+      <li><a href="../../upstream/01_physics/04_detection_theory.html">Detection Theory</a></li>
+      <li><a href="../../upstream/01_physics/05_noise_analysis.html">Noise Analysis</a></li>
+      <li><a href="../../upstream/01_physics/06_calibration_theory.html">Calibration</a></li>
+      <li><a href="../../upstream/02_hardware/01_system_overview.html">HW Overview</a></li>
+      <li><a href="../../upstream/04_research/01_cfar_variants.html">CFAR Variants</a></li>
+    </ul>
+    <div class="sidebar-footer">
+      <a href="https://github.com/brkay54/radarv2-docs" target="_blank">GitHub</a>
+    </div>
+  </nav>
+  <div class="main-content">
+
+<div class="markdown-preview-section">
+<h1 id="antenna-array-and-beamforming-hardware">Antenna Array and Beamforming Hardware<a class="ha" href="#antenna-array-and-beamforming-hardware" aria-hidden="true">¶</a></h1>
+
+<p class="kv-line"><span class="kv-key">Purpose:</span> <span class="kv-value">Document the ADAR1000-based 16-element phased array beamforming subsystem, including register-level control, beam steering tables extracted from firmware, and array geometry for both AERIS-10 variants.</span></p>
+
+<p class="kv-line"><span class="kv-key">Prerequisites:</span> <span class="kv-value">Familiarity with:</span></p>
+<ul><li><a href="../00_notation/symbol_table.md">Symbol Table</a> -- all symbols used herein</li><li><a href="../00_notation/parameter_table.md">Parameter Table</a> -- numerical values for both variants</li><li><a href="../00_notation/conventions.md">Conventions</a> -- equation formatting rules</li><li><a href="../01_physics/03_beamforming_theory.md">Beamforming Theory</a> -- array factor derivation, grating lobe analysis</li></ul>
+
+<hr>
+
+<h2 id="1-overview">1. Overview<a class="ha" href="#1-overview" aria-hidden="true">¶</a></h2>
+
+<p>The AERIS-10 antenna subsystem is a 16-element linear phased array controlled by four ADAR1000 beamformer ICs, each managing 4 channels. The STM32F746 microcontroller configures all four ADAR1000 devices via SPI1 to steer the beam across $N_\text{el} = 31$ elevation positions per azimuth step. The system supports both transmit and receive beam steering with independent phase and gain control per element.</p>
+
+<p>The beamforming architecture implements the array factor $AF(\theta)$ derived in Eq. (BF-3) of <a href="../01_physics/03_beamforming_theory.md#array-factor"><code>03_beamforming_theory.md</code></a> through per-element phase control on the ADAR1000 vector modulators, with quantization effects analyzed in Eq. (BF-14) of the same document.</p>
+
+<blockquote><strong>Variant Note:</strong></blockquote>
+<blockquote>| | Nexus (AERIS-10N) | Extended (AERIS-10X) |</blockquote>
+<blockquote>|--|-------|----------|</blockquote>
+<blockquote>| Antenna type | 8x16 patch array | 32x16 slotted waveguide |</blockquote>
+<blockquote>| Antenna gain $G$ | ~20 dBi (TBD) | ~30 dBi (TBD) |</blockquote>
+<blockquote>| T/R module | ADTR1107 (integrated) | QPA2962 GaN PA + external LNA |</blockquote>
+<blockquote>| $P_t$ per element | 1 W | 10 W |</blockquote>
+
+<hr>
+
+<h2 id="2-adar1000-beamformer-ic">2. ADAR1000 Beamformer IC<a class="ha" href="#2-adar1000-beamformer-ic" aria-hidden="true">¶</a></h2>
+
+<h3 id="2-1-function">2.1 Function<a class="ha" href="#2-1-function" aria-hidden="true">¶</a></h3>
+
+<p>The ADAR1000 is an Analog Devices 4-channel X/Ku-band analog beamformer providing independent phase and gain control per channel in both transmit and receive modes. Each IC includes:</p>
+
+<ul><li><strong>4 receive channels:</strong> LNA, vector modulator (phase + gain), VGA</li><li><strong>4 transmit channels:</strong> VGA, vector modulator, PA driver</li><li><strong>T/R switch control</strong> per channel with configurable polarity</li><li><strong>On-chip ADC</strong> for temperature monitoring</li><li><strong>Beam RAM</strong> for storing up to 121 beam states (bypassable via <code>MEM_CTRL</code> register)</li></ul>
+
+<p>Four ADAR1000 units provide 16 total channels mapped to the 16 array elements. The firmware bypasses the internal beam RAM (<code>MEM_CTRL_BIAS_RAM_BYPASS | MEM_CTRL_BEAM_RAM_BYPASS</code> in <code>ADAR1000_Manager.cpp</code>) and writes phase/gain settings directly via SPI for each beam position.</p>
+
+<h3 id="2-2-spi-interface">2.2 SPI Interface<a class="ha" href="#2-2-spi-interface" aria-hidden="true">¶</a></h3>
+
+<p>The ADAR1000 uses a 3-byte SPI transaction format on STM32 SPI1:</p>
+
+<table class="md-table"><thead><tr><th>Byte</th><th>Bits</th><th>Field</th><th>Description</th></tr></thead><tbody><tr><td>0</td><td>[7]</td><td>R/W</td><td><code>1</code> = read, <code>0</code> = write</td></tr><tr><td>0</td><td>[6:5]</td><td>DEV_ADDR</td><td>2-bit device hardware address (0x00--0x03)</td></tr><tr><td>0</td><td>[4:0]</td><td>ADDR[12:8]</td><td>Register address high bits</td></tr><tr><td>1</td><td>[7:0]</td><td>ADDR[7:0]</td><td>Register address low bits</td></tr><tr><td>2</td><td>[7:0]</td><td>DATA</td><td>Read/write data byte</td></tr></tbody></table>
+
+<p class="kv-line"><span class="kv-key">Broadcast mode:</span> <span class="kv-value">Setting byte 0 to <code>0x08</code> (bit [3] = 1) addresses all ADAR1000 devices on the bus simultaneously.</span></p>
+
+<p><strong>Chip select mapping</strong> (from <code>ADAR1000_Manager.cpp</code>):</p>
+
+<table class="md-table"><thead><tr><th>ADAR1000 Unit</th><th>CS GPIO</th><th>Elements</th><th>DEV_ADDR</th></tr></thead><tbody><tr><td>#1</td><td>GPIOA Pin 0</td><td>0--3</td><td>0x00</td></tr><tr><td>#2</td><td>GPIOA Pin 1</td><td>4--7</td><td>0x01</td></tr><tr><td>#3</td><td>GPIOA Pin 2</td><td>8--11</td><td>0x02</td></tr><tr><td>#4</td><td>GPIOA Pin 3</td><td>12--15</td><td>0x03</td></tr></tbody></table>
+
+<p>The FPGA provides a level-shifter interface (<code>level_shifter_interface</code> module in <code>level_shifter_interface.v</code>) to translate the STM32 3.3 V SPI signals to the ADAR1000&#x27;s 1.8 V I/O domain.</p>
+
+<h3 id="2-3-key-register-map">2.3 Key Register Map<a class="ha" href="#2-3-key-register-map" aria-hidden="true">¶</a></h3>
+
+<p>Registers extracted from <code>adar1000.h</code>. All addresses are 13-bit; only the lower byte is shown for registers below 0x100.</p>
+
+<h4 id="interface-and-control-registers">Interface and Control Registers<a class="ha" href="#interface-and-control-registers" aria-hidden="true">¶</a></h4>
+
+<table class="md-table"><thead><tr><th>Register</th><th>Address</th><th>Description</th></tr></thead><tbody><tr><td><code>INTERFACE_CONFIG_A</code></td><td>0x000</td><td>Soft reset (`[7]\</td><td>[0]<code>), LSB-first (</code>[6]\</td><td>[1]<code>), SDO active (</code>[4]\</td><td>[3]`)</td></tr><tr><td><code>INTERFACE_CONFIG_B</code></td><td>0x001</td><td>Interface configuration B</td></tr><tr><td><code>DEV_CONFIG</code></td><td>0x002</td><td>Device configuration</td></tr><tr><td><code>SCRATCHPAD</code></td><td>0x00A</td><td>Read/write test register for SPI verification</td></tr><tr><td><code>TRANSFER</code></td><td>0x00F</td><td>Transfer control</td></tr></tbody></table>
+
+<h4 id="receive-channel-registers-per-channel-1-4">Receive Channel Registers (per channel 1--4)<a class="ha" href="#receive-channel-registers-per-channel-1-4" aria-hidden="true">¶</a></h4>
+
+<table class="md-table"><thead><tr><th>Register</th><th>Addr (CH1)</th><th>Addr (CH2)</th><th>Addr (CH3)</th><th>Addr (CH4)</th><th>Description</th></tr></thead><tbody><tr><td><code>CHx_RX_GAIN</code></td><td>0x010</td><td>0x011</td><td>0x012</td><td>0x013</td><td>RX VGA gain (8-bit)</td></tr><tr><td><code>CHx_RX_PHS_I</code></td><td>0x014</td><td>0x016</td><td>0x018</td><td>0x01A</td><td>RX phase I component (VM_I lookup)</td></tr><tr><td><code>CHx_RX_PHS_Q</code></td><td>0x015</td><td>0x017</td><td>0x019</td><td>0x01B</td><td>RX phase Q component (VM_Q lookup)</td></tr></tbody></table>
+
+<h4 id="transmit-channel-registers-per-channel-1-4">Transmit Channel Registers (per channel 1--4)<a class="ha" href="#transmit-channel-registers-per-channel-1-4" aria-hidden="true">¶</a></h4>
+
+<table class="md-table"><thead><tr><th>Register</th><th>Addr (CH1)</th><th>Addr (CH2)</th><th>Addr (CH3)</th><th>Addr (CH4)</th><th>Description</th></tr></thead><tbody><tr><td><code>CHx_TX_GAIN</code></td><td>0x01C</td><td>0x01D</td><td>0x01E</td><td>0x01F</td><td>TX VGA gain (8-bit)</td></tr><tr><td><code>CHx_TX_PHS_I</code></td><td>0x020</td><td>0x022</td><td>0x024</td><td>0x026</td><td>TX phase I component</td></tr><tr><td><code>CHx_TX_PHS_Q</code></td><td>0x021</td><td>0x023</td><td>0x025</td><td>0x027</td><td>TX phase Q component</td></tr></tbody></table>
+
+<h4 id="bias-and-enable-registers">Bias and Enable Registers<a class="ha" href="#bias-and-enable-registers" aria-hidden="true">¶</a></h4>
+
+<table class="md-table"><thead><tr><th>Register</th><th>Address</th><th>Description</th></tr></thead><tbody><tr><td><code>LOAD_WORKING</code></td><td>0x028</td><td>Transfer working regs to active: bit [0] = LDRX, bit [1] = LDTX</td></tr><tr><td><code>PA_CH1..4_BIAS_ON</code></td><td>0x029--0x02C</td><td>PA bias voltage (on-state): 0x00 = 0 V, 0xFF = -4.8 V</td></tr><tr><td><code>LNA_BIAS_ON</code></td><td>0x02D</td><td>LNA bias voltage (on-state)</td></tr><tr><td><code>RX_ENABLES</code></td><td>0x02E</td><td>RX channel enables (bits [6:3] = CH1--4 enable)</td></tr><tr><td><code>TX_ENABLES</code></td><td>0x02F</td><td>TX channel enables (bits [6:3] = CH1--4 enable)</td></tr><tr><td><code>MISC_ENABLES</code></td><td>0x030</td><td>Detector, bias, and T/R mode enables</td></tr><tr><td><code>SW_CONTROL</code></td><td>0x031</td><td>T/R switch: <code>TR_SOURCE</code> [2], <code>TX_EN</code> [6], <code>RX_EN</code> [5]</td></tr><tr><td><code>PA_CH1..4_BIAS_OFF</code></td><td>0x046--0x049</td><td>PA bias voltage (off-state)</td></tr><tr><td><code>LNA_BIAS_OFF</code></td><td>0x04A</td><td>LNA bias voltage (off-state)</td></tr></tbody></table>
+
+<h4 id="adc-and-memory-registers">ADC and Memory Registers<a class="ha" href="#adc-and-memory-registers" aria-hidden="true">¶</a></h4>
+
+<table class="md-table"><thead><tr><th>Register</th><th>Address</th><th>Description</th></tr></thead><tbody><tr><td><code>ADC_CONTROL</code></td><td>0x032</td><td>ADC clock select, enable (<code>0x60</code>), start conversion (<code>0x70</code>)</td></tr><tr><td><code>ADC_OUT</code></td><td>0x033</td><td>ADC result (temperature: $T = 0.5 \times \text{raw} - 50$ deg C)</td></tr><tr><td><code>MEM_CTL</code></td><td>0x038</td><td>RAM bypass (<code>[6]</code> beam, <code>[5]</code> bias), scan mode (<code>[7]</code>)</td></tr><tr><td><code>BIAS_CURRENT_RX_LNA</code></td><td>0x034</td><td>RX LNA bias current (nominal: 8)</td></tr><tr><td><code>BIAS_CURRENT_RX</code></td><td>0x035</td><td>RX VM+VGA bias current (nominal: VM=5, VGA=10)</td></tr><tr><td><code>BIAS_CURRENT_TX</code></td><td>0x036</td><td>TX VM+VGA bias current (firmware sets 0x2D)</td></tr><tr><td><code>BIAS_CURRENT_TX_DRV</code></td><td>0x037</td><td>TX driver bias current (firmware sets 0x06)</td></tr></tbody></table>
+
+<h4 id="beam-step-registers">Beam Step Registers<a class="ha" href="#beam-step-registers" aria-hidden="true">¶</a></h4>
+
+<table class="md-table"><thead><tr><th>Register</th><th>Address</th><th>Description</th></tr></thead><tbody><tr><td><code>TX_BEAM_STEP_START</code></td><td>0x04D</td><td>TX beam step start index</td></tr><tr><td><code>TX_BEAM_STEP_STOP</code></td><td>0x04E</td><td>TX beam step stop index</td></tr><tr><td><code>RX_BEAM_STEP_START</code></td><td>0x04F</td><td>RX beam step start index</td></tr><tr><td><code>RX_BEAM_STEP_STOP</code></td><td>0x050</td><td>RX beam step stop index</td></tr></tbody></table>
+
+<h3 id="2-4-phase-control">2.4 Phase Control<a class="ha" href="#2-4-phase-control" aria-hidden="true">¶</a></h3>
+
+<p>The ADAR1000 uses a vector modulator with 7-bit phase resolution. Phase is set by writing I and Q components to the <code>CHx_PHS_I</code> and <code>CHx_PHS_Q</code> registers, using 128-entry lookup tables:</p>
+
+<ul><li><strong><code>VM_I[128]</code>:</strong> In-phase component for each of 128 phase steps</li><li><strong><code>VM_Q[128]</code>:</strong> Quadrature component for each of 128 phase steps</li><li><strong><code>VM_GAIN[128]</code>:</strong> Gain correction per phase step</li></ul>
+
+<p>The phase step size is:</p>
+
+<p>$$</p>
+<p>\Delta\phi_\text{step} = \frac{360°}{128} = 2.8125° \tag{HW-ANT-1}</p>
+<p>$$</p>
+
+<p>To set a desired phase $\phi$ on a channel, the firmware computes the 7-bit index and writes the corresponding I/Q values from the lookup tables (<code>adarSetRxPhase()</code> / <code>adarSetTxPhase()</code> in <code>ADAR1000_Manager.cpp</code>):</p>
+
+<pre><code>index = phi % 128
+I_reg = VM_I[index]
+Q_reg = VM_Q[index]</code></pre>
+
+<p>After writing phase or gain registers, the <code>LOAD_WORKING</code> register must be written to transfer working registers to the active set.</p>
+
+<h3 id="2-5-gain-control">2.5 Gain Control<a class="ha" href="#2-5-gain-control" aria-hidden="true">¶</a></h3>
+
+<p>Each channel has a VGA (variable gain amplifier) with 8-bit gain control. The firmware sets:</p>
+<ul><li><strong>RX gain:</strong> 30 (via <code>adarSetRxVgaGain</code>, <code>ADAR1000_Manager.cpp</code>)</li><li><strong>TX gain:</strong> 0x7F (maximum, via <code>adarSetTxVgaGain</code>, <code>ADAR1000_Manager.cpp</code>)</li></ul>
+
+<h3 id="2-6-fast-switch-mode">2.6 Fast Switch Mode<a class="ha" href="#2-6-fast-switch-mode" aria-hidden="true">¶</a></h3>
+
+<p>The ADAR1000Manager supports fast TX/RX switching for FMCW pulsed operation. In fast switch mode (<code>setFastSwitchMode(true)</code> in <code>ADAR1000_Manager.cpp</code>):</p>
+
+<ul><li>Both PA and LNA supplies remain energized</li><li>Both PA and LNA bias are held active</li><li>Switching settling time is reduced from 50 us to 10 us</li><li>Only the T/R switch position and ADTR1107 control signal are toggled</li></ul>
+
+<p>The <code>pulseTXMode()</code> and <code>pulseRXMode()</code> methods perform minimal-latency switching by toggling only the ADTR1107 control line, used during <code>executeChirpSequence()</code> in <code>main.cpp</code>.</p>
+
+<hr>
+
+<h2 id="3-beam-steering-implementation">3. Beam Steering Implementation<a class="ha" href="#3-beam-steering-implementation" aria-hidden="true">¶</a></h2>
+
+<h3 id="3-1-phase-differences-array">3.1 Phase Differences Array<a class="ha" href="#3-1-phase-differences-array" aria-hidden="true">¶</a></h3>
+
+<p>The firmware defines 31 inter-element phase differences $\Delta\phi_n$ (<code>phase_differences[31]</code> in <code>main.cpp</code>) that map to 31 elevation beam positions. These values are the per-element phase increment in degrees:</p>
+
+<table class="md-table"><thead><tr><th>Index</th><th>$\Delta\phi_n$ (deg)</th><th>Index</th><th>$\Delta\phi_n$ (deg)</th><th>Index</th><th>$\Delta\phi_n$ (deg)</th></tr></thead><tbody><tr><td>0</td><td>+160.000</td><td>11</td><td>+13.333</td><td>22</td><td>-17.778</td></tr><tr><td>1</td><td>+80.000</td><td>12</td><td>+12.308</td><td>23</td><td>-20.000</td></tr><tr><td>2</td><td>+53.333</td><td>13</td><td>+11.429</td><td>24</td><td>-22.857</td></tr><tr><td>3</td><td>+40.000</td><td>14</td><td>+10.667</td><td>25</td><td>-26.667</td></tr><tr><td>4</td><td>+32.000</td><td>15</td><td>0.000</td><td>26</td><td>-32.000</td></tr><tr><td>5</td><td>+26.667</td><td>16</td><td>-10.667</td><td>27</td><td>-40.000</td></tr><tr><td>6</td><td>+22.857</td><td>17</td><td>-11.429</td><td>28</td><td>-53.333</td></tr><tr><td>7</td><td>+20.000</td><td>18</td><td>-12.308</td><td>29</td><td>-80.000</td></tr><tr><td>8</td><td>+17.778</td><td>19</td><td>-13.333</td><td>30</td><td>-160.000</td></tr><tr><td>9</td><td>+16.000</td><td>20</td><td>-14.545</td><td></td><td></td></tr><tr><td>10</td><td>+14.545</td><td>21</td><td>-16.000</td><td></td><td></td></tr></tbody></table>
+
+<p>Position 15 ($\Delta\phi = 0°$) is the broadside beam. The array is symmetric: positions 0--14 steer in one direction, positions 16--30 steer in the opposite direction with mirrored phase values.</p>
+
+<h3 id="3-2-steering-angle-derivation">3.2 Steering Angle Derivation<a class="ha" href="#3-2-steering-angle-derivation" aria-hidden="true">¶</a></h3>
+
+<p>The steering angle $\theta_0$ corresponding to each inter-element phase difference $\Delta\phi_n$ is derived from the array factor steering condition Eq. (BF-5) in <a href="../01_physics/03_beamforming_theory.md"><code>03_beamforming_theory.md</code></a>:</p>
+
+<p>$$</p>
+<p>\theta_0 = \arcsin\!\left(\frac{\Delta\phi_n \cdot \lambda}{360° \cdot d}\right) \tag{HW-ANT-2}</p>
+<p>$$</p>
+
+<p>With $d = \lambda/2$ (see <a href="../00_notation/parameter_table.md#antenna-and-beamforming">Parameter Table</a>):</p>
+
+<p>$$</p>
+<p>\theta_0 = \arcsin\!\left(\frac{\Delta\phi_n}{180°}\right) \tag{HW-ANT-3}</p>
+<p>$$</p>
+
+<p>For the extreme positions: $|\Delta\phi_n| = 160°$ yields $|\theta_0| = \arcsin(160/180) \approx \pm 62.7°$. However, the grating lobe analysis in Eq. (BF-10) of the beamforming theory shows that with $d = \lambda/2$ the safe scan range extends to approximately $\pm 33°$ before grating lobes appear (with $d/\lambda &lt; 0.649$ providing 30% margin). The extreme steering positions approach the physical limits of the array and exhibit significant beam broadening.</p>
+
+<h3 id="3-3-per-element-phase-computation">3.3 Per-Element Phase Computation<a class="ha" href="#3-3-per-element-phase-computation" aria-hidden="true">¶</a></h3>
+
+<p>For a given beam position with inter-element phase difference $\Delta\phi_\text{pos}$ (from <code>phase_differences[]</code>), the phase applied to element $n$ ($n = 0, 1, \ldots, 15$) is:</p>
+
+<p>$$</p>
+<p>\phi_n = n \times \Delta\phi_\text{pos} \tag{HW-ANT-4}</p>
+<p>$$</p>
+
+<p>This implements the progressive phase shift of Eq. (BF-5) in the beamforming theory. The firmware computes this in <code>initializeBeamMatrices()</code> (<code>main.cpp</code>):</p>
+
+<pre><code class="language-c">cumulative_phase_degrees = element * phase_diff_degrees;</code></pre>
+
+<h3 id="3-4-conversion-to-7-bit-adar1000-register-value">3.4 Conversion to 7-Bit ADAR1000 Register Value<a class="ha" href="#3-4-conversion-to-7-bit-adar1000-register-value" aria-hidden="true">¶</a></h3>
+
+<p>The per-element phase $\phi_n$ in degrees is converted to a 7-bit register value (0--127) for the ADAR1000:</p>
+
+<p>$$</p>
+<p>\text{reg}_n = \left\lfloor \frac{\phi_n \bmod 360°}{360°} \times 128 \right\rfloor \bmod 128 \tag{HW-ANT-5}</p>
+<p>$$</p>
+
+<p>This quantization introduces a maximum phase error of $\Delta\phi_\text{step}/2 = 1.40625°$ per element. The effect on sidelobe levels is analyzed in Eq. (BF-14) of <a href="../01_physics/03_beamforming_theory.md"><code>03_beamforming_theory.md</code></a>, which predicts worst-case sidelobe degradation to approximately -29 dB for $N = 16$ elements.</p>
+
+<p>The firmware implements this conversion in <code>degreesTo7BitPhase()</code> (<code>main.cpp</code>):</p>
+
+<pre><code class="language-c">uint8_t phase_7bit = (uint8_t)((degrees / 360.0f) * 128.0f);
+return phase_7bit % 128;</code></pre>
+
+<h3 id="3-5-beam-matrices">3.5 Beam Matrices<a class="ha" href="#3-5-beam-matrices" aria-hidden="true">¶</a></h3>
+
+<p>The firmware pre-computes all per-element phase settings into three data structures (<code>main.cpp</code>):</p>
+
+<table class="md-table"><thead><tr><th>Structure</th><th>Dimensions</th><th>Beam Positions</th><th>Phase Direction</th></tr></thead><tbody><tr><td><code>matrix1[15][16]</code></td><td>15 beams x 16 elements</td><td>Positions 0--14</td><td>Positive $\Delta\phi$</td></tr><tr><td><code>vector_0[16]</code></td><td>1 beam x 16 elements</td><td>Position 15</td><td>Broadside (all zeros)</td></tr><tr><td><code>matrix2[15][16]</code></td><td>15 beams x 16 elements</td><td>Positions 16--30</td><td>Negative $\Delta\phi$</td></tr></tbody></table>
+
+<p>Each entry is the 7-bit phase value for that element at that beam position, computed by <code>initializeBeamMatrices()</code>. During radar operation, <code>runRadarPulseSequence()</code> sends the pre-computed phase patterns to all four ADAR1000 devices via <code>setCustomBeamPattern16()</code>, which distributes 16 phase values across 4 devices x 4 channels.</p>
+
+<h3 id="3-6-beam-steering-sequence">3.6 Beam Steering Sequence<a class="ha" href="#3-6-beam-steering-sequence" aria-hidden="true">¶</a></h3>
+
+<p>During each azimuth position, the firmware executes the following elevation scan (from <code>runRadarPulseSequence()</code> in <code>main.cpp</code>):</p>
+
+<ul><li>For each of the 15 positive-steering beam positions (from <code>matrix1</code>):</li><li>Load phase pattern to all ADAR1000 devices (TX and RX)</li><li>Execute chirp sequence: $M/2$ long chirps at $T_{r,1}$, guard time $T_\text{guard}$, then $M/2$ short chirps at $T_{r,2}$</li><li>Toggle FPGA elevation signal (<code>GPIOD Pin 9</code>)</li><li>Load broadside pattern (<code>vector_0</code>) and execute chirps</li><li>For each of the 15 negative-steering beam positions (from <code>matrix2</code>):</li><li>Load phase pattern and execute chirps</li></ul>
+
+<p>The chirp execution uses fast switch mode, toggling between <code>pulseTXMode()</code> and <code>pulseRXMode()</code> within each PRI.</p>
+
+<hr>
+
+<h2 id="4-16-element-array-geometry">4. 16-Element Array Geometry<a class="ha" href="#4-16-element-array-geometry" aria-hidden="true">¶</a></h2>
+
+<h3 id="4-1-physical-layout">4.1 Physical Layout<a class="ha" href="#4-1-physical-layout" aria-hidden="true">¶</a></h3>
+
+<p>The array consists of $N = 16$ elements (see <a href="../00_notation/parameter_table.md#antenna-and-beamforming">Parameter Table</a>) arranged as a uniform linear array (ULA) with inter-element spacing:</p>
+
+<p>$$</p>
+<p>d = \frac{\lambda}{2} \approx \frac{0.02857~\text{m}}{2} = 14.3~\text{mm} \tag{HW-ANT-6}</p>
+<p>$$</p>
+
+<p>where $\lambda$ is the wavelength at $f_c$ (see <a href="../00_notation/parameter_table.md#waveform-and-timing">Parameter Table</a>).</p>
+
+<p>The total aperture length is:</p>
+
+<p>$$</p>
+<p>L_\text{aperture} = (N - 1) \times d = 15 \times 14.3~\text{mm} = 214.3~\text{mm} \tag{HW-ANT-7}</p>
+<p>$$</p>
+
+<blockquote><strong>Variant Note:</strong></blockquote>
+<blockquote>| | Nexus (AERIS-10N) | Extended (AERIS-10X) |</blockquote>
+<blockquote>|--|-------|----------|</blockquote>
+<blockquote>| Array configuration | 8x16 patch array (8x2 subarrays) | 32x16 slotted waveguide (cascaded) |</blockquote>
+<blockquote>| Element type | Printed patch | Slotted waveguide |</blockquote>
+<blockquote>| Antenna gain $G$ | ~20 dBi (TBD) | ~30 dBi (TBD) |</blockquote>
+
+<h3 id="4-2-grating-lobe-conditions">4.2 Grating Lobe Conditions<a class="ha" href="#4-2-grating-lobe-conditions" aria-hidden="true">¶</a></h3>
+
+<p>From the grating lobe analysis in Eq. (BF-10) of <a href="../01_physics/03_beamforming_theory.md"><code>03_beamforming_theory.md</code></a>, a grating lobe appears when:</p>
+
+<p>$$</p>
+<p>\frac{d}{\lambda} \geq \frac{1}{1 + |\sin\theta_0|} \tag{HW-ANT-8}</p>
+<p>$$</p>
+
+<p>With $d/\lambda = 0.5$, the maximum scan angle before a grating lobe enters visible space is $\theta_\text{max} = 90°$ (the first grating lobe appears at the endfire direction). More practically, for acceptable performance with controlled sidelobes, the recommended scan range from the beamforming theory is $d/\lambda &lt; 0.649$ for the system&#x27;s $\pm 33°$ scan range, providing approximately 30% margin above the half-wavelength spacing.</p>
+
+<h3 id="4-3-half-power-beamwidth">4.3 Half-Power Beamwidth<a class="ha" href="#4-3-half-power-beamwidth" aria-hidden="true">¶</a></h3>
+
+<p>The approximate half-power beamwidth $\theta_{3\text{dB}}$ for a uniform-weighted $N$-element ULA (from Eq. (BF-8) in the beamforming theory) is:</p>
+
+<p>$$</p>
+<p>\theta_{3\text{dB}} \approx \frac{0.886 \lambda}{N d \cos\theta_0} \tag{HW-ANT-9}</p>
+<p>$$</p>
+
+<p>At broadside ($\theta_0 = 0$) with $N = 16$ and $d = \lambda/2$:</p>
+
+<p>$$</p>
+<p>\theta_{3\text{dB}} \approx \frac{0.886}{16 \times 0.5} \approx 0.111~\text{rad} \approx 6.3° \tag{HW-ANT-10}</p>
+<p>$$</p>
+
+<hr>
+
+<h2 id="5-adtr1107-t-r-module-integration">5. ADTR1107 T/R Module Integration<a class="ha" href="#5-adtr1107-t-r-module-integration" aria-hidden="true">¶</a></h2>
+
+<p>The ADTR1107 is an Analog Devices integrated transmit/receive front-end module (Nexus variant) that combines PA, LNA, and T/R switch in a single package. The ADAR1000Manager controls the ADTR1107 power sequencing and mode switching.</p>
+
+<h3 id="5-1-power-sequence">5.1 Power Sequence<a class="ha" href="#5-1-power-sequence" aria-hidden="true">¶</a></h3>
+
+<p>The ADTR1107 initialization (<code>initializeADTR1107Sequence()</code> in <code>ADAR1000_Manager.cpp</code>) follows a strict sequence:</p>
+
+<ul><li>Enable VDD_SW (3.3 V) via <code>EN_P_3V3_VDD_SW</code> GPIO</li><li>Enable VSS_SW (-3.3 V) via <code>EN_P_3V3_SW</code> GPIO</li><li>Set CTRL_SW to RX mode initially</li><li>Set VGG_LNA bias to 0 V</li><li>Disable VDD_LNA (0 V for initial TX mode)</li><li>Set VGG_PA to safe negative voltage (-1.75 V, register 0x5D)</li><li>Enable VDD_PA (5.0 V) via three PA enable GPIOs</li><li>Adjust VGG_PA to operational bias (-0.245 V, register 0x0D) for target $I_{DQ,PA} = 220~\text{mA}$</li></ul>
+
+<h3 id="5-2-tx-rx-mode-switching">5.2 TX/RX Mode Switching<a class="ha" href="#5-2-tx-rx-mode-switching" aria-hidden="true">¶</a></h3>
+
+<p>Mode switching (<code>setADTR1107Mode()</code> in <code>ADAR1000_Manager.cpp</code>) follows safe sequencing:</p>
+
+<p><strong>TX mode:</strong></p>
+<ul><li>Disable LNA power</li><li>Set LNA bias to off (0x00)</li><li>Enable PA power (5.0 V, three GPIO enables)</li><li>Set PA bias to operational (0x7F)</li><li>Set T/R switch to TX via <code>SW_CONTROL</code> register bit [2]</li></ul>
+
+<p><strong>RX mode:</strong></p>
+<ul><li>Disable PA power</li><li>Set PA bias to safe value (0x20)</li><li>Enable LNA power (3.3 V)</li><li>Set LNA bias to operational (0x30)</li><li>Set T/R switch to RX via <code>SW_CONTROL</code> register bit [2]</li></ul>
+
+<hr>
+
+<h2 id="6-references">6. References<a class="ha" href="#6-references" aria-hidden="true">¶</a></h2>
+
+<h3 id="project-documentation">Project Documentation<a class="ha" href="#project-documentation" aria-hidden="true">¶</a></h3>
+<ul><li><a href="../00_notation/symbol_table.md">Symbol Table</a> -- authoritative symbol definitions</li><li><a href="../00_notation/parameter_table.md">Parameter Table</a> -- canonical numerical values for both variants</li><li><a href="../00_notation/conventions.md">Conventions</a> -- equation numbering and formatting rules</li></ul>
+
+<h3 id="physics-foundation-phase-2">Physics Foundation (Phase 2)<a class="ha" href="#physics-foundation-phase-2" aria-hidden="true">¶</a></h3>
+<ul><li><a href="../01_physics/03_beamforming_theory.md"><code>03_beamforming_theory.md</code></a> -- array factor Eq. (BF-3), steering Eq. (BF-5), grating lobes Eq. (BF-10), phase quantization Eq. (BF-14)</li></ul>
+
+<h3 id="hardware-references">Hardware References<a class="ha" href="#hardware-references" aria-hidden="true">¶</a></h3>
+<ul><li><a href="01_system_overview.md"><code>01_system_overview.md</code></a> -- system-level block diagram and clock domain overview</li><li><a href="03_frequency_synthesis.md"><code>03_frequency_synthesis.md</code></a> -- AD9523 clock distribution to ADAR1000 SPI</li></ul>
+
+<h3 id="firmware-source">Firmware Source<a class="ha" href="#firmware-source" aria-hidden="true">¶</a></h3>
+<ul><li><code>9_Firmware/9_1_Microcontroller/9_1_1_C_Cpp_Libraries/adar1000.h</code> -- ADAR1000 register definitions</li><li><code>9_Firmware/9_1_Microcontroller/9_1_1_C_Cpp_Libraries/ADAR1000_Manager.h</code> -- beamformer management API</li><li><code>9_Firmware/9_1_Microcontroller/9_1_1_C_Cpp_Libraries/ADAR1000_Manager.cpp</code> -- beamformer implementation (SPI, phase/gain, T/R switching)</li><li><code>9_Firmware/9_1_Microcontroller/9_1_3_C_Cpp_Code/main.cpp</code> -- <code>phase_differences[31]</code>, <code>initializeBeamMatrices()</code>, <code>executeChirpSequence()</code></li></ul>
+
+<h3 id="component-datasheets">Component Datasheets<a class="ha" href="#component-datasheets" aria-hidden="true">¶</a></h3>
+<ul><li>ADAR1000 -- X/Ku-band 4-channel analog beamformer (Analog Devices)</li><li>ADTR1107 -- 8 GHz to 16 GHz front-end T/R module (Analog Devices, Nexus variant)</li><li>QPA2962 -- 6 GHz to 18 GHz 10 W GaN MMIC power amplifier (Qorvo, Extended variant)</li></ul>
+
+</div>
+  </div><!-- main-content -->
+</div><!-- site-shell -->
+<script>
+mermaid.initialize({ startOnLoad: true, theme: 'dark', securityLevel: 'loose' });
+</script>
+</body>
+
+</html>

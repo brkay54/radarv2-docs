@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>radarv2 — Multi-Radar Fusion and Central Control — aros Vault</title>
+<style>
+
+:root {
+  --color-blue:    #007ACC;
+  --color-green:   #2DA44E;
+  --color-yellow:  #D29922;
+  --color-purple:  #8B5CF6;
+  --color-orange:  #F59E0B;
+  --color-red:     #E5534B;
+  --color-cyan:    #0BC5EA;
+  --color-accent:  #7C3AED;
+  --text-normal:   #DCDDDE;
+  --text-muted:    #8E8EA0;
+  --background-primary:         #1E1E2E;
+  --background-secondary:       #181825;
+  --background-modifier-border: #313244;
+  --color-base-30:              #45475A;
+}
+body {
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.6;
+  margin: 0;
+}
+
+</style>
+<!-- Mermaid -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<!-- MathJax -->
+<script>window.MathJax={tex:{inlineMath:[['$','$'],['\\(','\\)']],displayMath:[['$$','$$'],['\\[','\\]']]},options:{skipHtmlTags:['script','noscript','style','textarea','pre']}};</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+<!-- Site CSS -->
+<link rel="stylesheet" href="site.css">
+</head>
+<body class="markdown-reading-view">
+<div class="site-shell">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <a href="00-Index.html" class="site-title">radarv2 / AERIS-10</a>
+      <div class="site-subtitle">aros Radar Documentation</div>
+    </div>
+    <ul class="nav-list">
+      <li class="nav-section">Core Docs</li>
+      <li><a href="09-Concepts-Primer.html">Radar Primer</a></li>
+      <li><a href="00-Index.html">Index</a></li>
+      <li><a href="01-System-Overview.html">System Overview</a></li>
+      <li><a href="02-Physics-and-Waveform.html">Physics &amp; Waveform</a></li>
+      <li><a href="03-Beamforming-and-Scan.html">Beamforming &amp; Scan</a></li>
+      <li><a href="04-Signal-Processing-Pipeline.html">Signal Processing</a></li>
+      <li><a href="05-Node-Architecture.html">Node Architecture</a></li>
+      <li><a href="06-Message-Catalog.html">Message Catalog</a></li>
+      <li><a href="07-Detection-and-Tracking.html">Detection &amp; Tracking</a></li>
+      <li><a href="08-Scenarios-and-Targets.html">Scenarios &amp; Targets</a></li>
+      <li class="nav-section">Advanced</li>
+      <li><a href="10-Radar-Model-Library.html">Radar Model Library</a></li>
+      <li><a href="11-Multi-Radar-Fusion.html">Multi-Radar Fusion</a></li>
+      <li><a href="12-3D-Scene.html">3-D Scene</a></li>
+      <li><a href="13-Reference-Tables.html">Reference Tables</a></li>
+      <li><a href="FUTURE-DEVELOPMENT.html">Future Development</a></li>
+      <li class="nav-section">Upstream Theory</li>
+      <li><a href="upstream/README.html">Upstream README</a></li>
+      <li><a href="upstream/00_notation/conventions.html">Notation</a></li>
+      <li><a href="upstream/01_physics/01_fmcw_theory.html">FMCW Theory</a></li>
+      <li><a href="upstream/01_physics/02_lfm_waveform_model.html">LFM Waveform</a></li>
+      <li><a href="upstream/01_physics/03_beamforming_theory.html">Beamforming Theory</a></li>
+      <li><a href="upstream/01_physics/04_detection_theory.html">Detection Theory</a></li>
+      <li><a href="upstream/01_physics/05_noise_analysis.html">Noise Analysis</a></li>
+      <li><a href="upstream/01_physics/06_calibration_theory.html">Calibration</a></li>
+      <li><a href="upstream/02_hardware/01_system_overview.html">HW Overview</a></li>
+      <li><a href="upstream/04_research/01_cfar_variants.html">CFAR Variants</a></li>
+    </ul>
+    <div class="sidebar-footer">
+      <a href="https://github.com/brkay54/radarv2-docs" target="_blank">GitHub</a>
+    </div>
+  </nav>
+  <div class="main-content">
+
+<div class="markdown-preview-section">
+<h1 id="multi-radar-fusion-and-central-control">Multi-Radar Fusion and Central Control<a class="ha" href="#multi-radar-fusion-and-central-control" aria-hidden="true">¶</a></h1>
+
+<div class="callout" data-callout="abstract"><div class="callout-title">Scope</div><div class="callout-content"><p>The design for running <strong>several radar instances together</strong>, <strong>fusing</strong> their</p>
+<p>detections/tracks into one common operating picture, and **controlling all radars</p>
+<p>centrally**. This is the <span class="wikilink-unresolved">FD-4</span></p>
+<p>design written up as the reference. It builds directly on the</p>
+<p><span class="wikilink-unresolved">model library</span> (each radar is a selectable profile) and on</p>
+<p>the common world frame the base pipeline already publishes in.</p></div></div>
+
+<div class="callout" data-callout="success"><div class="callout-title">As-built (FD-4a-e shipped, Linux-verified)</div><div class="callout-content"><p>The fusion path described below is <strong>implemented and live</strong>, with two deliberate</p>
+<p>departures from the original sketch, both recorded in <em>As-built</em> below:</p>
+<ul><li>Fusion is <strong>distributed, not centralized</strong> - every radar runs its <strong>own</strong></li></ul>
+<p>   FusionCenter fusing its own + every peer&#x27;s world-track reports (Covariance</p>
+<p>   Intersection), publishing a per-radar <code>CommonPicture</code> on</p>
+<p>   <code>/&lt;ns&gt;/FUSE/fusion_center/output</code>. There is no single fusion process to lose.</p>
+<ul><li>The fleet size is <strong>dynamic (config, not compiled)</strong> - the FusionCenter has no</li></ul>
+<p>   hardcoded radar count; it subscribes to a configured <code>peer_tracks</code> list and maps</p>
+<p>   each distinct transport <code>source_id</code> to a contributor bit. Any fleet size up to 32</p>
+<p>   (the <code>contributor_mask</code> width) works with zero code change.</p>
+<p>The whole demo now runs from one <strong>config hub</strong> + a <strong><code>radarv2</code> CLI</strong> (see <em>As-built</em>).</p></div></div>
+
+<hr>
+
+<h2 id="0-as-built-config-hub-generator-and-the-radarv2-cli">0. As-built — config hub, generator, and the <code>radarv2</code> CLI<a class="ha" href="#0-as-built-config-hub-generator-and-the-radarv2-cli" aria-hidden="true">¶</a></h2>
+
+<p>Everything that defines a fleet lives in one Autoware-style <code>config/</code> tree; a generator</p>
+<p>turns a fleet definition into the multi-radar deploy spine, and one CLI drives the lot.</p>
+
+<pre><code class="language-text">examples/radarv2/
+  config/
+    radars/    12 profiles - spy1 / tpy2 / smartl / gm400 / giraffe / apg81 / fps117 /
+               aeris10 + the ASELSAN fleet models kalkan2 / alp300 / alp100 / eirs
+               (*.profile.yaml: band, wavelength, r_max, prf, beam, scan, snr_ref)
+    fleets/    library / multi5 / multi3  (*.fleet.yaml: base_tcp_port + instances[ns, profile])
+    params/    per-node param schemas, incl. fusion_center.param.yaml (peer_tracks)
+    scenarios/ target scripts (jet_intercept, sea_skimmer, airliner_transit, maneuver_demo)
+  launch/      radar.base.launch.yaml (single-radar template, ${var} placeholders)
+  scripts/
+    gen_multi_radar_spine.py   fleet + profiles -&gt; &lt;fleet&gt;.spine.yaml (N radar
+                               subgraphs + the N*(N-1) cross-radar TCP mesh)
+    radarv2                    unified CLI</code></pre>
+
+<p>The generator includes the base radar graph once per instance (namespaced by <code>ns</code>),</p>
+<p>bakes each FusionCenter&#x27;s <code>peer_tracks</code> to the space-joined list of every radar&#x27;s</p>
+<p><code>/&lt;ns&gt;/HOST/host_egress/track_output</code>, and emits the fully-meshed TCP links from</p>
+<p><code>base_tcp_port</code>. The <code>radarv2</code> CLI is the single entry point:</p>
+
+<pre><code class="language-bash">radarv2 list                  # what the hub offers (radars / fleets / scenarios / params)
+radarv2 validate --fleet multi5   # generate spine + flatten + validate, no processes
+radarv2 multi    --fleet multi5   # generate, flatten, run the N-radar fleet (+ Foxglove)
+radarv2 run      --scenario jet_intercept   # single radar
+radarv2 viz      --introspect DIR # Foxglove bridge against a running graph
+radarv2 record   --fleet multi5   # run + record one MCAP bag per DKM into runs/&lt;ts&gt;/
+radarv2 replay   runs/&lt;ts&gt;-multi5 # serve the recorded Foxglove bags to Lichtblick</code></pre>
+
+<div class="callout" data-callout="note"><div class="callout-title">Record / replay (INF3)</div><div class="callout-content"><p><code>record</code> runs the fleet with <code>aros-launch-run --record</code> (<code>AROS_RECORD_FORMAT=foxglove</code>),</p>
+<p>writing one <code>&lt;dkm&gt;.mcap</code> per process into a self-contained run dir (<code>bags/</code> + a copy</p>
+<p>of <code>deploy/</code>); the graceful SIGTERM teardown flushes every MCAP writer before the run</p>
+<p>is summarized. <code>replay</code> serves those Foxglove-native bags over HTTP and prints the</p>
+<p>Lichtblick / Foxglove Studio remote-file URL - the fused <code>CommonPicture</code></p>
+<p>(<code>/&lt;ns&gt;/FUSE/fusion_center/output</code>) rides the viz DKM&#x27;s bag with its full schema.</p></div></div>
+
+<p>Verified live: <code>multi5</code> -&gt; 5 manifests + 20 cross-radar TCP links, fused</p>
+<p><code>CommonPicture</code> of ~13-14 tracks over the mesh; <code>multi3</code> -&gt; 3 manifests + 6 links</p>
+<p>(same code, smaller fleet - proves dynamic N).</p>
+
+<hr>
+
+<h2 id="1-why-fuse">1. Why fuse<a class="ha" href="#1-why-fuse" aria-hidden="true">¶</a></h2>
+
+<p>A single radar sees a slice of the sky: one band, one site, one coverage cone, with</p>
+<p>blind spots (the Doppler notch, terrain masking, the horizon). Several radars of</p>
+<p>different bands and sites cover each other&#x27;s gaps. <strong>Fusion</strong> turns N independent air</p>
+<p>pictures into one: the same target seen by an S-band volume-search set and an X-band</p>
+<p>fire-control set becomes a single track with better accuracy, continuity through each</p>
+<p>radar&#x27;s blind zones, and an explicit record of which sensors contributed.</p>
+
+<p>This is exactly the inter-radar lift of what <code>examples/radar</code> already does <em>inside</em> one</p>
+<p>radar (plot → associate → track); FD-4 raises the same association/tracking idea to the</p>
+<p><strong>track-to-track</strong> level across radars.</p>
+
+<hr>
+
+<h2 id="2-the-deployment-shape-n-instances-one-network">2. The deployment shape — N instances, one network<a class="ha" href="#2-the-deployment-shape-n-instances-one-network" aria-hidden="true">¶</a></h2>
+
+<p>Each radar is the <strong>base radarv2 node graph instantiated again</strong> with a different model</p>
+<p>profile and site pose. Topology is static (ADR-004): the number of radars and their</p>
+<p>wiring is a deploy-manifest choice, fixed at boot. Each radar gets a unique diagtree</p>
+<p>namespace so its nodes and topics never collide.</p>
+
+<div class="mermaid">flowchart LR
+  R1[Radar A<br/>/AERIS10/site_a<br/>S-band SPY-1 profile]:::r1
+  R2[Radar B<br/>/AERIS10/site_b<br/>X-band TPY-2 profile]:::r2
+  R3[Radar C<br/>/AERIS10/site_c<br/>L-band SMART-L profile]:::r3
+  FUSE[FusionCenter<br/>fusion.fusion_center]:::fuse
+  CTRL[ControlCenter<br/>control.control_center]:::ctrl
+  VIEW[CommonPicture<br/>to operator / 3D scene]:::view
+
+  R1 -->|TargetReport| FUSE
+  R2 -->|TargetReport| FUSE
+  R3 -->|TargetReport| FUSE
+  FUSE -->|CommonPicture| VIEW
+  CTRL -->|RadarControl| R1
+  CTRL -->|RadarControl| R2
+  CTRL -->|RadarControl| R3
+
+  classDef r1 fill:#0e7490,color:#ecfeff,stroke:#155e75
+  classDef r2 fill:#1d4ed8,color:#eff6ff,stroke:#1e40af
+  classDef r3 fill:#4d7c0f,color:#f7fee7,stroke:#3f6212
+  classDef fuse fill:#a16207,color:#fefce8,stroke:#854d0e
+  classDef ctrl fill:#9d174d,color:#fff1f2,stroke:#831843
+  classDef view fill:#7c3aed,color:#f5f3ff,stroke:#6d28d9</div>
+
+<div class="callout" data-callout="info"><div class="callout-title">Legend — multi-radar network</div><div class="callout-content"><p><strong>Teal / Blue / Green</strong> = three radar instances, each the full base node graph under</p>
+<p>its own diagtree root and model profile · <strong>Amber</strong> = the FusionCenter that</p>
+<p>associates their reports into one picture · <strong>Pink</strong> = the ControlCenter that</p>
+<p>commands all radars · <strong>Purple</strong> = the fused <code>CommonPicture</code> consumed by the operator</p>
+<p>and the <span class="wikilink-unresolved">3-D scene</span>. Each radar&#x27;s <code>TargetReport</code> is already in a common</p>
+<p>world frame, so fusion needs no per-radar special-casing.</p></div></div>
+
+<div class="callout" data-callout="note"><div class="callout-title">Transport across radars</div><div class="callout-content"><p>Within a radar, links degenerate by placement (DirectHandoff / LocalChannel) as in</p>
+<p><a href="05-Node-Architecture.html" class="internal-link">05-Node-Architecture</a>. <strong>Across</strong> radars the reports cross process/host boundaries,</p>
+<p>so the radar→FusionCenter and ControlCenter→radar links use the cross-host carriers</p>
+<p>(UDP/TCP, or SHM if co-hosted) — the same transport degeneration, just at the</p>
+<p>network tier.</p></div></div>
+
+<hr>
+
+<h2 id="3-fusioncenter-track-to-track-fusion">3. FusionCenter — track-to-track fusion<a class="ha" href="#3-fusioncenter-track-to-track-fusion" aria-hidden="true">¶</a></h2>
+
+<p>The FusionCenter subscribes to every radar&#x27;s <strong>world-track report</strong></p>
+<p>(<code>/&lt;ns&gt;/HOST/host_egress/track_output</code>, its own + every peer&#x27;s), lifts each into a common</p>
+<p>frame, and resolves multi-radar duplicates into single fused tracks.</p>
+
+<div class="mermaid">flowchart LR
+  IN[per-radar track reports<br/>N radars, world frame]:::in
+  XF[frame align<br/>site pose + time]:::calc
+  ASSOC[track-to-track<br/>association GNN]:::calc
+  FUSE[state fusion<br/>covariance-weighted]:::calc
+  PRED[predict<br/>CV / CA / IMM]:::calc
+  OUT[CommonPicture<br/>fused tracks + contributors]:::out
+
+  IN --> XF --> ASSOC --> FUSE --> PRED --> OUT
+
+  classDef in fill:#1d4ed8,color:#eff6ff,stroke:#1e40af
+  classDef calc fill:#a16207,color:#fefce8,stroke:#854d0e
+  classDef out fill:#7c3aed,color:#f5f3ff,stroke:#6d28d9</div>
+
+<div class="callout" data-callout="info"><div class="callout-title">Legend — fusion stages</div><div class="callout-content"><p><strong>Blue</strong> = the N incoming per-radar reports · <strong>Amber</strong> = the fusion computation:</p>
+<p>align each report to the common frame (site pose + timestamp), associate tracks</p>
+<p>across radars (global-nearest-neighbour on a gating distance), fuse the matched</p>
+<p>states (covariance-weighted / information-filter combination), and predict each fused</p>
+<p>track forward · <strong>Purple</strong> = the emitted <code>CommonPicture</code>. Prediction pairs with the</p>
+<p>realistic-vehicle kinematics of <span class="wikilink-unresolved">FD-1</span>.</p></div></div>
+
+<p><strong>Design choices — as shipped:</strong></p>
+<ul><li><strong>Association level</strong> — <strong>track-to-track</strong> (fuse each radar&#x27;s <em>tracks</em>). Measurement-level</li></ul>
+<p>  (fuse raw detections in one tracker) is more accurate but needs tight time alignment;</p>
+<p>  deferred.</p>
+<ul><li><strong>State fusion rule</strong> — <strong>Covariance Intersection (CI)</strong>, the cross-covariance-safe</li></ul>
+<p>  rule, since each radar&#x27;s tracks share unknown correlations through the common targets.</p>
+<ul><li><strong>Time alignment</strong> — every contributing track is predicted to a common fusion</li></ul>
+<p>  timestamp before combining (radars dwell asynchronously), keyed off the <code>t_capture</code></p>
+<p>  on every message header.</p>
+<ul><li><strong>Contributor bookkeeping</strong> — each fused track carries a <code>contributor_mask</code> (uint32)</li></ul>
+<p>  and <code>num_contributors</code> (popcount). The FusionCenter maps each distinct transport</p>
+<p>  <code>source_id</code> to a contributor bit on first sight, so the mask is <strong>dynamic</strong> — no</p>
+<p>  per-radar special-casing, fleet size is configuration. The picture degrades</p>
+<p>  gracefully as the mask shrinks when a radar drops.</p>
+
+<hr>
+
+<h2 id="4-controlcenter-the-central-operator-seat-built-fd-4">4. ControlCenter — the central operator seat (BUILT, FD-4)<a class="ha" href="#4-controlcenter-the-central-operator-seat-built-fd-4" aria-hidden="true">¶</a></h2>
+
+<p>The ControlCenter is the command-plane mirror of the FusionCenter: it reads the fused</p>
+<p>air picture and commands the radars. It is <strong>built and live-verified</strong> as a closed</p>
+<p>loop — it subscribes to the <code>CommonPicture</code>, picks the priority (highest-score</p>
+<p>confirmed) threat, and emits a <code>RadarControl</code> that cues the radars&#x27; staring sector onto</p>
+<p>that track&#x27;s bearing, so the beam follows the fused picture instead of a fixed azimuth.</p>
+
+<table class="md-table"><thead><tr><th>Command (<code>RadarControl.command</code>)</th><th>Effect</th><th>Consumer</th></tr></thead><tbody><tr><td><code>set_sector</code> (3)</td><td>re-point the staring sector to the fused threat bearing</td><td>ScanController</td></tr><tr><td><code>start</code> (1) / <code>stop</code> (2)</td><td>bring a radar&#x27;s scan up or idle (gates <code>onTick</code>)</td><td>ScanController</td></tr><tr><td><code>set_mode</code> (4)</td><td>switch waveform / mode</td><td>ScanController</td></tr><tr><td><code>hold</code> (0)</td><td>no-op (keep current behaviour)</td><td>ScanController</td></tr></tbody></table>
+
+<div class="callout" data-callout="note"><div class="callout-title">Distributed, not a single box — same observable behaviour</div><div class="callout-content"><p>Like the FusionCenter, the ControlCenter is **distributed: one node co-located per</p>
+<p>radar** (<code>control.control_center</code>). Every radar holds the full fused picture, so each</p>
+<p>computes the same cue and the <strong>whole fleet re-points together each cycle</strong> — the</p>
+<p>observable behaviour of the central seat drawn above, with no single point and no</p>
+<p>cross-host control wiring (the cue is an intra-DKM link). Collapsing all ControlCenters</p>
+<p>into one DKM with cross-host <code>RadarControl</code> links — the literal single seat — is then a</p>
+<p>manifest regrouping, not a code change (aros transport degenerates by placement).</p></div></div>
+
+<div class="callout" data-callout="note"><div class="callout-title">Control respects the static-topology rule</div><div class="callout-content"><p>Control changes <strong>parameters and scan behaviour at runtime</strong> — which ADR-004 explicitly</p>
+<p>allows (&quot;parameter change is runtime; topology change requires restart&quot;). It does</p>
+<p><strong>not</strong> rewire the graph or add/remove radars at runtime; the set of radars and links is</p>
+<p>fixed by the deploy manifest. Cueing a radar to a sector is a parameter-class change,</p>
+<p>not a topology change.</p></div></div>
+
+<div class="callout" data-callout="warning"><div class="callout-title">A staring site must hold a FIXED orientation</div><div class="callout-content"><p>The closed loop only confirms tracks if the staring radars do <strong>not</strong> yaw: a rotating</p>
+<p>body frame sweeps the body-fixed staring beam&#x27;s world bearing ~0.32 rad/dwell, so the</p>
+<p>target&#x27;s world position rotates and consecutive plots never associate (no track</p>
+<p>confirms, nothing to fuse, nothing to cue). The multi-radar <code>NavSource</code> therefore runs</p>
+<p><code>yaw_rate: 0</code> (the single-radar demo keeps a small cosmetic drift).</p></div></div>
+
+<hr>
+
+<h2 id="5-messages-this-introduces">5. Messages this introduces<a class="ha" href="#5-messages-this-introduces" aria-hidden="true">¶</a></h2>
+
+<p>These extend the <span class="wikilink-unresolved">message catalog</span> (both <strong>built</strong> in FD-4):</p>
+
+<ul><li><strong><code>CommonPicture</code></strong> — the fused air picture: an array of fused tracks, each with</li></ul>
+<p>  world-frame state (position + velocity + covariance), a track id, a quality/score, and</p>
+<p>  the contributing-radar bitmask. The single product the operator and the</p>
+<p>  <span class="wikilink-unresolved">3-D scene</span> consume.</p>
+<ul><li><strong><code>RadarControl</code></strong> — a command to one (or broadcast to all) radars: <code>target_radar_id</code></li></ul>
+<p>  (a contributor id or the broadcast sentinel <code>0xFFFFFFFF</code>), a <code>command</code> enum</p>
+<p>  (hold/start/stop/set_sector/set_mode), the cued <code>az_base</code>/<code>el_base</code> (with an</p>
+<p>  &quot;unchanged&quot; elevation sentinel), <code>mode</code>, and the <code>cue_track_id</code> it points at. Carried on</p>
+<p>  a control topic from each radar&#x27;s ControlCenter to its ScanController.</p>
+<ul><li><strong><code>RadarHealth</code></strong> (deferred) — per-radar status aggregated back to the ControlCenter.</li></ul>
+
+<p class="kv-line"><span class="kv-key">Design hook (already satisfied in v1):</span> <span class="kv-value"><code>TargetReport</code> is defined in a common</span></p>
+<p>ENU/geodetic world frame and each radar has a unique id namespace — so fusion is a pure</p>
+<p>transform with no per-radar special-casing. Keeping that invariant is the one thing the</p>
+<p>base implementation must not break.</p>
+
+<p>Continue to <a href="12-3D-Scene.html" class="internal-link">12-3D-Scene</a>.</p>
+
+</div>
+  </div><!-- main-content -->
+</div><!-- site-shell -->
+<script>
+mermaid.initialize({ startOnLoad: true, theme: 'dark', securityLevel: 'loose' });
+</script>
+</body>
+
+</html>

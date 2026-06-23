@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>radarv2 — Scenarios and Targets — aros Vault</title>
+<style>
+
+:root {
+  --color-blue:    #007ACC;
+  --color-green:   #2DA44E;
+  --color-yellow:  #D29922;
+  --color-purple:  #8B5CF6;
+  --color-orange:  #F59E0B;
+  --color-red:     #E5534B;
+  --color-cyan:    #0BC5EA;
+  --color-accent:  #7C3AED;
+  --text-normal:   #DCDDDE;
+  --text-muted:    #8E8EA0;
+  --background-primary:         #1E1E2E;
+  --background-secondary:       #181825;
+  --background-modifier-border: #313244;
+  --color-base-30:              #45475A;
+}
+body {
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.6;
+  margin: 0;
+}
+
+</style>
+<!-- Mermaid -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<!-- MathJax -->
+<script>window.MathJax={tex:{inlineMath:[['$','$'],['\\(','\\)']],displayMath:[['$$','$$'],['\\[','\\]']]},options:{skipHtmlTags:['script','noscript','style','textarea','pre']}};</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+<!-- Site CSS -->
+<link rel="stylesheet" href="site.css">
+</head>
+<body class="markdown-reading-view">
+<div class="site-shell">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <a href="00-Index.html" class="site-title">radarv2 / AERIS-10</a>
+      <div class="site-subtitle">aros Radar Documentation</div>
+    </div>
+    <ul class="nav-list">
+      <li class="nav-section">Core Docs</li>
+      <li><a href="09-Concepts-Primer.html">Radar Primer</a></li>
+      <li><a href="00-Index.html">Index</a></li>
+      <li><a href="01-System-Overview.html">System Overview</a></li>
+      <li><a href="02-Physics-and-Waveform.html">Physics &amp; Waveform</a></li>
+      <li><a href="03-Beamforming-and-Scan.html">Beamforming &amp; Scan</a></li>
+      <li><a href="04-Signal-Processing-Pipeline.html">Signal Processing</a></li>
+      <li><a href="05-Node-Architecture.html">Node Architecture</a></li>
+      <li><a href="06-Message-Catalog.html">Message Catalog</a></li>
+      <li><a href="07-Detection-and-Tracking.html">Detection &amp; Tracking</a></li>
+      <li><a href="08-Scenarios-and-Targets.html">Scenarios &amp; Targets</a></li>
+      <li class="nav-section">Advanced</li>
+      <li><a href="10-Radar-Model-Library.html">Radar Model Library</a></li>
+      <li><a href="11-Multi-Radar-Fusion.html">Multi-Radar Fusion</a></li>
+      <li><a href="12-3D-Scene.html">3-D Scene</a></li>
+      <li><a href="13-Reference-Tables.html">Reference Tables</a></li>
+      <li><a href="FUTURE-DEVELOPMENT.html">Future Development</a></li>
+      <li class="nav-section">Upstream Theory</li>
+      <li><a href="upstream/README.html">Upstream README</a></li>
+      <li><a href="upstream/00_notation/conventions.html">Notation</a></li>
+      <li><a href="upstream/01_physics/01_fmcw_theory.html">FMCW Theory</a></li>
+      <li><a href="upstream/01_physics/02_lfm_waveform_model.html">LFM Waveform</a></li>
+      <li><a href="upstream/01_physics/03_beamforming_theory.html">Beamforming Theory</a></li>
+      <li><a href="upstream/01_physics/04_detection_theory.html">Detection Theory</a></li>
+      <li><a href="upstream/01_physics/05_noise_analysis.html">Noise Analysis</a></li>
+      <li><a href="upstream/01_physics/06_calibration_theory.html">Calibration</a></li>
+      <li><a href="upstream/02_hardware/01_system_overview.html">HW Overview</a></li>
+      <li><a href="upstream/04_research/01_cfar_variants.html">CFAR Variants</a></li>
+    </ul>
+    <div class="sidebar-footer">
+      <a href="https://github.com/brkay54/radarv2-docs" target="_blank">GitHub</a>
+    </div>
+  </nav>
+  <div class="main-content">
+
+<div class="markdown-preview-section">
+<h1 id="scenarios-and-targets">Scenarios and Targets<a class="ha" href="#scenarios-and-targets" aria-hidden="true">¶</a></h1>
+
+<div class="callout" data-callout="abstract"><div class="callout-title">Scope</div><div class="callout-content"><p>How a radarv2 scenario defines the air picture the radar &quot;sees&quot;, the target model</p>
+<p>that feeds <code>RxSynthesizer</code>, and the seam that lets realistic typed vehicles (jets,</p>
+<p>etc.) drop in later — the design hook for <span class="wikilink-unresolved">FD-1</span>. The realism</p>
+<p>rationale and validated physics behind the choices below live in</p>
+<p><span class="wikilink-unresolved">the simulation-realism brainstorm</span>.</p></div></div>
+
+<hr>
+
+<h2 id="1-scenario-format">1. Scenario format<a class="ha" href="#1-scenario-format" aria-hidden="true">¶</a></h2>
+
+<p>radarv2 reuses the example&#x27;s build-time scenario codegen: each</p>
+<p><code>scenarios/*.scenario.yaml</code> (kind <code>aeris.scenario/v1</code>) is compiled into a static,</p>
+<p>dependency-free <code>radarv2_scenarios</code> table that <code>RxSynthesizer</code> (targets) and</p>
+<p><code>NavSource</code> (ownship platform) consume identically. A scenario declares the platform</p>
+<p>trajectory and a set of targets:</p>
+
+<pre><code class="language-yaml">---
+kind: aeris.scenario/v1
+name: jet_intercept
+title: &quot;Fighter intercept run (weaving ingress)&quot;
+description: &quot;A fast inbound fighter weaving toward the platform&quot;
+duration_s: 60.0
+seed: 20260621          # reproducible noise + Swerling fluctuation
+time_scale: 1.0         # sim-seconds per nominal time unit
+platform:
+  start: [0.0, 0.0, 20.0]   # ENU origin (m); mast height 20 m
+  waypoints: []             # static site for this scenario
+targets:
+  - id: 1
+    name: BANDIT-1
+    type: fighter           # vehicle class → envelope + RCS + Swerling defaults
+    motion: smooth          # cv | smooth (Catmull-Rom) | dynamic (g-limited, FD-1)
+    spawn_s: 0.0
+    despawn_s: 60.0
+    waypoints:
+      - { t: 0.0,  e:  2000.0, n: 18000.0, u: 3000.0 }
+      - { t: 20.0, e: -1500.0, n: 12000.0, u: 2200.0 }   # weave left
+      - { t: 40.0, e:  1500.0, n:  6000.0, u: 1200.0 }   # weave right
+      - { t: 60.0, e:  -500.0, n:  2000.0, u:  600.0 }
+---</code></pre>
+
+<p>The codegen emits POD aggregates (<code>Waypoint</code>, <code>ScenarioTarget</code>, <code>ScenarioData</code>) plus</p>
+<p>an inline <code>eval_path(waypoints, n, t, motion)</code> returning a target&#x27;s <code>PathState</code></p>
+<p>(position + velocity) at any time. Three motion models are available:</p>
+
+<ul><li><strong><code>cv</code></strong> — piecewise-linear (segment-constant velocity, discontinuous at</li></ul>
+<p>  waypoints). Correct for straight / tangential passes.</p>
+<ul><li><strong><code>smooth</code></strong> — a <strong>Catmull-Rom / Hermite spline</strong> through the waypoints: position</li></ul>
+<p>  passes through every waypoint and <strong>both position and velocity are continuous</strong> at</p>
+<p>  interior waypoints, so a maneuvering jet produces a smooth Doppler history instead</p>
+<p>  of the polyline&#x27;s unphysical instantaneous heading snaps. This is the headline</p>
+<p>  realism upgrade over the template (see</p>
+<p>  <span class="wikilink-unresolved">the brainstorm</span>).</p>
+<ul><li><strong><code>dynamic</code></strong> (FD-1) — a <strong>g-limited flight-dynamics integrator</strong>: the <code>cv</code> route</li></ul>
+<p>  velocity is treated as a <em>command</em> the vehicle follows within its physical envelope</p>
+<p>  (bank-limited turn rate <code>ω ≤ g·max_g / speed</code> so lateral accel never exceeds</p>
+<p>  <code>g·max_g</code>, plus longitudinal-accel and climb-rate caps). A sharp command corner the</p>
+<p>  spline would take with impossible curvature is rounded to the tightest turn the</p>
+<p>  airframe allows — the flown path lags the waypoints and traces a plausible arc.</p>
+<p>  Limits are per-type (<code>vehicleLimitsForType</code>, mirroring <code>gen_scenarios.py</code>&#x27;s</p>
+<p>  <code>TYPE_ENVELOPE</code>), so a <code>fighter</code> out-turns an <code>airliner</code>. Pure/deterministic</p>
+<p>  (re-integrated from the path start at a fixed step). The <code>maneuver_demo</code> scenario</p>
+<p>  showcases a fighter commanded into a ~40 g break and held to its 9 g limit.</p>
+
+<p><code>gen_scenarios.py</code> also fills per-target <strong>aspect-RCS</strong> (nose / beam / tail dBsm) and</p>
+<p>a <strong>Swerling</strong> case from a per-type physical envelope, and <strong>lints</strong> every</p>
+<p>trajectory against that envelope (speed / load-factor / altitude) — a &quot;fighter&quot; doing</p>
+<p>Mach 6 or pulling 288 g is flagged at build time (<code>--strict</code> turns warnings into</p>
+<p>errors). NavSource and <code>RxSynthesizer</code> share the table, so target propagation and the</p>
+<p>ownship trajectory stay in sync.</p>
+
+<hr>
+
+<h2 id="2-the-target-model">2. The target model<a class="ha" href="#2-the-target-model" aria-hidden="true">¶</a></h2>
+
+<p>For each <code>ScanCommand</code>, <code>RxSynthesizer</code>:</p>
+
+<ul><li>evaluates every active target&#x27;s state via <code>eval_path</code> at the command&#x27;s timestamp;</li><li>computes geometry relative to the platform (<code>PlatformNav</code>): range, azimuth,</li></ul>
+<p>   elevation, and <strong>radial velocity</strong> (the projection of target velocity onto the</p>
+<p>   line of sight — the quantity Doppler measures);</p>
+<ul><li>selects targets inside the commanded beam (within the HPBW of the beam azimuth/</li></ul>
+<p>   elevation);</p>
+<ul><li>selects the target&#x27;s RCS by <strong>aspect</strong> (interpolating the nose/beam/tail triple</li></ul>
+<p>   against the line-of-sight angle, so a target flashes ~15 dB brighter broadside),</p>
+<p>   applies its <strong>Swerling</strong> fluctuation (seeded), derives a two-way SNR from the radar</p>
+<p>   equation, and injects the corresponding beat + Doppler phase into the chirp&#x27;s I/Q</p>
+<p>   (see <span class="wikilink-unresolved">RxSynthesizer</span>).</p>
+
+<p>So a scenario target becomes a physically-placed echo whose range, velocity, aspect,</p>
+<p>and strength all derive from its trajectory and class — which is what makes the</p>
+<p>detection chain exercise realistic geometry (beam-aspect Doppler notch, range</p>
+<p>walk, SNR roll-off with range).</p>
+
+<div class="callout" data-callout="note"><div class="callout-title">Terrain interacts with targets (via MapProvider)</div><div class="callout-content"><p>When <a href="05-Node-Architecture.html" class="internal-link">MapProvider</a> supplies a DTED layer, a target&#x27;s</p>
+<p>visibility also depends on the <strong>terrain</strong> between it and the platform: a</p>
+<p>low-altitude target behind a ridge is below the radar horizon and is masked out</p>
+<p>by <code>CfarDetector</code>, and ground returns become terrain-shaped clutter in</p>
+<p><code>RxSynthesizer</code>. This is what makes the <code>sea_skimmer</code> and (future) terrain-</p>
+<p>following scenarios meaningful — and it pairs with <span class="wikilink-unresolved">FD-1</span>&#x27;s</p>
+<p>terrain-following maneuvers and <span class="wikilink-unresolved">FD-2</span>&#x27;s physical maps.</p></div></div>
+
+<h3 id="ship-scenarios">Ship scenarios<a class="ha" href="#ship-scenarios" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Scenario</th><th>Picture</th><th>Motion</th><th>Exercises</th></tr></thead><tbody><tr><td><code>jet_intercept</code> (default)</td><td>one weaving inbound fighter</td><td>smooth</td><td>high closing velocity, range walk, broadside RCS flash on the weave</td></tr><tr><td><code>airliner_transit</code></td><td>a large slow target crossing</td><td>cv</td><td>tangential pass → Doppler notch, large Swerling-I RCS</td></tr><tr><td><code>sea_skimmer</code></td><td>one fast low-altitude inbound</td><td>smooth</td><td>low-elevation, radar-horizon / multipath (with R5 terrain)</td></tr><tr><td><code>maneuver_demo</code></td><td>one hard-breaking fighter</td><td>dynamic (FD-1)</td><td>g-limited turn vs an impossible command corner; smooth-but-lagging Doppler</td></tr><tr><td><code>drone_swarm</code> <em>(planned)</em></td><td>several small low-RCS targets</td><td>smooth</td><td>CFAR multi-target, low SNR</td></tr></tbody></table>
+
+<p>All four (<code>jet_intercept</code>, <code>airliner_transit</code>, <code>sea_skimmer</code>, <code>maneuver_demo</code>) ship under</p>
+<p><code>config/scenarios/</code>; <code>drone_swarm</code> remains planned with the CFAR multi-target work.</p>
+
+<hr>
+
+<h2 id="3-the-vehicle-seam-fd-1">3. The vehicle seam (FD-1)<a class="ha" href="#3-the-vehicle-seam-fd-1" aria-hidden="true">¶</a></h2>
+
+<p>A target&#x27;s motion is sampled through the <code>eval_path</code> seam, which offers three fidelity</p>
+<p>rungs: the <code>cv</code> polyline, the <code>smooth</code> (Catmull-Rom) <strong>velocity-continuous</strong> spline,</p>
+<p>and <strong><code>dynamic</code></strong> — the <strong>FD-1 g-limited flight integrator</strong>. The <code>type</code> field</p>
+<p>classifies the vehicle (fighter / airliner / helicopter / drone / missile) and seeds</p>
+<p>its RCS aspect triple, Swerling case, and kinematic envelope; under <code>dynamic</code> that</p>
+<p>envelope (<code>vehicleLimitsForType</code>, mirroring <code>gen_scenarios.py</code>&#x27;s <code>TYPE_ENVELOPE</code>)</p>
+<p>becomes the <em>physical bound</em> on the flown path: the <code>cv</code> route velocity is the</p>
+<p>command, and the vehicle follows it within a bank-limited turn rate</p>
+<p>(<code>ω ≤ g·max_g / speed</code>, so lateral accel never exceeds <code>g·max_g</code>) plus</p>
+<p>longitudinal-accel and climb-rate caps. A command corner the spline would take with</p>
+<p>impossible curvature is rounded to the tightest turn the airframe allows — the path</p>
+<p>lags the waypoints, exactly as a real aircraft does. This is the</p>
+<p><span class="wikilink-unresolved">fidelity ladder</span>&#x27;s next rung above the</p>
+<p>spline; the still-richer CV/CA/CT/Singer + closed-loop-guidance variants remain open.</p>
+
+<div class="callout" data-callout="important"><div class="callout-title">Design hook preserved in v1</div><div class="callout-content"><p>The implementation keeps target state sampling behind a single seam: targets are</p>
+<p>sampled through <code>eval_path(... , motion)</code> at dwell time, not read as fixed</p>
+<p>positions. The <code>cv</code>→<code>smooth</code>→<code>dynamic</code> progression swapped the sampler behind that</p>
+<p>seam each time with <strong>zero change to the message catalog</strong> (and <code>dynamic</code> needed only</p>
+<p>a one-line type-aware branch in <code>RxSynthesizer</code>) — proving the hook. The standard</p>
+<p>target-motion models (CV / CA / CT / Singer) that the IMM tracker expects sit on the</p>
+<p>same ladder above <code>dynamic</code>.</p></div></div>
+
+<div class="mermaid">flowchart LR
+  SCEN[scenario YAML<br/>target: type + route]:::in
+  EVAL[eval_path seam<br/>state at time t]:::seam
+  RX[RxSynthesizer<br/>echo synthesis]:::rx
+  FD[FD-1: vehicle library<br/>flight dynamics + maneuvers]:::future
+
+  SCEN --> EVAL --> RX
+  FD -.replaces.-> EVAL
+
+  classDef in fill:#4d7c0f,color:#f7fee7,stroke:#3f6212
+  classDef seam fill:#0e7490,color:#ecfeff,stroke:#155e75
+  classDef rx fill:#1d4ed8,color:#eff6ff,stroke:#1e40af
+  classDef future fill:#6d28d9,color:#f5f3ff,stroke:#5b21b6,stroke-dasharray: 5 5</div>
+
+<div class="callout" data-callout="info"><div class="callout-title">Legend — target sampling and the FD-1 seam</div><div class="callout-content"><p><strong>Green</strong> = scenario source · <strong>Teal</strong> = the <code>eval_path</code> sampling seam · <strong>Blue</strong> =</p>
+<p>echo synthesis. The dashed <strong>purple</strong> node is future work: FD-1&#x27;s vehicle-dynamics</p>
+<p>library swaps in behind the same seam, so realistic jets require no change upstream</p>
+<p>or downstream of it.</p></div></div>
+
+<hr>
+
+<p>Return to <a href="00-Index.html" class="internal-link">00-Index</a>.</p>
+
+</div>
+  </div><!-- main-content -->
+</div><!-- site-shell -->
+<script>
+mermaid.initialize({ startOnLoad: true, theme: 'dark', securityLevel: 'loose' });
+</script>
+</body>
+
+</html>

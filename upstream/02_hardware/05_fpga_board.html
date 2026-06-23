@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>05_fpga_board — aros Vault</title>
+<style>
+
+:root {
+  --color-blue:    #007ACC;
+  --color-green:   #2DA44E;
+  --color-yellow:  #D29922;
+  --color-purple:  #8B5CF6;
+  --color-orange:  #F59E0B;
+  --color-red:     #E5534B;
+  --color-cyan:    #0BC5EA;
+  --color-accent:  #7C3AED;
+  --text-normal:   #DCDDDE;
+  --text-muted:    #8E8EA0;
+  --background-primary:         #1E1E2E;
+  --background-secondary:       #181825;
+  --background-modifier-border: #313244;
+  --color-base-30:              #45475A;
+}
+body {
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.6;
+  margin: 0;
+}
+
+</style>
+<!-- Mermaid -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<!-- MathJax -->
+<script>window.MathJax={tex:{inlineMath:[['$','$'],['\\(','\\)']],displayMath:[['$$','$$'],['\\[','\\]']]},options:{skipHtmlTags:['script','noscript','style','textarea','pre']}};</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+<!-- Site CSS -->
+<link rel="stylesheet" href="../../site.css">
+</head>
+<body class="markdown-reading-view">
+<div class="site-shell">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <a href="../../00-Index.html" class="site-title">radarv2 / AERIS-10</a>
+      <div class="site-subtitle">aros Radar Documentation</div>
+    </div>
+    <ul class="nav-list">
+      <li class="nav-section">Core Docs</li>
+      <li><a href="../../09-Concepts-Primer.html">Radar Primer</a></li>
+      <li><a href="../../00-Index.html">Index</a></li>
+      <li><a href="../../01-System-Overview.html">System Overview</a></li>
+      <li><a href="../../02-Physics-and-Waveform.html">Physics &amp; Waveform</a></li>
+      <li><a href="../../03-Beamforming-and-Scan.html">Beamforming &amp; Scan</a></li>
+      <li><a href="../../04-Signal-Processing-Pipeline.html">Signal Processing</a></li>
+      <li><a href="../../05-Node-Architecture.html">Node Architecture</a></li>
+      <li><a href="../../06-Message-Catalog.html">Message Catalog</a></li>
+      <li><a href="../../07-Detection-and-Tracking.html">Detection &amp; Tracking</a></li>
+      <li><a href="../../08-Scenarios-and-Targets.html">Scenarios &amp; Targets</a></li>
+      <li class="nav-section">Advanced</li>
+      <li><a href="../../10-Radar-Model-Library.html">Radar Model Library</a></li>
+      <li><a href="../../11-Multi-Radar-Fusion.html">Multi-Radar Fusion</a></li>
+      <li><a href="../../12-3D-Scene.html">3-D Scene</a></li>
+      <li><a href="../../13-Reference-Tables.html">Reference Tables</a></li>
+      <li><a href="../../FUTURE-DEVELOPMENT.html">Future Development</a></li>
+      <li class="nav-section">Upstream Theory</li>
+      <li><a href="../../upstream/README.html">Upstream README</a></li>
+      <li><a href="../../upstream/00_notation/conventions.html">Notation</a></li>
+      <li><a href="../../upstream/01_physics/01_fmcw_theory.html">FMCW Theory</a></li>
+      <li><a href="../../upstream/01_physics/02_lfm_waveform_model.html">LFM Waveform</a></li>
+      <li><a href="../../upstream/01_physics/03_beamforming_theory.html">Beamforming Theory</a></li>
+      <li><a href="../../upstream/01_physics/04_detection_theory.html">Detection Theory</a></li>
+      <li><a href="../../upstream/01_physics/05_noise_analysis.html">Noise Analysis</a></li>
+      <li><a href="../../upstream/01_physics/06_calibration_theory.html">Calibration</a></li>
+      <li><a href="../../upstream/02_hardware/01_system_overview.html">HW Overview</a></li>
+      <li><a href="../../upstream/04_research/01_cfar_variants.html">CFAR Variants</a></li>
+    </ul>
+    <div class="sidebar-footer">
+      <a href="https://github.com/brkay54/radarv2-docs" target="_blank">GitHub</a>
+    </div>
+  </nav>
+  <div class="main-content">
+
+<div class="markdown-preview-section">
+<h1 id="fpga-board-xilinx-artix-7-xc7a100t">FPGA Board -- Xilinx Artix-7 XC7A100T<a class="ha" href="#fpga-board-xilinx-artix-7-xc7a100t" aria-hidden="true">¶</a></h1>
+
+<p class="kv-line"><span class="kv-key">Purpose:</span> <span class="kv-value">Document the FPGA digital processing platform, including clock domain architecture, CDC synchronizers, resource capacity, Verilog module inventory, and constraint file summary.</span></p>
+
+<p class="kv-line"><span class="kv-key">Prerequisites:</span> <span class="kv-value">Familiarity with:</span></p>
+<ul><li><a href="../00_notation/symbol_table.md">Symbol Table</a> -- all symbols used herein</li><li><a href="../00_notation/parameter_table.md">Parameter Table</a> -- numerical values for both variants</li><li><a href="../00_notation/conventions.md">Conventions</a> -- equation formatting rules</li><li><a href="01_system_overview.md">System Overview</a> -- clock domain overview and system block diagram</li></ul>
+
+<hr>
+
+<h2 id="1-overview">1. Overview<a class="ha" href="#1-overview" aria-hidden="true">¶</a></h2>
+
+<p>The Xilinx Artix-7 XC7A100T FPGA is the central digital processing platform for the AERIS-10 radar system. It receives 8-bit digitized IF samples from the AD9484 ADC at $f_s$ (see <a href="../00_notation/parameter_table.md#signal-processing-fpga">Parameter Table</a>) via an LVDS interface and processes them through the following pipeline:</p>
+
+<ul><li><strong>LVDS-to-CMOS conversion</strong> at 400 MHz (ADC clock domain)</li><li><strong>Digital Down-Conversion (DDC)</strong> -- NCO-based mixing from $f_\text{IF}$ to baseband</li><li><strong>CIC Decimation</strong> -- $N_\text{CIC}$-stage CIC filter with decimation factor $D_\text{CIC}$</li><li><strong>Matched Filtering</strong> -- multi-segment frequency-domain pulse compression using $N_\text{FFT}$-point forward and inverse FFTs</li><li><strong>Doppler Processing</strong> -- $N_\text{Doppler}$-point FFT across $M$ chirps per beam position, applied to $N_R$ range bins</li><li><strong>USB 3.0 Output</strong> -- FT601 interface for high-speed data transfer to the host PC</li></ul>
+
+<p>The FPGA also generates the transmit chirp waveform via a DAC interface at 120 MHz, manages the level-shifter SPI bridge between the STM32 (3.3 V) and the ADAR1000 beamformers (1.8 V), and tracks beam position state (elevation, azimuth, chirp index).</p>
+
+<blockquote><strong>Note:</strong> Detailed signal processing pipeline documentation (DDC algorithms, CIC filter analysis, matched filter design, Doppler processing) is deferred to Phase 4 (SWDOC-01). This document covers the FPGA platform architecture and structural inventory.</blockquote>
+
+<hr>
+
+<h2 id="2-xc7a100t-resource-capacity">2. XC7A100T Resource Capacity<a class="ha" href="#2-xc7a100t-resource-capacity" aria-hidden="true">¶</a></h2>
+
+<h3 id="2-1-device-resources">2.1 Device Resources<a class="ha" href="#2-1-device-resources" aria-hidden="true">¶</a></h3>
+
+<p>The Artix-7 XC7A100T provides the following on-chip resources:</p>
+
+<table class="md-table"><thead><tr><th>Resource</th><th>Available</th><th>Symbol</th></tr></thead><tbody><tr><td>Look-Up Tables (LUTs)</td><td>63,400</td><td>$N_\text{LUT}$</td></tr><tr><td>Flip-Flops (FFs)</td><td>126,800</td><td>$N_\text{FF}$</td></tr><tr><td>Block RAM (36 Kb each)</td><td>135</td><td>$N_\text{BRAM}$</td></tr><tr><td>DSP48E1 Slices</td><td>240</td><td>$N_\text{DSP}$</td></tr><tr><td>Global Clock Buffers (BUFG)</td><td>32</td><td>--</td></tr><tr><td>MMCM/PLL</td><td>6</td><td>--</td></tr><tr><td>I/O Pins</td><td>300</td><td>--</td></tr></tbody></table>
+
+<p>Symbols are defined in the <a href="../00_notation/symbol_table.md#hardware-and-power">Symbol Table -- Hardware and Power</a>.</p>
+
+<h3 id="2-2-resource-utilization">2.2 Resource Utilization<a class="ha" href="#2-2-resource-utilization" aria-hidden="true">¶</a></h3>
+
+<p class="kv-line"><span class="kv-key">Status:</span> <span class="kv-value">Actual FPGA resource utilization requires Vivado implementation reports, which are not currently available in the repository. This is a known blocker documented in <a href="../.planning/STATE.md">STATE.md</a>.</span></p>
+
+<p>Theoretical per-module estimates based on Verilog module parameters:</p>
+
+<table class="md-table"><thead><tr><th>Module</th><th>Est. LUTs</th><th>Est. DSPs</th><th>Est. BRAMs</th><th>Notes</th></tr></thead><tbody><tr><td>DDC (NCO + mixer)</td><td>~500</td><td>4</td><td>0</td><td>16-bit NCO, 8x16 multiply</td></tr><tr><td>CIC decimator (5-stage, 4x)</td><td>~200</td><td>0</td><td>0</td><td>Integrators + combs</td></tr><tr><td>FIR lowpass (32-tap)</td><td>~300</td><td>32</td><td>0</td><td>Parallel multiply-accumulate</td></tr><tr><td>FFT 1024-pt forward</td><td>~4,000</td><td>16</td><td>20</td><td>Radix-2 butterfly, twiddle ROM</td></tr><tr><td>FFT 1024-pt inverse</td><td>~4,000</td><td>16</td><td>20</td><td>Same architecture</td></tr><tr><td>Matched filter (multi-segment)</td><td>~2,000</td><td>8</td><td>30</td><td>Chirp reference storage</td></tr><tr><td>Doppler processor (32-pt FFT)</td><td>~2,000</td><td>8</td><td>10</td><td>64 range bins, windowing</td></tr><tr><td>USB data interface</td><td>~1,000</td><td>0</td><td>4</td><td>FIFO buffering</td></tr><tr><td>Chirp controller + transmitter</td><td>~1,500</td><td>4</td><td>15</td><td>Chirp LUT memory</td></tr><tr><td>Other (ADC, DAC, CDC, level shifter)</td><td>~1,000</td><td>0</td><td>2</td><td>Interfaces</td></tr><tr><td><strong>Estimated Total</strong></td><td><strong>~16,500</strong></td><td><strong>~88</strong></td><td><strong>~101</strong></td><td></td></tr><tr><td><strong>Utilization %</strong></td><td><strong>~26%</strong></td><td><strong>~37%</strong></td><td><strong>~75%</strong></td><td></td></tr></tbody></table>
+
+<blockquote>These estimates are approximate. Actual utilization will differ based on synthesis optimizations, routing congestion, and Vivado tool decisions. BRAM usage is the most likely bottleneck due to FFT twiddle factor storage and chirp reference memories.</blockquote>
+
+<h3 id="2-3-bufg-usage">2.3 BUFG Usage<a class="ha" href="#2-3-bufg-usage" aria-hidden="true">¶</a></h3>
+
+<p>The constraint file and top module instantiate three global clock buffers:</p>
+
+<table class="md-table"><thead><tr><th>BUFG Instance</th><th>Clock Signal</th><th>Frequency</th><th>Source</th></tr></thead><tbody><tr><td><code>bufg_100m</code></td><td><code>clk_100m</code></td><td>100 MHz</td><td>AD9523 OUT6</td></tr><tr><td><code>bufg_120m</code></td><td><code>clk_120m_dac</code></td><td>120 MHz</td><td>AD9523 OUT10/OUT11</td></tr><tr><td><code>bufg_ft601</code></td><td><code>ft601_clk_in</code></td><td>100 MHz</td><td>FT601 IC (external)</td></tr></tbody></table>
+
+<p>The 400 MHz ADC clock (<code>adc_dco_p/n</code>) enters the FPGA via dedicated LVDS input buffers and is handled within the ADC interface module rather than through a BUFG.</p>
+
+<hr>
+
+<h2 id="3-clock-domains">3. Clock Domains<a class="ha" href="#3-clock-domains" aria-hidden="true">¶</a></h2>
+
+<p>The FPGA operates in four clock domains, all derived from the AD9523 clock distribution IC except the FT601 interface clock. See <a href="01_system_overview.md#4-clock-domain-overview"><code>01_system_overview.md</code> Section 4</a> for the clock generation equations Eq. (HW-SYS-1) through Eq. (HW-SYS-3).</p>
+
+<h3 id="3-1-400-mhz-adc-domain">3.1 400 MHz ADC Domain<a class="ha" href="#3-1-400-mhz-adc-domain" aria-hidden="true">¶</a></h3>
+
+<p>$$</p>
+<p>f_\text{ADC} = \frac{f_\text{VCO}}{D_\text{ADC}} = \frac{3.6~\text{GHz}}{9} = 400~\text{MHz} \tag{HW-FPGA-1}</p>
+<p>$$</p>
+
+<ul><li><strong>Source:</strong> AD9523 OUT4/OUT5 (LVDS, 7 mA drive)</li><li><strong>FPGA entry:</strong> Differential LVDS input <code>adc_dco_p</code> / <code>adc_dco_n</code></li><li><strong>I/O standard:</strong> LVDS_25 with on-chip differential termination (<code>DIFF_TERM TRUE</code>)</li><li><strong>Modules:</strong> <code>ad9484_interface_400m</code>, <code>lvds_to_cmos_400m</code>, <code>ddc_400m_enhanced</code> (front-end mixer at 400 MHz)</li><li><strong>Constraint:</strong> <code>create_clock -name adc_dco_p -period 2.5 [get_ports {adc_dco_p}]</code></li></ul>
+
+<h3 id="3-2-120-mhz-dac-domain">3.2 120 MHz DAC Domain<a class="ha" href="#3-2-120-mhz-dac-domain" aria-hidden="true">¶</a></h3>
+
+<p>$$</p>
+<p>f_\text{DAC} = \frac{f_\text{VCO}}{D_\text{DAC}} = \frac{3.6~\text{GHz}}{30} = 120~\text{MHz} \tag{HW-FPGA-2}</p>
+<p>$$</p>
+
+<ul><li><strong>Source:</strong> AD9523 OUT10/OUT11 (LVCMOS)</li><li><strong>FPGA entry:</strong> Single-ended LVCMOS33 input <code>clk_120m_dac</code></li><li><strong>Modules:</strong> <code>radar_transmitter</code> (DAC output path), <code>dac_interface_single</code></li><li><strong>Constraint:</strong> <code>create_clock -name clk_120m_dac -period 8.333 [get_ports {clk_120m_dac}]</code></li></ul>
+
+<h3 id="3-3-100-mhz-system-processing-domain">3.3 100 MHz System/Processing Domain<a class="ha" href="#3-3-100-mhz-system-processing-domain" aria-hidden="true">¶</a></h3>
+
+<p>$$</p>
+<p>f_\text{sys} = \frac{f_\text{VCO}}{D_\text{sys}} = \frac{3.6~\text{GHz}}{36} = 100~\text{MHz} \tag{HW-FPGA-3}</p>
+<p>$$</p>
+
+<ul><li><strong>Source:</strong> AD9523 OUT6 (LVCMOS)</li><li><strong>FPGA entry:</strong> Single-ended LVCMOS input <code>clk_100m</code></li><li><strong>Modules:</strong> All signal processing after CDC (CIC, matched filter, FFT, Doppler, CFAR), USB data interface, system status monitoring</li><li><strong>Constraint:</strong> <code>create_clock -name clk_100m -period 10.0 [get_ports {clk_100m}]</code></li></ul>
+
+<p>This is the primary processing domain. The DDC module (<code>ddc_400m_enhanced</code>) bridges between the 400 MHz ADC domain and the 100 MHz processing domain internally, outputting 18-bit baseband I/Q samples at the decimated rate.</p>
+
+<h3 id="3-4-100-mhz-ft601-domain">3.4 100 MHz FT601 Domain<a class="ha" href="#3-4-100-mhz-ft601-domain" aria-hidden="true">¶</a></h3>
+
+<ul><li><strong>Source:</strong> FT601 USB 3.0 IC (external oscillator, not from AD9523)</li><li><strong>FPGA entry:</strong> Single-ended input <code>ft601_clk_in</code></li><li><strong>Modules:</strong> <code>usb_data_interface</code>, <code>usb_packet_analyzer</code></li><li><strong>Constraint:</strong> <code>create_clock -name ft601_clk_in -period 10.0 [get_ports {ft601_clk_in}]</code></li></ul>
+
+<p>Although nominally 100 MHz (same as the system clock), this clock is asynchronous to <code>clk_100m</code> because it originates from a separate oscillator on the FT601 IC. The constraint file defines a multicycle path exception between these domains:</p>
+
+<pre><code>set_multicycle_path -setup 2 -from [get_clocks clk_100m] -to [get_clocks ft601_clk_in]
+set_multicycle_path -hold 1 -from [get_clocks clk_100m] -to [get_clocks ft601_clk_in]</code></pre>
+
+<h3 id="3-5-clock-domain-summary">3.5 Clock Domain Summary<a class="ha" href="#3-5-clock-domain-summary" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Domain</th><th>Frequency</th><th>Source</th><th>I/O Standard</th><th>FPGA Signal</th><th>Key Modules</th></tr></thead><tbody><tr><td>ADC</td><td>400 MHz</td><td>AD9523 OUT4/5</td><td>LVDS_25</td><td><code>adc_dco_p/n</code></td><td>ADC interface, DDC front-end</td></tr><tr><td>DAC</td><td>120 MHz</td><td>AD9523 OUT10/11</td><td>LVCMOS33</td><td><code>clk_120m_dac</code></td><td>Chirp TX, DAC interface</td></tr><tr><td>System</td><td>100 MHz</td><td>AD9523 OUT6</td><td>LVCMOS</td><td><code>clk_100m</code></td><td>CIC, matched filter, FFT, Doppler</td></tr><tr><td>FT601</td><td>100 MHz</td><td>FT601 IC</td><td>LVCMOS33</td><td><code>ft601_clk_in</code></td><td>USB data, packet analyzer</td></tr></tbody></table>
+
+<hr>
+
+<h2 id="4-cdc-synchronizers">4. CDC Synchronizers<a class="ha" href="#4-cdc-synchronizers" aria-hidden="true">¶</a></h2>
+
+<p>Cross-domain data transfer between asynchronous clock domains requires clock domain crossing (CDC) synchronizers to prevent metastability. The design implements three CDC module types in <code>cdc_modules.v</code>.</p>
+
+<h3 id="4-1-multi-bit-cdc-with-gray-encoding">4.1 Multi-Bit CDC with Gray Encoding<a class="ha" href="#4-1-multi-bit-cdc-with-gray-encoding" aria-hidden="true">¶</a></h3>
+
+<p class="kv-line"><span class="kv-key">Module:</span> <span class="kv-value"><code>cdc_adc_to_processing</code></span></p>
+<p class="kv-line"><span class="kv-key">Parameters:</span> <span class="kv-value"><code>WIDTH = 8</code>, <code>STAGES = 3</code></span></p>
+<p class="kv-line"><span class="kv-key">Used for:</span> <span class="kv-value">ADC data transfer from 400 MHz to 100 MHz domain</span></p>
+
+<p>This module implements a Gray-coded multi-bit synchronizer:</p>
+
+<ul><li><strong>Source domain (400 MHz):</strong> Data is registered and a 2-bit toggle counter increments on each valid sample</li><li><strong>Gray encoding:</strong> Binary data is converted to Gray code at the domain boundary via $G = B \oplus (B \gg 1)$</li><li><strong>Synchronization chain:</strong> 3-stage flip-flop chain in the destination domain for both data and toggle signals</li><li><strong>Destination domain (100 MHz):</strong> Gray-to-binary conversion, new-data detection via toggle change</li></ul>
+
+<p>The 3-stage synchronizer provides metastability protection. The mean time between failures (MTBF) due to metastability for a synchronizer with $S$ stages is approximately:</p>
+
+<p>$$</p>
+<p>\text{MTBF} = \frac{e^{S \cdot t_\text{res} / \tau}}{f_\text{dst} \cdot f_\text{src} \cdot T_w} \tag{HW-FPGA-4}</p>
+<p>$$</p>
+
+<p>where $f_\text{dst}$ is the destination clock frequency, $f_\text{src}$ is the source clock frequency, $T_w$ is the metastability window, $t_\text{res}$ is the resolution time per stage, and $\tau$ is the metastability time constant. For Artix-7 with $S = 3$ stages, the MTBF is typically on the order of thousands of years at these clock frequencies.</p>
+
+<h3 id="4-2-single-bit-cdc">4.2 Single-Bit CDC<a class="ha" href="#4-2-single-bit-cdc" aria-hidden="true">¶</a></h3>
+
+<p class="kv-line"><span class="kv-key">Module:</span> <span class="kv-value"><code>cdc_single_bit</code></span></p>
+<p class="kv-line"><span class="kv-key">Parameters:</span> <span class="kv-value"><code>STAGES = 3</code></span></p>
+<p class="kv-line"><span class="kv-key">Used for:</span> <span class="kv-value">Control signals crossing between clock domains</span></p>
+
+<p>A simple shift-register synchronizer: the source signal is clocked through a 3-stage flip-flop chain in the destination domain. The output is the delayed, metastability-safe version of the input.</p>
+
+<h3 id="4-3-handshake-based-cdc">4.3 Handshake-Based CDC<a class="ha" href="#4-3-handshake-based-cdc" aria-hidden="true">¶</a></h3>
+
+<p class="kv-line"><span class="kv-key">Module:</span> <span class="kv-value"><code>cdc_handshake</code></span></p>
+<p class="kv-line"><span class="kv-key">Parameters:</span> <span class="kv-value"><code>WIDTH = 32</code></span></p>
+<p class="kv-line"><span class="kv-key">Used for:</span> <span class="kv-value">Wide data transfers with flow control (e.g., system-to-FT601 domain)</span></p>
+
+<p>This module implements a full request/acknowledge handshake protocol:</p>
+
+<ul><li><strong>Source</strong> registers data and asserts <code>src_busy</code></li><li><strong>Destination</strong> synchronizes the busy signal (2-stage chain), captures data, asserts <code>dst_ack</code></li><li><strong>Source</strong> synchronizes the ack signal (2-stage chain), clears busy</li><li><strong>Destination</strong> clears ack when busy deasserts</li></ul>
+
+<p>This provides reliable multi-bit transfer with backpressure via <code>src_ready</code> and <code>dst_ready</code> signals, at the cost of reduced throughput (one transfer per ~4 destination clock cycles).</p>
+
+<h3 id="4-4-cdc-crossing-points">4.4 CDC Crossing Points<a class="ha" href="#4-4-cdc-crossing-points" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Crossing</th><th>From</th><th>To</th><th>Module</th><th>Width</th></tr></thead><tbody><tr><td>ADC data</td><td>400 MHz ADC</td><td>100 MHz system</td><td><code>cdc_adc_to_processing</code></td><td>8-bit</td></tr><tr><td>STM32 control signals</td><td>Asynchronous GPIO</td><td>100 MHz system</td><td><code>cdc_single_bit</code></td><td>1-bit each</td></tr><tr><td>Processing to USB</td><td>100 MHz system</td><td>100 MHz FT601</td><td><code>cdc_handshake</code></td><td>32-bit</td></tr></tbody></table>
+
+<p>The STM32 control signals (<code>stm32_new_chirp</code>, <code>stm32_new_elevation</code>, <code>stm32_new_azimuth</code>, <code>stm32_mixers_enable</code>) are declared as false paths in the constraint file (<code>set_false_path -from [get_ports {stm32_new_*}]</code>) since they are toggle-based signals synchronized by edge detectors in the FPGA.</p>
+
+<hr>
+
+<h2 id="5-fpga-module-inventory">5. FPGA Module Inventory<a class="ha" href="#5-fpga-module-inventory" aria-hidden="true">¶</a></h2>
+
+<p>The following table lists all synthesizable Verilog modules in <code>9_Firmware/9_2_FPGA/</code>. This is a structural inventory; detailed signal processing documentation is in Phase 4 (SWDOC-01).</p>
+
+<table class="md-table"><thead><tr><th>Module</th><th>File</th><th>Clock Domain</th><th>Function</th><th>Key Parameters</th></tr></thead><tbody><tr><td><code>radar_system_top</code></td><td><code>radar_system_top.v</code></td><td>All</td><td>Top-level integration: TX, RX, USB</td><td><code>USE_LONG_CHIRP</code>, <code>DOPPLER_ENABLE</code>, <code>USB_ENABLE</code></td></tr><tr><td><code>radar_transmitter</code></td><td><code>radar_transmitter.v</code></td><td>100 MHz, 120 MHz</td><td>Chirp waveform generation and TX control</td><td>--</td></tr><tr><td><code>radar_receiver_final</code></td><td><code>radar_receiver_final.v</code></td><td>100 MHz</td><td>Receiver pipeline integration</td><td>--</td></tr><tr><td><code>plfm_chirp_controller_enhanced</code></td><td><code>plfm_chirp_controller.v</code></td><td>100 MHz</td><td>PLFM chirp sequence state machine</td><td>--</td></tr><tr><td><code>chirp_memory_loader_param</code></td><td><code>chirp_memory_loader_param.v</code></td><td>100 MHz</td><td>Loads chirp I/Q from <code>.mem</code> files</td><td>Long: 3 segments, Short: 1 segment</td></tr><tr><td><code>dac_interface_single</code></td><td><code>dac_interface_single.v</code></td><td>120 MHz</td><td>8-bit DAC output with clock forwarding</td><td>--</td></tr><tr><td><code>ad9484_interface_400m</code></td><td><code>ad9484_interface_400m.v</code></td><td>400 MHz</td><td>ADC LVDS deserializer</td><td>8-bit data width</td></tr><tr><td><code>lvds_to_cmos_400m</code></td><td><code>lvds_to_cmos_400m.v</code></td><td>400 MHz</td><td>LVDS-to-single-ended conversion</td><td>8-bit</td></tr><tr><td><code>ddc_400m_enhanced</code></td><td><code>ddc_400m.v</code></td><td>400 MHz, 100 MHz</td><td>DDC: NCO mixing + filtering</td><td><code>NCO_WIDTH = 16</code>, <code>ADC_WIDTH = 8</code></td></tr><tr><td><code>ddc_input_interface</code></td><td><code>ddc_input_interface.v</code></td><td>400 MHz</td><td>ADC data routing to DDC</td><td>--</td></tr><tr><td><code>nco_400m_enhanced</code></td><td><code>nco_400m_enhanced.v</code></td><td>400 MHz</td><td>Numerically controlled oscillator</td><td>16-bit phase accumulator</td></tr><tr><td><code>cic_decimator_4x_enhanced</code></td><td><code>cic_decimator_4x_enhanced.v</code></td><td>100 MHz</td><td>CIC decimation filter</td><td><code>STAGES = 5</code>, <code>DECIMATION = 4</code>, <code>COMB_DELAY = 1</code></td></tr><tr><td><code>fir_lowpass_parallel_enhanced</code></td><td><code>fir_lowpass.v</code></td><td>100 MHz</td><td>FIR lowpass (CIC droop compensation)</td><td><code>TAPS = 32</code>, <code>COEFF_WIDTH = 18</code></td></tr><tr><td><code>matched_filter_multi_segment</code></td><td><code>matched_filter_multi_segment.v</code></td><td>100 MHz</td><td>Multi-segment matched filter</td><td>Long: 3000 samples, Short: 50 samples</td></tr><tr><td><code>frequency_matched_filter</code></td><td><code>frequency_matched_filter.v</code></td><td>100 MHz</td><td>Frequency-domain matched filter core</td><td>--</td></tr><tr><td><code>fft_1024_forward_enhanced</code></td><td><code>fft_1024_forward.v</code></td><td>100 MHz</td><td>1024-point forward FFT</td><td>Radix-2 DIT</td></tr><tr><td><code>fft_1024_inverse_enhanced</code></td><td><code>fft_1024_inverse.v</code></td><td>100 MHz</td><td>1024-point inverse FFT</td><td>Radix-2 DIT</td></tr><tr><td><code>doppler_processor_optimized</code></td><td><code>doppler_processor.v</code></td><td>100 MHz</td><td>Doppler FFT + range-Doppler map</td><td><code>DOPPLER_FFT_SIZE = 32</code>, <code>RANGE_BINS = 64</code>, <code>CHIRPS_PER_FRAME = 32</code></td></tr><tr><td><code>latency_buffer_2159</code></td><td><code>latency_buffer_2159.v</code></td><td>100 MHz</td><td>Pipeline delay buffer</td><td><code>LATENCY = 3187</code>, <code>DATA_WIDTH = 32</code></td></tr><tr><td><code>edge_detector_enhanced</code></td><td><code>edge_detector.v</code></td><td>100 MHz</td><td>Toggle-to-pulse edge detector</td><td>--</td></tr><tr><td><code>level_shifter_interface</code></td><td><code>level_shifter_interface.v</code></td><td>100 MHz</td><td>SPI level shifting (3.3 V to 1.8 V)</td><td>STM32 to ADAR1000</td></tr><tr><td><code>usb_data_interface</code></td><td><code>usb_data_interface.v</code></td><td>100 MHz, FT601</td><td>FT601 USB 3.0 data transfer</td><td>32-bit data bus</td></tr><tr><td><code>usb_packet_analyzer</code></td><td><code>usb_packet_analyzer.v</code></td><td>FT601</td><td>USB packet framing and analysis</td><td>--</td></tr><tr><td><code>cdc_adc_to_processing</code></td><td><code>cdc_modules.v</code></td><td>400 MHz -&gt; 100 MHz</td><td>Multi-bit Gray-coded CDC</td><td><code>WIDTH = 8</code>, <code>STAGES = 3</code></td></tr><tr><td><code>cdc_single_bit</code></td><td><code>cdc_modules.v</code></td><td>Any -&gt; Any</td><td>Single-bit synchronizer</td><td><code>STAGES = 3</code></td></tr><tr><td><code>cdc_handshake</code></td><td><code>cdc_modules.v</code></td><td>Any -&gt; Any</td><td>Handshake-based wide CDC</td><td><code>WIDTH = 32</code></td></tr></tbody></table>
+
+<p><strong>Testbench (not synthesized):</strong></p>
+
+<table class="md-table"><thead><tr><th>Module</th><th>File</th><th>Description</th></tr></thead><tbody><tr><td><code>radar_system_tb</code></td><td><code>radar_system_tb.v</code></td><td>System-level simulation testbench</td></tr></tbody></table>
+
+<p><strong>Memory initialization files</strong> (loaded by <code>chirp_memory_loader_param</code>):</p>
+
+<table class="md-table"><thead><tr><th>File</th><th>Content</th></tr></thead><tbody><tr><td><code>long_chirp_seg0_i.mem</code>, <code>long_chirp_seg0_q.mem</code></td><td>Long chirp segment 0 (I/Q)</td></tr><tr><td><code>long_chirp_seg1_i.mem</code>, <code>long_chirp_seg1_q.mem</code></td><td>Long chirp segment 1 (I/Q)</td></tr><tr><td><code>long_chirp_seg2_i.mem</code>, <code>long_chirp_seg2_q.mem</code></td><td>Long chirp segment 2 (I/Q)</td></tr><tr><td><code>short_chirp_i.mem</code>, <code>short_chirp_q.mem</code></td><td>Short chirp (I/Q)</td></tr></tbody></table>
+
+<hr>
+
+<h2 id="6-constraint-file-summary">6. Constraint File Summary<a class="ha" href="#6-constraint-file-summary" aria-hidden="true">¶</a></h2>
+
+<p>The constraint file <code>cntrt.xdc</code> defines timing, I/O standards, and pin assignments for the XC7A100T.</p>
+
+<h3 id="6-1-clock-definitions">6.1 Clock Definitions<a class="ha" href="#6-1-clock-definitions" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Clock Name</th><th>Period</th><th>Frequency</th><th>Port</th><th>Jitter</th></tr></thead><tbody><tr><td><code>clk_100m</code></td><td>10.0 ns</td><td>100 MHz</td><td><code>clk_100m</code></td><td>0.1 ns</td></tr><tr><td><code>clk_120m_dac</code></td><td>8.333 ns</td><td>120 MHz</td><td><code>clk_120m_dac</code></td><td>0.1 ns</td></tr><tr><td><code>ft601_clk_in</code></td><td>10.0 ns</td><td>100 MHz</td><td><code>ft601_clk_in</code></td><td>0.1 ns</td></tr><tr><td><code>adc_dco_p</code></td><td>2.5 ns</td><td>400 MHz</td><td><code>adc_dco_p</code></td><td>0.05 ns</td></tr></tbody></table>
+
+<h3 id="6-2-i-o-standards">6.2 I/O Standards<a class="ha" href="#6-2-i-o-standards" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Interface</th><th>I/O Standard</th><th>Notes</th></tr></thead><tbody><tr><td>ADC data (<code>adc_d_p/n</code>)</td><td>LVDS_25</td><td>With on-chip differential termination</td></tr><tr><td>ADC clock (<code>adc_dco_p/n</code>)</td><td>LVDS_25</td><td>With on-chip differential termination</td></tr><tr><td>DAC data/control</td><td>LVCMOS33</td><td>Fast slew rate, 8 mA drive</td></tr><tr><td>ADAR1000 (3.3 V side)</td><td>LVCMOS33</td><td>STM32 SPI signals</td></tr><tr><td>ADAR1000 (1.8 V side)</td><td>LVCMOS18</td><td>ADAR1000 SPI signals</td></tr><tr><td>FT601 data/control</td><td>LVCMOS33</td><td>32-bit bidirectional data bus</td></tr><tr><td>STM32 control signals</td><td>LVCMOS33</td><td><code>stm32_new_*</code>, <code>stm32_mixers_enable</code></td></tr><tr><td>Status/debug outputs</td><td>LVCMOS33</td><td>System status, Doppler debug</td></tr><tr><td>Reset</td><td>LVCMOS33</td><td>Active-low with internal pull-up</td></tr></tbody></table>
+
+<h3 id="6-3-key-timing-constraints">6.3 Key Timing Constraints<a class="ha" href="#6-3-key-timing-constraints" aria-hidden="true">¶</a></h3>
+
+<p><strong>ADC input delay:</strong></p>
+<ul><li>Max input delay: 1.0 ns relative to <code>adc_dco_p</code></li><li>Min input delay: 0.2 ns relative to <code>adc_dco_p</code></li></ul>
+
+<p><strong>FT601 output delay:</strong></p>
+<ul><li>Max output delay: 2.0 ns relative to <code>ft601_clk_in</code></li><li>Min output delay: 0.5 ns relative to <code>ft601_clk_in</code></li></ul>
+
+<p class="kv-line"><span class="kv-key">False paths:</span> <span class="kv-value">STM32 toggle-based control signals (<code>stm32_new_chirp</code>, <code>stm32_new_elevation</code>, <code>stm32_new_azimuth</code>, <code>stm32_mixers_enable</code>) are declared as false paths since they are asynchronous inputs synchronized by edge detectors.</span></p>
+
+<h3 id="6-4-physical-constraints">6.4 Physical Constraints<a class="ha" href="#6-4-physical-constraints" aria-hidden="true">¶</a></h3>
+
+<ul><li>Unused pins are configured with pull-up resistors (<code>BITSTREAM.CONFIG.UNUSEDPIN Pullup</code>)</li><li>FT601 interface pins are grouped in the same I/O bank for signal integrity</li><li>Pin numbers are parameterized as <code>[PIN_NUMBER]</code> placeholders in the constraint template</li></ul>
+
+<hr>
+
+<h2 id="7-signal-processing-pipeline-data-flow">7. Signal Processing Pipeline Data Flow<a class="ha" href="#7-signal-processing-pipeline-data-flow" aria-hidden="true">¶</a></h2>
+
+<p>The complete data path through the FPGA can be expressed as a cascade of processing stages with associated data widths and rates. The decimated output rate after CIC filtering is:</p>
+
+<p>$$</p>
+<p>f_\text{out} = \frac{f_s}{D_\text{CIC}} \tag{HW-FPGA-5}</p>
+<p>$$</p>
+
+<p>The total pipeline depth from ADC input to Doppler output involves:</p>
+
+<p>$$</p>
+<p>N_\text{pipeline} = N_\text{CDC} + N_\text{DDC} + N_\text{CIC} + N_\text{MF} + N_\text{Doppler} \tag{HW-FPGA-6}</p>
+<p>$$</p>
+
+<p>where each term represents the latency contribution of that processing stage in clock cycles. Detailed latency analysis is deferred to <a href="07_timing_budget.md"><code>07_timing_budget.md</code></a> (HDWR-07).</p>
+
+<p>The processing chain data widths grow through the pipeline:</p>
+
+<table class="md-table"><thead><tr><th>Stage</th><th>Input Width</th><th>Output Width</th><th>Rate</th></tr></thead><tbody><tr><td>ADC</td><td>8-bit</td><td>8-bit</td><td>400 MSPS</td></tr><tr><td>DDC (NCO + mixer)</td><td>8-bit</td><td>18-bit I/Q</td><td>400 MHz</td></tr><tr><td>CIC decimator</td><td>18-bit</td><td>18-bit</td><td>100 MSPS</td></tr><tr><td>FIR compensation</td><td>18-bit</td><td>18-bit</td><td>100 MSPS</td></tr><tr><td>Matched filter (FFT)</td><td>18-bit</td><td>32-bit (16+16 I/Q)</td><td>Burst</td></tr><tr><td>Doppler FFT</td><td>16-bit I/Q</td><td>32-bit (16+16 I/Q)</td><td>Burst</td></tr><tr><td>USB output</td><td>32-bit</td><td>32-bit</td><td>100 MHz (FT601)</td></tr></tbody></table>
+
+<hr>
+
+<h2 id="8-references">8. References<a class="ha" href="#8-references" aria-hidden="true">¶</a></h2>
+
+<h3 id="project-documentation">Project Documentation<a class="ha" href="#project-documentation" aria-hidden="true">¶</a></h3>
+<ul><li><a href="../00_notation/symbol_table.md">Symbol Table</a> -- authoritative symbol definitions ($N_\text{LUT}$, $N_\text{FF}$, $N_\text{BRAM}$, $N_\text{DSP}$)</li><li><a href="../00_notation/parameter_table.md">Parameter Table</a> -- FPGA signal processing parameters ($f_s$, $N_\text{CIC}$, $D_\text{CIC}$, $N_\text{FFT}$, $N_\text{Doppler}$, $N_R$)</li><li><a href="../00_notation/conventions.md">Conventions</a> -- equation numbering and formatting rules</li></ul>
+
+<h3 id="hardware-references">Hardware References<a class="ha" href="#hardware-references" aria-hidden="true">¶</a></h3>
+<ul><li><a href="01_system_overview.md"><code>01_system_overview.md</code></a> -- clock domain overview (Eq. HW-SYS-1 through HW-SYS-3), system block diagram</li><li><a href="03_frequency_synthesis.md"><code>03_frequency_synthesis.md</code></a> -- AD9523 clock distribution (all FPGA clocks except FT601)</li></ul>
+
+<h3 id="fpga-source">FPGA Source<a class="ha" href="#fpga-source" aria-hidden="true">¶</a></h3>
+<ul><li><code>9_Firmware/9_2_FPGA/radar_system_top.v</code> -- top-level module with clock buffering and module instantiation</li><li><code>9_Firmware/9_2_FPGA/cdc_modules.v</code> -- CDC synchronizer implementations (Gray-coded, single-bit, handshake)</li><li><code>9_Firmware/9_2_FPGA/cntrt.xdc</code> -- Xilinx constraint file (clocks, I/O standards, timing exceptions)</li><li><code>9_Firmware/9_2_FPGA/doppler_processor.v</code> -- Doppler processing parameters</li><li><code>9_Firmware/9_2_FPGA/ddc_400m.v</code> -- DDC with NCO and mixer</li></ul>
+
+<h3 id="component-datasheets">Component Datasheets<a class="ha" href="#component-datasheets" aria-hidden="true">¶</a></h3>
+<ul><li>XC7A100T -- Xilinx Artix-7 FPGA (DS181: Artix-7 Data Sheet)</li><li>FT601 -- FTDI USB 3.0 to FIFO Bridge IC</li><li>AD9484 -- 8-bit 500 MSPS ADC with LVDS output</li></ul>
+
+</div>
+  </div><!-- main-content -->
+</div><!-- site-shell -->
+<script>
+mermaid.initialize({ startOnLoad: true, theme: 'dark', securityLevel: 'loose' });
+</script>
+</body>
+
+</html>

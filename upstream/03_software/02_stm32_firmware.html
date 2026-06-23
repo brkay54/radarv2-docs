@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>02_stm32_firmware — aros Vault</title>
+<style>
+
+:root {
+  --color-blue:    #007ACC;
+  --color-green:   #2DA44E;
+  --color-yellow:  #D29922;
+  --color-purple:  #8B5CF6;
+  --color-orange:  #F59E0B;
+  --color-red:     #E5534B;
+  --color-cyan:    #0BC5EA;
+  --color-accent:  #7C3AED;
+  --text-normal:   #DCDDDE;
+  --text-muted:    #8E8EA0;
+  --background-primary:         #1E1E2E;
+  --background-secondary:       #181825;
+  --background-modifier-border: #313244;
+  --color-base-30:              #45475A;
+}
+body {
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.6;
+  margin: 0;
+}
+
+</style>
+<!-- Mermaid -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<!-- MathJax -->
+<script>window.MathJax={tex:{inlineMath:[['$','$'],['\\(','\\)']],displayMath:[['$$','$$'],['\\[','\\]']]},options:{skipHtmlTags:['script','noscript','style','textarea','pre']}};</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+<!-- Site CSS -->
+<link rel="stylesheet" href="../../site.css">
+</head>
+<body class="markdown-reading-view">
+<div class="site-shell">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <a href="../../00-Index.html" class="site-title">radarv2 / AERIS-10</a>
+      <div class="site-subtitle">aros Radar Documentation</div>
+    </div>
+    <ul class="nav-list">
+      <li class="nav-section">Core Docs</li>
+      <li><a href="../../09-Concepts-Primer.html">Radar Primer</a></li>
+      <li><a href="../../00-Index.html">Index</a></li>
+      <li><a href="../../01-System-Overview.html">System Overview</a></li>
+      <li><a href="../../02-Physics-and-Waveform.html">Physics &amp; Waveform</a></li>
+      <li><a href="../../03-Beamforming-and-Scan.html">Beamforming &amp; Scan</a></li>
+      <li><a href="../../04-Signal-Processing-Pipeline.html">Signal Processing</a></li>
+      <li><a href="../../05-Node-Architecture.html">Node Architecture</a></li>
+      <li><a href="../../06-Message-Catalog.html">Message Catalog</a></li>
+      <li><a href="../../07-Detection-and-Tracking.html">Detection &amp; Tracking</a></li>
+      <li><a href="../../08-Scenarios-and-Targets.html">Scenarios &amp; Targets</a></li>
+      <li class="nav-section">Advanced</li>
+      <li><a href="../../10-Radar-Model-Library.html">Radar Model Library</a></li>
+      <li><a href="../../11-Multi-Radar-Fusion.html">Multi-Radar Fusion</a></li>
+      <li><a href="../../12-3D-Scene.html">3-D Scene</a></li>
+      <li><a href="../../13-Reference-Tables.html">Reference Tables</a></li>
+      <li><a href="../../FUTURE-DEVELOPMENT.html">Future Development</a></li>
+      <li class="nav-section">Upstream Theory</li>
+      <li><a href="../../upstream/README.html">Upstream README</a></li>
+      <li><a href="../../upstream/00_notation/conventions.html">Notation</a></li>
+      <li><a href="../../upstream/01_physics/01_fmcw_theory.html">FMCW Theory</a></li>
+      <li><a href="../../upstream/01_physics/02_lfm_waveform_model.html">LFM Waveform</a></li>
+      <li><a href="../../upstream/01_physics/03_beamforming_theory.html">Beamforming Theory</a></li>
+      <li><a href="../../upstream/01_physics/04_detection_theory.html">Detection Theory</a></li>
+      <li><a href="../../upstream/01_physics/05_noise_analysis.html">Noise Analysis</a></li>
+      <li><a href="../../upstream/01_physics/06_calibration_theory.html">Calibration</a></li>
+      <li><a href="../../upstream/02_hardware/01_system_overview.html">HW Overview</a></li>
+      <li><a href="../../upstream/04_research/01_cfar_variants.html">CFAR Variants</a></li>
+    </ul>
+    <div class="sidebar-footer">
+      <a href="https://github.com/brkay54/radarv2-docs" target="_blank">GitHub</a>
+    </div>
+  </nav>
+  <div class="main-content">
+
+<div class="markdown-preview-section">
+<h1 id="stm32-firmware-architecture">STM32 Firmware Architecture<a class="ha" href="#stm32-firmware-architecture" aria-hidden="true">¶</a></h1>
+
+<p class="kv-line"><span class="kv-key">Purpose:</span> <span class="kv-value">Documents the STM32F7 microcontroller firmware (<code>main.cpp</code>, ~2000 lines; <code>main.h</code>, GPIO pin map) covering the complete 17-step initialization sequence, SPI/I2C peripheral configuration, magic number derivations from physics and component specifications, and the main radar loop control flow for azimuth/elevation scanning with dual-chirp sequencing.</span></p>
+
+<p class="kv-line"><span class="kv-key">Prerequisites:</span> <span class="kv-value">Familiarity with:</span></p>
+<ul><li><a href="../00_notation/symbol_table.md">Symbol Table</a> -- all symbols used herein</li><li><a href="../00_notation/parameter_table.md">Parameter Table</a> -- numerical values for both variants</li><li><a href="../00_notation/conventions.md">Conventions</a> -- equation formatting rules</li><li><a href="../02_hardware/06_power_management.md">Power Management</a> -- power-on sequencing and GPIO rail control</li><li><a href="../02_hardware/03_frequency_synthesis.md">Frequency Synthesis</a> -- AD9523 clock tree and ADF4382 LO</li><li><a href="../02_hardware/04_antenna_beamforming.md">Antenna and Beamforming</a> -- ADAR1000 beam steering and phase calculation</li><li><a href="../02_hardware/07_timing_budget.md">Timing Budget</a> -- pipeline latency and chirp timing</li></ul>
+
+<hr>
+
+<h2 id="1-firmware-architecture-overview">1. Firmware Architecture Overview<a class="ha" href="#1-firmware-architecture-overview" aria-hidden="true">¶</a></h2>
+
+<p>The STM32F7 firmware operates as the central controller for the AERIS-10 radar system. It manages three distinct phases of operation:</p>
+
+<ul><li><strong>Initialization</strong> (Steps 1--17): Power sequencing of all subsystems, sensor calibration, clock configuration, beamformer setup, and GUI synchronization. Total duration ranges from approximately 200 seconds (dominated by the 180-second OCXO warm-up) to several minutes depending on GPS acquisition and user start command.</li></ul>
+
+<ul><li><strong>Main Radar Loop</strong>: Continuous azimuth/elevation scanning with dual-chirp sequencing, FPGA handshake signaling, and stepper motor control. Each full revolution covers $N_\text{az}$ (<code>y_max</code> in <code>main.cpp</code>) azimuth positions with $N_\text{el}$ (<code>n_max</code>) elevation beam positions per azimuth.</li></ul>
+
+<ul><li><strong>Error Handling and Monitoring</strong>: Periodic health checks of all subsystems (clock lock, IMU, barometer, GPS, PA current, temperature) with automatic recovery for non-critical faults and emergency shutdown for critical faults.</li></ul>
+
+<h3 id="firmware-block-diagram">Firmware Block Diagram<a class="ha" href="#firmware-block-diagram" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Phase</th><th>Subsystems</th><th>Duration</th></tr></thead><tbody><tr><td>Initialization (Steps 1--3)</td><td>MCU core, HAL, GPIO, SPI, I2C, UART, USB, Timer</td><td>~ms</td></tr><tr><td>Initialization (Step 4)</td><td>OCXO warm-up wait</td><td>180 s</td></tr><tr><td>Initialization (Steps 5--7)</td><td>Clock tree (AD9523), FPGA power</td><td>~1 s</td></tr><tr><td>Initialization (Steps 8--9)</td><td>IMU (GY-85), Barometer (BMP180)</td><td>~4 s</td></tr><tr><td>Initialization (Steps 10--12)</td><td>LO (ADF4382), Beamformer (ADAR1000)</td><td>2--11 s</td></tr><tr><td>Initialization (Steps 13--15)</td><td>GPS, Stepper, GUI sync</td><td>10 s + user</td></tr><tr><td>Initialization (Steps 16--17)</td><td>PA bias (if enabled), FPGA reset</td><td>~2 s</td></tr><tr><td>Main Loop</td><td>Radar pulse sequence + health monitoring</td><td>Continuous</td></tr></tbody></table>
+
+<hr>
+
+<h2 id="2-initialization-sequence">2. Initialization Sequence<a class="ha" href="#2-initialization-sequence" aria-hidden="true">¶</a></h2>
+
+<p>The complete 17-step power-up and initialization sequence executes in <code>main()</code> (lines 1189--1699 of <code>main.cpp</code>). Each step is documented with the exact GPIO pins toggled, the function called, the purpose of any delay, and cross-references to the relevant hardware documentation.</p>
+
+<h3 id="2-1-initialization-sequence-table">2.1 Initialization Sequence Table<a class="ha" href="#2-1-initialization-sequence-table" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Step</th><th>Action</th><th>Code Location</th><th>Duration</th></tr></thead><tbody><tr><td>1</td><td>MPU / HAL / Clock config</td><td><code>MPU_Config()</code>, <code>HAL_Init()</code>, <code>SystemClock_Config()</code>, <code>PeriphCommonClock_Config()</code></td><td>~ms</td></tr><tr><td>2</td><td>Peripheral initialization</td><td><code>MX_GPIO_Init()</code> through <code>MX_USB_DEVICE_Init()</code></td><td>~ms</td></tr><tr><td>3</td><td>Start TIM1 + DWT</td><td><code>HAL_TIM_Base_Start(&amp;htim1)</code>, <code>DWT_Init()</code></td><td>~ms</td></tr><tr><td>4</td><td>OCXO warm-up wait</td><td><code>HAL_Delay(180000)</code></td><td>180 s</td></tr><tr><td>5</td><td>AD9523 power sequence</td><td>1V8_CLOCK, 3V3_CLOCK, release reset</td><td>300 ms</td></tr><tr><td>6</td><td>AD9523 clock configuration</td><td><code>configure_ad9523()</code> -- 12 channel outputs</td><td>~100 ms</td></tr><tr><td>7</td><td>FPGA power sequence</td><td>1V0, 1V8, 3V3 (100 ms each)</td><td>300 ms</td></tr><tr><td>8</td><td>IMU initialization</td><td><code>GY85_Init()</code> + 10 iterations with complementary filter</td><td>~3 s</td></tr><tr><td>9</td><td>Barometer calibration</td><td><code>myBMP.getPressure()</code> x 5 iterations</td><td>~500 ms</td></tr><tr><td>10</td><td>ADF4382 LO initialization</td><td><code>ADF4382A_Manager_Init()</code> + lock wait (up to 10 s)</td><td>1--10 s</td></tr><tr><td>11</td><td>ADAR1000 power + init</td><td>3V3_ADAR12/34, 5V0_ADAR, <code>systemPowerUpSequence()</code></td><td>~1 s</td></tr><tr><td>12</td><td>Beam matrix initialization</td><td><code>initializeBeamMatrices()</code> -- 31 positions x 16 elements</td><td>~ms</td></tr><tr><td>13</td><td>GPS acquisition</td><td><code>smartDelay(1000)</code> x 10 iterations</td><td>10 s</td></tr><tr><td>14</td><td>Point stepper to North</td><td>Stepper motor rotation based on IMU yaw</td><td>variable</td></tr><tr><td>15</td><td>Send GPS to GUI + wait for start</td><td><code>GPS_SendBinaryToGUI()</code> + poll <code>isStartFlagReceived()</code></td><td>user-dependent</td></tr><tr><td>16</td><td>PA power-up (if enabled)</td><td>DAC5578 init, set Vg, enable VDD, Idq tuning</td><td>~2 s</td></tr><tr><td>17</td><td>FPGA reset + enable mixers</td><td>GPIO toggle PD12 + PD11</td><td>~10 ms</td></tr></tbody></table>
+
+<h3 id="2-2-step-details">2.2 Step Details<a class="ha" href="#2-2-step-details" aria-hidden="true">¶</a></h3>
+
+<h4 id="step-1-mpu-hal-system-clock-configuration">Step 1: MPU / HAL / System Clock Configuration<a class="ha" href="#step-1-mpu-hal-system-clock-configuration" aria-hidden="true">¶</a></h4>
+
+<p>The STM32F7 Memory Protection Unit (MPU) is configured first via <code>MPU_Config()</code>, followed by <code>HAL_Init()</code> which resets all peripherals and initializes the Flash interface and SysTick timer. <code>SystemClock_Config()</code> sets up the PLL chain: HSE (25 MHz external crystal) with PLLM=25, PLLN=144, PLLP=2 yields a system clock of 72 MHz. APB1 is divided by 2 (36 MHz), APB2 runs at full speed (72 MHz). <code>PeriphCommonClock_Config()</code> activates the TIM prescaler to double the timer clock frequency.</p>
+
+<h4 id="step-2-peripheral-initialization">Step 2: Peripheral Initialization<a class="ha" href="#step-2-peripheral-initialization" aria-hidden="true">¶</a></h4>
+
+<p>All STM32 peripherals are initialized in sequence via STM32CubeMX-generated functions:</p>
+
+<table class="md-table"><thead><tr><th>Function</th><th>Peripheral</th><th>Purpose</th></tr></thead><tbody><tr><td><code>MX_GPIO_Init()</code></td><td>GPIO ports A--G</td><td>All power enables, SPI CS, LED, stepper, FPGA control</td></tr><tr><td><code>MX_TIM1_Init()</code></td><td>TIM1</td><td>Microsecond counter (72 MHz / prescaler 71 = 1 MHz)</td></tr><tr><td><code>MX_I2C1_Init()</code></td><td>I2C1</td><td>DAC5578 gate voltage control</td></tr><tr><td><code>MX_I2C2_Init()</code></td><td>I2C2</td><td>ADS7830 current/temperature monitoring</td></tr><tr><td><code>MX_I2C3_Init()</code></td><td>I2C3</td><td>GY-85 IMU</td></tr><tr><td><code>MX_SPI1_Init()</code></td><td>SPI1</td><td>ADAR1000 beamformer ICs</td></tr><tr><td><code>MX_SPI4_Init()</code></td><td>SPI4</td><td>AD9523 clock generator, ADF4382 TX/RX LOs</td></tr><tr><td><code>MX_UART5_Init()</code></td><td>UART5</td><td>GPS receiver (NMEA input)</td></tr><tr><td><code>MX_USART3_UART_Init()</code></td><td>USART3</td><td>Debug console output</td></tr><tr><td><code>MX_USB_DEVICE_Init()</code></td><td>USB OTG FS</td><td>USB CDC interface to host GUI</td></tr></tbody></table>
+
+<h4 id="step-3-timer-and-cycle-counter-start">Step 3: Timer and Cycle Counter Start<a class="ha" href="#step-3-timer-and-cycle-counter-start" aria-hidden="true">¶</a></h4>
+
+<p><code>HAL_TIM_Base_Start(&amp;htim1)</code> starts the microsecond timer used by <code>delay_us()</code> and <code>micros()</code>. <code>DWT_Init()</code> enables the ARM Data Watchpoint and Trace unit cycle counter (<code>DWT-&gt;CYCCNT</code>) for nanosecond-resolution delays used during the short chirp $T_{c,2}$ (<code>T2</code> in <code>main.cpp</code>) timing via <code>delay_ns()</code>.</p>
+
+<h4 id="step-4-ocxo-warm-up-wait">Step 4: OCXO Warm-Up Wait<a class="ha" href="#step-4-ocxo-warm-up-wait" aria-hidden="true">¶</a></h4>
+
+<p><code>HAL_Delay(180000)</code> pauses for 180 seconds (3 minutes) to allow the oven-controlled crystal oscillator (OCXO) to reach thermal equilibrium. The OCXO provides the 100 MHz reference input to the AD9523-1 clock generator. Frequency stability requires the crystal oven to reach its set-point temperature before the clock tree can generate phase-coherent outputs. See <a href="../02_hardware/06_power_management.md">Power Management</a> for the OCXO thermal specifications.</p>
+
+<p>During this wait, the AD9523 reset pin is held low (<code>AD9523_RESET_Pin</code> = PF6, asserted via <code>GPIO_PIN_RESET</code>), preventing the clock generator from attempting to lock to an unstable reference.</p>
+
+<h4 id="step-5-ad9523-power-sequence">Step 5: AD9523 Power Sequence<a class="ha" href="#step-5-ad9523-power-sequence" aria-hidden="true">¶</a></h4>
+
+<p>The AD9523-1 clock generator is powered in the correct rail order to prevent latch-up:</p>
+
+<ul><li>Enable 1.8 V clock supply: <code>EN_P_1V8_CLOCK_Pin</code> (PG4) set HIGH, wait 100 ms</li><li>Enable 3.3 V clock supply: <code>EN_P_3V3_CLOCK_Pin</code> (PG5) set HIGH, wait 100 ms</li><li>Release reset: <code>AD9523_RESET_Pin</code> (PF6) set HIGH, wait 100 ms</li></ul>
+
+<p>Total step duration: 300 ms. Cross-reference: <a href="../02_hardware/06_power_management.md">Power Management</a> for rail sequencing constraints and <a href="../02_hardware/03_frequency_synthesis.md">Frequency Synthesis</a> for the AD9523-1 PLL architecture.</p>
+
+<h4 id="step-6-ad9523-clock-configuration">Step 6: AD9523 Clock Configuration<a class="ha" href="#step-6-ad9523-clock-configuration" aria-hidden="true">¶</a></h4>
+
+<p><code>configure_ad9523()</code> programs the AD9523-1 via SPI4 (CS on PF7, 10 MHz SPI clock, Mode 0). The PLL2 is configured with N=36 (VCO at 3.6 GHz from 100 MHz reference) and the following output channels are enabled:</p>
+
+<table class="md-table"><thead><tr><th>Channel</th><th>Output</th><th>Divider</th><th>Frequency</th><th>Driver</th><th>Purpose</th></tr></thead><tbody><tr><td>OUT0</td><td>ADF4382 TX ref</td><td>/12</td><td>300 MHz</td><td>LVDS 7 mA</td><td>TX LO reference clock</td></tr><tr><td>OUT1</td><td>ADF4382 RX ref</td><td>/12</td><td>300 MHz</td><td>LVDS 7 mA</td><td>RX LO reference clock (phase-aligned with OUT0)</td></tr><tr><td>OUT4</td><td>ADC clock</td><td>/9</td><td>400 MHz</td><td>LVDS 7 mA</td><td>AD9484 sampling clock</td></tr><tr><td>OUT5</td><td>FPGA ADC clock</td><td>/9</td><td>400 MHz</td><td>LVDS 7 mA</td><td>FPGA ADC data capture (phase-aligned with OUT4)</td></tr><tr><td>OUT6</td><td>FPGA system clock</td><td>/36</td><td>100 MHz</td><td>LVCMOS</td><td>FPGA processing clock domain</td></tr><tr><td>OUT7</td><td>FPGA test clock</td><td>/180</td><td>20 MHz</td><td>LVCMOS</td><td>FPGA debug/test</td></tr><tr><td>OUT8</td><td>Sync TX</td><td>/60</td><td>60 MHz</td><td>LVDS 4 mA</td><td>ADF4382 TX synchronization</td></tr><tr><td>OUT9</td><td>Sync RX</td><td>/60</td><td>60 MHz</td><td>LVDS 4 mA</td><td>ADF4382 RX synchronization (phase-aligned with OUT8)</td></tr><tr><td>OUT10</td><td>DAC clock</td><td>/30</td><td>120 MHz</td><td>LVCMOS</td><td>DAC interface clock</td></tr><tr><td>OUT11</td><td>FPGA DAC clock</td><td>/30</td><td>120 MHz</td><td>LVCMOS</td><td>FPGA DAC domain (phase-aligned with OUT10)</td></tr></tbody></table>
+
+<p>Channels 2, 3, 12, and 13 are disabled (tri-state). After programming, <code>ad9523_sync()</code> issues a synchronization pulse to align all divider outputs. Cross-reference: <a href="../02_hardware/03_frequency_synthesis.md">Frequency Synthesis</a> for the complete AD9523-1 clock tree.</p>
+
+<h4 id="step-7-fpga-power-sequence">Step 7: FPGA Power Sequence<a class="ha" href="#step-7-fpga-power-sequence" aria-hidden="true">¶</a></h4>
+
+<p>The FPGA is powered in ascending voltage order to prevent core damage:</p>
+
+<ul><li>Enable 1.0 V core: <code>EN_P_1V0_FPGA_Pin</code> (PE7) set HIGH, wait 100 ms</li><li>Enable 1.8 V auxiliary: <code>EN_P_1V8_FPGA_Pin</code> (PE8) set HIGH, wait 100 ms</li><li>Enable 3.3 V I/O: <code>EN_P_3V3_FPGA_Pin</code> (PE9) set HIGH, wait 100 ms</li></ul>
+
+<p>Total step duration: 300 ms. Cross-reference: <a href="../02_hardware/06_power_management.md">Power Management</a> for FPGA power sequencing requirements.</p>
+
+<h4 id="step-8-imu-initialization">Step 8: IMU Initialization<a class="ha" href="#step-8-imu-initialization" aria-hidden="true">¶</a></h4>
+
+<p><code>GY85_Init()</code> initializes the GY-85 9-DOF IMU module (ADXL345 accelerometer, ITG-3200 gyroscope, HMC5883L magnetometer) on I2C3. The firmware then runs 10 iterations of a complementary filter to establish a stable orientation estimate before using the yaw angle to point the stepper motor to North (Step 14).</p>
+
+<p>Each iteration reads accelerometer, gyroscope, and magnetometer data, applies bias corrections (<code>abias[]</code>, <code>gbias[]</code>, <code>mbias[]</code>), normalizes the magnetometer vector, and fuses the data using a complementary filter with equal weights (0.5 accelerometer, 0.5 gyroscope). The filter computes pitch $\theta_\text{pitch}$ (<code>Pitch_Sensor</code>), roll $\theta_\text{roll}$ (<code>Roll_Sensor</code>), and tilt-compensated yaw $\psi_\text{yaw}$ (<code>Yaw_Sensor</code>) using Euler angles. A 300 ms delay between iterations allows sensor settling.</p>
+
+<p>Cross-reference: <a href="../02_hardware/09_gps_imu_transforms.md">GPS/IMU Transforms</a> for the complementary filter equations and coordinate frame definitions.</p>
+
+<h4 id="step-9-barometer-calibration">Step 9: Barometer Calibration<a class="ha" href="#step-9-barometer-calibration" aria-hidden="true">¶</a></h4>
+
+<p>Five iterations of <code>myBMP.getPressure()</code> read the BMP180 barometric pressure sensor. Each reading computes the radar altitude $h_\text{radar}$ (<code>RADAR_Altitude</code>) using the barometric formula. A 100 ms delay between readings allows ADC settling. The BMP180 is configured in ultra-high-resolution mode (<code>BMP180_ULTRAHIGHRES</code>, 8x oversampling, 12 uA power consumption).</p>
+
+<h4 id="step-10-adf4382-lo-initialization">Step 10: ADF4382 LO Initialization<a class="ha" href="#step-10-adf4382-lo-initialization" aria-hidden="true">¶</a></h4>
+
+<p><code>ADF4382A_Manager_Init(&amp;lo_manager, SYNC_METHOD_TIMED)</code> initializes both TX and RX local oscillator synthesizers (ADF4382A) on SPI4. After initialization, phase shifts are applied (500 ps for both TX and RX) and strobed to take effect. The firmware then polls the lock detect pins (<code>ADF4382_TX_LKDET_Pin</code> = PG11, <code>ADF4382_RX_LKDET_Pin</code> = PG6) with 100 ms intervals, up to 100 attempts (10 seconds maximum). Once both LOs achieve lock, <code>ADF4382A_TriggerTimedSync()</code> issues a synchronization pulse using the phase-aligned 60 MHz clocks from AD9523 channels OUT8/OUT9. LED1 (PF12) and LED2 (PF13) indicate TX and RX lock status respectively.</p>
+
+<p>Cross-reference: <a href="../02_hardware/03_frequency_synthesis.md">Frequency Synthesis</a> for the ADF4382A PLL architecture and phase noise specifications.</p>
+
+<h4 id="step-11-adar1000-power-and-initialization">Step 11: ADAR1000 Power and Initialization<a class="ha" href="#step-11-adar1000-power-and-initialization" aria-hidden="true">¶</a></h4>
+
+<p>The ADAR1000 beamformer power-up sequence:</p>
+
+<ul><li>Disable RF mixers: PD11 set LOW (prevents RF transmission during ADAR1000 init)</li><li>Enable 3.3 V for ADAR1000 #1--2: <code>EN_P_3V3_ADAR12_Pin</code> (PE11) set HIGH</li><li>Enable 3.3 V for ADAR1000 #3--4: <code>EN_P_3V3_ADAR34_Pin</code> (PE12) set HIGH</li><li>Wait 500 ms for supply stabilization</li><li>Enable 5.0 V for all ADAR1000: <code>EN_P_5V0_ADAR_Pin</code> (PE10) set HIGH</li><li>Wait 500 ms for supply stabilization</li><li><code>systemPowerUpSequence()</code> executes:</li><li><code>initializeADTR1107Sequence()</code> -- ADTR1107 T/R module power-up</li><li><code>initializeAllDevices()</code> -- all 4 ADAR1000 devices initialized via SPI1</li><li><code>performSystemCalibration()</code> -- system-level calibration</li><li><code>setAllDevicesTXMode()</code> -- set to safe TX mode</li></ul>
+
+<p>Cross-reference: <a href="../02_hardware/04_antenna_beamforming.md">Antenna and Beamforming</a> for the ADAR1000 register map and SPI protocol.</p>
+
+<h4 id="step-12-beam-matrix-initialization">Step 12: Beam Matrix Initialization<a class="ha" href="#step-12-beam-matrix-initialization" aria-hidden="true">¶</a></h4>
+
+<p><code>initializeBeamMatrices()</code> pre-computes the phase settings for all $N_\text{el} = 31$ (<code>n_max</code>) elevation beam positions across all $N = 16$ antenna elements. The phase difference array $\Delta\phi_n$ (<code>phase_differences[31]</code> in <code>main.cpp</code>) stores the inter-element phase shift in degrees for each beam position. The function computes three data structures:</p>
+
+<ul><li><strong><code>matrix1[15][16]</code></strong>: Positions 1--15 (positive phase shifts, $\Delta\phi &gt; 0$). Each entry is a 7-bit phase code for the ADAR1000 phase register.</li><li><strong><code>vector_0[16]</code></strong>: Position 16 (broadside, $\Delta\phi = 0$). All elements set to zero phase.</li><li><strong><code>matrix2[15][16]</code></strong>: Positions 17--31 (negative phase shifts, $\Delta\phi &lt; 0$).</li></ul>
+
+<p>The conversion from degrees to 7-bit phase code is performed by <code>degreesTo7BitPhase()</code>: the input angle is normalized to $[0, 360)$ degrees, then mapped to a 7-bit integer $[0, 127]$ via $\text{code} = \lfloor(\phi / 360) \times 128\rfloor \bmod 128$. See Section 5 for the derivation of the <code>phase_differences</code> array.</p>
+
+<h4 id="step-13-gps-acquisition">Step 13: GPS Acquisition<a class="ha" href="#step-13-gps-acquisition" aria-hidden="true">¶</a></h4>
+
+<p>Ten iterations of <code>smartDelay(1000)</code> feed the TinyGPS++ parser with NMEA data from UART5 for 1 second each. After the loop, <code>RADAR_Longitude</code> and <code>RADAR_Latitude</code> store the averaged GPS fix. <code>smartDelay()</code> is a non-blocking delay that continuously reads UART5 bytes and passes them to <code>gps.encode()</code> during the wait period.</p>
+
+<h4 id="step-14-point-stepper-to-north">Step 14: Point Stepper to North<a class="ha" href="#step-14-point-stepper-to-north" aria-hidden="true">¶</a></h4>
+
+<p>The stepper motor is rotated to align the antenna array with magnetic North, corrected by the magnetic declination $\delta_\text{mag}$ (<code>Mag_Declination</code> in <code>main.cpp</code>). The rotation direction is set to counter-clockwise (CCW) via <code>STEPPER_CW_P_Pin</code> (PD4) = LOW. The number of steps is calculated from the current IMU yaw angle:</p>
+
+<p>$$</p>
+<p>n_\text{steps} = \left\lfloor \frac{\psi_\text{yaw} \times S_\text{rev}}{360} \right\rfloor \tag{SW-20}</p>
+<p>$$</p>
+
+<p>where $S_\text{rev}$ (<code>Stepper_steps</code> in <code>main.cpp</code>) is the number of steps per revolution (see <a href="../00_notation/parameter_table.md#system-level-derivedtbd">Parameter Table</a>). Each step generates a 500 us HIGH / 500 us LOW pulse on <code>STEPPER_CLK_P_Pin</code> (PD5).</p>
+
+<h4 id="step-15-gps-data-to-gui-and-wait-for-start">Step 15: GPS Data to GUI and Wait for Start<a class="ha" href="#step-15-gps-data-to-gui-and-wait-for-start" aria-hidden="true">¶</a></h4>
+
+<p><code>GPS_SendBinaryToGUI(&amp;gps_data)</code> transmits a binary packet containing latitude, longitude, altitude, pitch, and timestamp over USB CDC to the host GUI application. The firmware then enters a polling loop on <code>usbHandler.isStartFlagReceived()</code>, waiting for the operator to press the start button in the GUI. The <code>RadarSettings</code> structure received from the GUI contains system frequency, chirp durations, PRF values, and maximum distance parameters.</p>
+
+<h4 id="step-16-pa-power-up-conditional">Step 16: PA Power-Up (Conditional)<a class="ha" href="#step-16-pa-power-up-conditional" aria-hidden="true">¶</a></h4>
+
+<p>When the <code>PowerAmplifier</code> flag is set (compiled as <code>#define PowerAmplifier 1</code>), the QPA2962 GaN power amplifier bias sequence executes:</p>
+
+<ul><li><strong>DAC initialization</strong>: Two DAC5578 8-bit DACs on I2C1 (addresses 0x48 and 0x49) are initialized with clear-to-zero behavior and simultaneous LDAC update mode.</li><li><strong>Set gate voltage</strong>: All 16 PA channels are set to the initial DAC code $N_\text{DAC}$ (<code>DAC_val</code> in <code>main.cpp</code>). See Section 5 for the derivation of $N_\text{DAC} = 126$.</li><li><strong>Enable drain supply</strong>: <code>EN_DIS_RFPA_VDD_Pin</code> (PD6) set HIGH, enabling the 22 V drain supply.</li><li><strong>Initialize current monitors</strong>: Two ADS7830 8-bit ADCs on I2C2 (addresses 0x48 and 0x4A) are initialized for single-ended measurement with internal reference.</li><li><strong>Idq tuning loop</strong>: For each of the 16 PA channels, the firmware iteratively reduces the DAC code in steps of 4 (increasing the negative gate voltage) while monitoring the drain quiescent current $I_{dq}$ (<code>Idq_reading[]</code>) until it reaches the target value. See Section 5 for the $I_{dq}$ derivation.</li></ul>
+
+<p>Cross-reference: <a href="../02_hardware/06_power_management.md">Power Management</a> for the PA bias circuit topology and <a href="../02_hardware/08_power_budget.md">Power Budget</a> for PA power dissipation.</p>
+
+<h4 id="step-17-fpga-reset-and-enable-mixers">Step 17: FPGA Reset and Enable Mixers<a class="ha" href="#step-17-fpga-reset-and-enable-mixers" aria-hidden="true">¶</a></h4>
+
+<ul><li><strong>FPGA reset</strong>: PD12 toggled LOW for 10 ms then HIGH, issuing an active-low reset to the FPGA to clear all internal state and synchronize with the newly configured clock tree.</li><li><strong>Enable mixers</strong>: PD11 (<code>stm32_mixers_enable</code>) set HIGH, commanding the FPGA to enable the LT5552 RF mixers for signal transmission and reception.</li></ul>
+
+<p>After Step 17, the firmware enters the main radar loop.</p>
+
+<hr>
+
+<h2 id="3-peripheral-configuration-tables">3. Peripheral Configuration Tables<a class="ha" href="#3-peripheral-configuration-tables" aria-hidden="true">¶</a></h2>
+
+<h3 id="3-1-i2c-device-address-table">3.1 I2C Device Address Table<a class="ha" href="#3-1-i2c-device-address-table" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Device</th><th>I2C Bus</th><th>7-bit Address</th><th>GPIO (LDAC/CLR)</th><th>Purpose</th></tr></thead><tbody><tr><td>DAC5578 #1</td><td>I2C1</td><td>0x48</td><td>PB5 (LDAC), PB4 (CLR)</td><td>PA gate voltage $V_g$ control, channels 1--8</td></tr><tr><td>DAC5578 #2</td><td>I2C1</td><td>0x49</td><td>PB9 (LDAC), PB8 (CLR)</td><td>PA gate voltage $V_g$ control, channels 9--16</td></tr><tr><td>ADS7830 #1</td><td>I2C2</td><td>0x48</td><td>--</td><td>PA drain current $I_{dq}$ monitoring, channels 1--8</td></tr><tr><td>ADS7830 #2</td><td>I2C2</td><td>0x4A</td><td>--</td><td>PA drain current $I_{dq}$ monitoring, channels 9--16</td></tr><tr><td>ADS7830 #3</td><td>I2C2</td><td>0x49</td><td>--</td><td>Temperature sensors (TMP37 x 8)</td></tr><tr><td>GY-85 IMU</td><td>I2C3</td><td>default</td><td>PC6 (MAG_DRDY), PC7 (ACC_INT), PC8 (GYR_INT)</td><td>Accelerometer, gyroscope, magnetometer</td></tr><tr><td>BMP180</td><td>I2C3</td><td>default (0x77)</td><td>--</td><td>Barometric pressure / altitude</td></tr></tbody></table>
+
+<h3 id="3-2-spi-device-configuration-table">3.2 SPI Device Configuration Table<a class="ha" href="#3-2-spi-device-configuration-table" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Device</th><th>SPI Bus</th><th>CS Pin</th><th>Port</th><th>Speed</th><th>Mode</th><th>Purpose</th></tr></thead><tbody><tr><td>ADAR1000 #1</td><td>SPI1</td><td><code>ADAR_1_CS_3V3_Pin</code></td><td>PA0</td><td>--</td><td>--</td><td>Beamformer IC #1 (elements 1--4)</td></tr><tr><td>ADAR1000 #2</td><td>SPI1</td><td><code>ADAR_2_CS_3V3_Pin</code></td><td>PA1</td><td>--</td><td>--</td><td>Beamformer IC #2 (elements 5--8)</td></tr><tr><td>ADAR1000 #3</td><td>SPI1</td><td><code>ADAR_3_CS_3V3_Pin</code></td><td>PA2</td><td>--</td><td>--</td><td>Beamformer IC #3 (elements 9--12)</td></tr><tr><td>ADAR1000 #4</td><td>SPI1</td><td><code>ADAR_4_CS_3V3_Pin</code></td><td>PA3</td><td>--</td><td>--</td><td>Beamformer IC #4 (elements 13--16)</td></tr><tr><td>AD9523-1</td><td>SPI4</td><td><code>AD9523_CS_Pin</code></td><td>PF7</td><td>10 MHz</td><td>Mode 0</td><td>Clock generator</td></tr><tr><td>ADF4382 TX</td><td>SPI4</td><td><code>ADF4382_TX_CS_Pin</code></td><td>PG14</td><td>--</td><td>--</td><td>TX local oscillator synthesizer</td></tr><tr><td>ADF4382 RX</td><td>SPI4</td><td><code>ADF4382_RX_CS_Pin</code></td><td>PG10</td><td>--</td><td>--</td><td>RX local oscillator synthesizer</td></tr></tbody></table>
+
+<h3 id="3-3-uart-configuration">3.3 UART Configuration<a class="ha" href="#3-3-uart-configuration" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Peripheral</th><th>Instance</th><th>Purpose</th></tr></thead><tbody><tr><td>UART5</td><td><code>huart5</code></td><td>GPS receiver NMEA input (TinyGPS++ parser)</td></tr><tr><td>USART3</td><td><code>huart3</code></td><td>Debug console output (status messages, error reports)</td></tr></tbody></table>
+
+<hr>
+
+<h2 id="4-main-radar-loop">4. Main Radar Loop<a class="ha" href="#4-main-radar-loop" aria-hidden="true">¶</a></h2>
+
+<p>After initialization, the firmware enters an infinite <code>while(1)</code> loop (line 1705) that alternates between system health monitoring and radar pulse sequencing.</p>
+
+<h3 id="4-1-loop-structure">4.1 Loop Structure<a class="ha" href="#4-1-loop-structure" aria-hidden="true">¶</a></h3>
+
+<pre><code>while(1) {
+    1. System health check (checkSystemHealthStatus)
+    2. LO lock status monitor (every 5 s)
+    3. Temperature sensor monitor (every 5 s)
+    4. Radar pulse sequence (runRadarPulseSequence)
+}</code></pre>
+
+<h3 id="4-2-system-health-check">4.2 System Health Check<a class="ha" href="#4-2-system-health-check" aria-hidden="true">¶</a></h3>
+
+<p><code>checkSystemHealthStatus()</code> runs <code>checkSystemHealth()</code> which polls nine subsystem health indicators:</p>
+
+<table class="md-table"><thead><tr><th>Check</th><th>Interval</th><th>Condition</th><th>Error Code</th></tr></thead><tbody><tr><td>AD9523 clock status</td><td>5 s</td><td>STATUS0 or STATUS1 pin LOW</td><td><code>ERROR_AD9523_CLOCK</code></td></tr><tr><td>ADF4382 lock detect</td><td>Each call</td><td>TX or RX lock lost</td><td><code>ERROR_ADF4382_TX/RX_UNLOCK</code></td></tr><tr><td>ADAR1000 communication</td><td>Each call</td><td>SPI verify fails for any of 4 devices</td><td><code>ERROR_ADAR1000_COMM</code></td></tr><tr><td>ADAR1000 temperature</td><td>Each call</td><td>Any device &gt; 85 C</td><td><code>ERROR_ADAR1000_TEMP</code></td></tr><tr><td>IMU data validity</td><td>10 s</td><td>NaN in accelerometer readings</td><td><code>ERROR_IMU_COMM</code></td></tr><tr><td>BMP180 pressure range</td><td>15 s</td><td>Pressure outside 30--110 kPa or NaN</td><td><code>ERROR_BMP180_COMM</code></td></tr><tr><td>GPS fix age</td><td>30 s</td><td>No GPS update in 30 s</td><td><code>ERROR_GPS_COMM</code></td></tr><tr><td>PA drain current</td><td>Each call</td><td>Any $I_{dq} &gt; 2.5$ A (overcurrent) or $I_{dq} &lt; 0.1$ A (bias fault)</td><td><code>ERROR_RF_PA_OVERCURRENT/BIAS</code></td></tr><tr><td>System temperature</td><td>Each call</td><td>Temperature &gt; 75 C</td><td><code>ERROR_TEMPERATURE_HIGH</code></td></tr></tbody></table>
+
+<p><strong>Critical errors</strong> (<code>ERROR_RF_PA_OVERCURRENT</code> through <code>ERROR_POWER_SUPPLY</code>) trigger <code>Emergency_Stop()</code>, which activates the DAC5578 hardware CLR pins to immediately zero all PA gate voltages, then enters an infinite halt loop. <strong>Non-critical errors</strong> trigger <code>attemptErrorRecovery()</code> which re-initializes the failed subsystem. After 10 cumulative errors, the system enters safe mode (mixers disabled, power-down sequence, LED blink pattern).</p>
+
+<h3 id="4-3-temperature-monitoring">4.3 Temperature Monitoring<a class="ha" href="#4-3-temperature-monitoring" aria-hidden="true">¶</a></h3>
+
+<p>Every 5 seconds, the firmware reads 8 TMP37 analog temperature sensors via ADS7830 #3 (I2C2, address 0x49). The temperature conversion uses the TMP37 transfer function:</p>
+
+<p>$$</p>
+<p>T_\text{sensor} = \frac{N_\text{ADC} \times 165}{255} \tag{SW-21}</p>
+<p>$$</p>
+
+<p>where $N_\text{ADC}$ is the 8-bit ADC reading and the factor 165/255 = 0.64705 accounts for the TMP37 output range (3.3 V full scale corresponds to 165 C). If any sensor exceeds 25 C (the <code>Max_Temp</code> threshold), the cooling system is enabled via <code>EN_DIS_COOLING_Pin</code> (PD7).</p>
+
+<h3 id="4-4-radar-pulse-sequence">4.4 Radar Pulse Sequence<a class="ha" href="#4-4-radar-pulse-sequence" aria-hidden="true">¶</a></h3>
+
+<p><code>runRadarPulseSequence()</code> executes one complete azimuth position, consisting of elevation beam sweeps and stepper motor advancement.</p>
+
+<h4 id="4-4-1-elevation-sweep">4.4.1 Elevation Sweep<a class="ha" href="#4-4-1-elevation-sweep" aria-hidden="true">¶</a></h4>
+
+<p>For each of $N_\text{el} = 31$ beam elevation positions, the firmware:</p>
+
+<ul><li><strong>Toggles <code>stm32_new_elevation</code></strong> (PD9) to notify the FPGA of an elevation change</li><li><strong>Sets beam phase pattern</strong> via SPI1 to all 4 ADAR1000 devices for both TX and RX paths</li><li><strong>Executes chirp sequence</strong> (<code>executeChirpSequence()</code>)</li></ul>
+
+<p>The beam steering pattern cycles through three sub-patterns per elevation step:</p>
+<ul><li><strong>Positive steering</strong> (from <code>matrix1</code>): $m_\text{max}/2 = 16$ chirps</li><li><strong>Broadside</strong> (from <code>vector_0</code>): $m_\text{max}/2 = 16$ chirps</li><li><strong>Negative steering</strong> (from <code>matrix2</code>): $m_\text{max}/2 = 16$ chirps</li></ul>
+
+<h4 id="4-4-2-chirp-sequencing">4.4.2 Chirp Sequencing<a class="ha" href="#4-4-2-chirp-sequencing" aria-hidden="true">¶</a></h4>
+
+<p><code>executeChirpSequence()</code> generates the dual-chirp waveform for each beam position. Each call produces two chirp bursts separated by a guard interval:</p>
+
+<p><strong>Long chirp burst</strong> ($M/2$ chirps at microsecond timing):</p>
+<ul><li>For each chirp: toggle <code>stm32_new_chirp</code> (PD8), pulse TX mode, wait $T_{c,1}$ (<code>T1</code>), pulse RX mode, wait $T_{r,1} - T_{c,1}$ (<code>PRI1 - T1</code>)</li><li>Uses <code>delay_us()</code> (TIM1-based, 1 us resolution)</li></ul>
+
+<p><strong>Guard interval</strong>: wait $T_\text{guard}$ (<code>Guard</code>) via <code>delay_us()</code></p>
+
+<p><strong>Short chirp burst</strong> ($M/2$ chirps at nanosecond timing):</p>
+<ul><li>For each chirp: toggle <code>stm32_new_chirp</code> (PD8), pulse TX mode, wait $T_{c,2}$ (<code>T2</code>), pulse RX mode, wait $T_{r,2} - T_{c,2}$ (<code>PRI2 - T2</code>)</li><li>Uses <code>delay_ns()</code> (DWT cycle counter, sub-microsecond resolution)</li></ul>
+
+<h4 id="4-4-3-fpga-handshake-signals">4.4.3 FPGA Handshake Signals<a class="ha" href="#4-4-3-fpga-handshake-signals" aria-hidden="true">¶</a></h4>
+
+<table class="md-table"><thead><tr><th>Signal</th><th>GPIO Pin</th><th>Direction</th><th>Trigger</th></tr></thead><tbody><tr><td><code>stm32_new_chirp</code></td><td>PD8</td><td>STM32 to FPGA</td><td>Toggled at the start of each chirp (both long and short)</td></tr><tr><td><code>stm32_new_elevation</code></td><td>PD9</td><td>STM32 to FPGA</td><td>Toggled on each elevation beam position change</td></tr><tr><td><code>stm32_new_azimuth</code></td><td>PD10</td><td>STM32 to FPGA</td><td>Toggled after completing all elevation positions at one azimuth</td></tr><tr><td><code>stm32_mixers_enable</code></td><td>PD11</td><td>STM32 to FPGA</td><td>HIGH = mixers enabled, LOW = mixers disabled (safe mode)</td></tr><tr><td>FPGA reset</td><td>PD12</td><td>STM32 to FPGA</td><td>Active-low reset pulse during initialization</td></tr></tbody></table>
+
+<h4 id="4-4-4-azimuth-advancement">4.4.4 Azimuth Advancement<a class="ha" href="#4-4-4-azimuth-advancement" aria-hidden="true">¶</a></h4>
+
+<p>After completing all elevation positions, the firmware:</p>
+
+<ul><li>Toggles <code>stm32_new_azimuth</code> (PD10) to notify the FPGA</li><li>Increments the azimuth counter $y$ (wraps at $N_\text{az}$)</li><li>Steps the stepper motor to the next azimuth position by generating $S_\text{rev}/N_\text{az}$ step pulses (see Eq. (SW-24) in Section 5)</li></ul>
+
+<p>Each stepper step is a 500 us HIGH / 500 us LOW pulse on <code>STEPPER_CLK_P_Pin</code> (PD5), giving a step period of 1 ms.</p>
+
+<hr>
+
+<h2 id="5-magic-number-derivations">5. Magic Number Derivations<a class="ha" href="#5-magic-number-derivations" aria-hidden="true">¶</a></h2>
+
+<p>Every hardcoded numerical constant in the firmware is derived below from physics principles or component specifications. Per <a href="../00_notation/conventions.md">conventions.md anti-pattern 5.4</a>, each firmware variable name is paired with its standard symbol.</p>
+
+<h3 id="5-1-long-chirp-pri">5.1 Long Chirp PRI<a class="ha" href="#5-1-long-chirp-pri" aria-hidden="true">¶</a></h3>
+
+<p>The long chirp PRI $T_{r,1}$ (<code>PRI1</code> in <code>main.cpp</code>) is the sum of the long chirp duration $T_{c,1}$ and the processing/settling time between chirps:</p>
+
+<p>$$</p>
+<p>T_{r,1} = T_{c,1} + t_\text{processing} = 30 + 137 = 167~\mu\text{s} \tag{SW-22}</p>
+<p>$$</p>
+
+<p>where $T_{c,1}$ (<code>T1</code> in <code>main.cpp</code>) is the long chirp duration and $t_\text{processing} = 137~\mu\text{s}$ is the time allocated for FPGA data acquisition, ADC settling, and SPI beam updates between chirps. Cross-reference: <a href="../00_notation/parameter_table.md#waveform-and-timing">Parameter Table</a> for canonical timing values and <a href="../01_physics/01_fmcw_theory.md">FMCW Theory Eq. (FMCW-5)</a> for the PRI definition.</p>
+
+<h3 id="5-2-guard-time">5.2 Guard Time<a class="ha" href="#5-2-guard-time" aria-hidden="true">¶</a></h3>
+
+<p>The guard time $T_\text{guard}$ (<code>Guard</code> in <code>main.cpp</code>) separates the long chirp burst from the short chirp burst within a single beam position dwell:</p>
+
+<p>$$</p>
+<p>T_\text{guard} = 175.4~\mu\text{s} \tag{SW-23}</p>
+<p>$$</p>
+
+<p>This value provides sufficient time for the FPGA matched filter pipeline to flush the long chirp data and reconfigure for the short chirp processing mode. The guard must exceed the matched filter pipeline latency to prevent inter-burst interference. Cross-reference: <a href="../02_hardware/07_timing_budget.md">Timing Budget</a> for FPGA pipeline latency analysis.</p>
+
+<h3 id="5-3-phase-differences-array">5.3 Phase Differences Array<a class="ha" href="#5-3-phase-differences-array" aria-hidden="true">¶</a></h3>
+
+<p>The inter-element phase shift array $\Delta\phi_n$ (<code>phase_differences[31]</code> in <code>main.cpp</code>) defines 31 elevation beam positions. Each value is the phase difference in degrees applied between adjacent antenna elements to steer the beam to elevation angle $\theta_n$.</p>
+
+<p>The fundamental beam steering equation with half-wavelength element spacing $d = \lambda/2$ simplifies to:</p>
+
+<p>$$</p>
+<p>\Delta\phi = \frac{2\pi d \sin\theta}{\lambda} = \frac{2\pi \cdot (\lambda/2) \cdot \sin\theta}{\lambda} = \pi \sin\theta \tag{SW-24}</p>
+<p>$$</p>
+
+<p>Converting to degrees:</p>
+
+<p>$$</p>
+<p>\Delta\phi_\text{deg} = 180 \sin\theta \tag{SW-25}</p>
+<p>$$</p>
+
+<p>The inverse relation gives the steering angle from the phase difference:</p>
+
+<p>$$</p>
+<p>\theta = \arcsin\!\left(\frac{\Delta\phi_\text{deg}}{180}\right) \tag{SW-26}</p>
+<p>$$</p>
+
+<p>The 31 values in <code>phase_differences[]</code> are arranged symmetrically around broadside ($\Delta\phi = 0$ at index 15), with positive values (indices 0--14) steering to one side and negative values (indices 16--30) steering to the other:</p>
+
+<table class="md-table"><thead><tr><th>Index</th><th>$\Delta\phi_n$ (deg)</th><th>Steering angle $\theta$ (deg)</th></tr></thead><tbody><tr><td>0</td><td>+160.0</td><td>+62.7</td></tr><tr><td>1</td><td>+80.0</td><td>+26.4</td></tr><tr><td>2</td><td>+53.333</td><td>+17.2</td></tr><tr><td>3</td><td>+40.0</td><td>+12.8</td></tr><tr><td>...</td><td>...</td><td>...</td></tr><tr><td>14</td><td>+10.667</td><td>+3.4</td></tr><tr><td>15</td><td>0.0</td><td>0.0 (broadside)</td></tr><tr><td>16</td><td>-10.667</td><td>-3.4</td></tr><tr><td>...</td><td>...</td><td>...</td></tr><tr><td>29</td><td>-80.0</td><td>-26.4</td></tr><tr><td>30</td><td>-160.0</td><td>-62.7</td></tr></tbody></table>
+
+<p>The pattern follows $\Delta\phi_n = 160/n$ for positions 1--15 (e.g., 160, 80, 53.33, 40, 32, ...) and the negative mirror for positions 17--31. This provides finer angular resolution near broadside and coarser resolution at extreme scan angles.</p>
+
+<p>The 7-bit phase code written to the ADAR1000 phase register is computed by <code>degreesTo7BitPhase()</code>:</p>
+
+<p>$$</p>
+<p>\text{code}_n = \left\lfloor \frac{\phi_\text{cumulative}}{360} \times 128 \right\rfloor \bmod 128 \tag{SW-27}</p>
+<p>$$</p>
+
+<p>where $\phi_\text{cumulative} = k \times \Delta\phi_n$ is the cumulative phase for element $k$ at beam position $n$. The ADAR1000 phase register has 7-bit resolution (2.8125 degrees per step). Cross-reference: <a href="../01_physics/03_beamforming_theory.md">Beamforming Theory Eq. (BF-1)</a> for the array factor phase term and <a href="../02_hardware/04_antenna_beamforming.md">Antenna and Beamforming</a> for the ADAR1000 phase register format.</p>
+
+<h3 id="5-4-dac-gate-voltage-code">5.4 DAC Gate Voltage Code<a class="ha" href="#5-4-dac-gate-voltage-code" aria-hidden="true">¶</a></h3>
+
+<p>The PA gate voltage DAC code $N_\text{DAC}$ (<code>DAC_val</code> in <code>main.cpp</code>) sets the quiescent gate voltage $V_g$ for the QPA2962 GaN power amplifiers via a DAC5578 driving an inverting op-amp:</p>
+
+<p>The DAC output voltage is:</p>
+
+<p>$$</p>
+<p>V_\text{DAC} = \frac{N_\text{DAC}}{255} \times V_\text{ref} = \frac{126}{255} \times 3.3 \approx 1.631~\text{V} \tag{SW-28}</p>
+<p>$$</p>
+
+<p>The inverting op-amp converts this to a negative gate voltage:</p>
+
+<p>$$</p>
+<p>V_g \approx -3.98~\text{V} \tag{SW-29}</p>
+<p>$$</p>
+
+<p>This initial gate voltage biases the QPA2962 near pinch-off. The Idq tuning loop (Step 16) then adjusts $N_\text{DAC}$ downward in steps of 4 (making $V_g$ more negative) until the measured drain current converges to the target.</p>
+
+<h3 id="5-5-quiescent-drain-current-target">5.5 Quiescent Drain Current Target<a class="ha" href="#5-5-quiescent-drain-current-target" aria-hidden="true">¶</a></h3>
+
+<p>The target quiescent drain current $I_{dq,\text{target}}$ (<code>1.680</code> in the Idq tuning loop) is the recommended Class AB bias point for the QPA2962 GaN MMIC power amplifier:</p>
+
+<p>$$</p>
+<p>I_{dq,\text{target}} = 1.680~\text{A} \tag{SW-30}</p>
+<p>$$</p>
+
+<p>This value is sourced from the QPA2962 datasheet typical operating conditions. The drain current is measured by the ADS7830 ADC through an INA241A3 current sense amplifier ($G = 50$ V/V) and a 5 mohm shunt resistor:</p>
+
+<p>$$</p>
+<p>I_{dq} = \frac{V_\text{ADC}}{G \times R_\text{shunt}} = \frac{(3.3/255) \times N_\text{ADC}}{50 \times 0.005} \tag{SW-31}</p>
+<p>$$</p>
+
+<p>Cross-reference: <a href="../02_hardware/08_power_budget.md">Power Budget</a> for PA power dissipation calculations.</p>
+
+<h3 id="5-6-stepper-steps-per-azimuth-position">5.6 Stepper Steps per Azimuth Position<a class="ha" href="#5-6-stepper-steps-per-azimuth-position" aria-hidden="true">¶</a></h3>
+
+<p>The number of stepper motor steps between adjacent azimuth positions is derived from the motor steps per revolution $S_\text{rev}$ (<code>Stepper_steps</code> in <code>main.cpp</code>) and the number of azimuth positions $N_\text{az}$ (<code>y_max</code>):</p>
+
+<p>$$</p>
+<p>n_\text{step/az} = \frac{S_\text{rev}}{N_\text{az}} = \frac{200}{50} = 4~\text{steps per position} \tag{SW-32}</p>
+<p>$$</p>
+
+<p>Each step rotates the antenna array by $360/200 = 1.8$ degrees. Four steps yield $7.2$ degrees of azimuth rotation per position, giving full 360-degree coverage over $N_\text{az} = 50$ positions. See <a href="../00_notation/parameter_table.md#system-level-derivedtbd">Parameter Table</a> for the canonical stepper motor specifications.</p>
+
+<hr>
+
+<h2 id="6-gpio-pin-map">6. GPIO Pin Map<a class="ha" href="#6-gpio-pin-map" aria-hidden="true">¶</a></h2>
+
+<p>The complete GPIO pin map from <code>main.h</code>, grouped by subsystem.</p>
+
+<h3 id="6-1-power-control">6.1 Power Control<a class="ha" href="#6-1-power-control" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Pin</th><th>Port</th><th>Define Name</th><th>Purpose</th></tr></thead><tbody><tr><td>PE7</td><td>GPIOE</td><td><code>EN_P_1V0_FPGA_Pin</code></td><td>FPGA 1.0 V core supply enable</td></tr><tr><td>PE8</td><td>GPIOE</td><td><code>EN_P_1V8_FPGA_Pin</code></td><td>FPGA 1.8 V auxiliary supply enable</td></tr><tr><td>PE9</td><td>GPIOE</td><td><code>EN_P_3V3_FPGA_Pin</code></td><td>FPGA 3.3 V I/O supply enable</td></tr><tr><td>PE10</td><td>GPIOE</td><td><code>EN_P_5V0_ADAR_Pin</code></td><td>ADAR1000 5.0 V supply enable</td></tr><tr><td>PE11</td><td>GPIOE</td><td><code>EN_P_3V3_ADAR12_Pin</code></td><td>ADAR1000 #1--2 3.3 V supply enable</td></tr><tr><td>PE12</td><td>GPIOE</td><td><code>EN_P_3V3_ADAR34_Pin</code></td><td>ADAR1000 #3--4 3.3 V supply enable</td></tr><tr><td>PE13</td><td>GPIOE</td><td><code>EN_P_3V3_ADTR_Pin</code></td><td>ADTR1107 T/R module 3.3 V supply enable</td></tr><tr><td>PE14</td><td>GPIOE</td><td><code>EN_P_3V3_SW_Pin</code></td><td>RF switch 3.3 V supply enable</td></tr><tr><td>PE15</td><td>GPIOE</td><td><code>EN_P_3V3_VDD_SW_Pin</code></td><td>RF switch VDD supply enable</td></tr><tr><td>PG0</td><td>GPIOG</td><td><code>EN_P_5V0_PA1_Pin</code></td><td>PA bank 1 5.0 V supply enable</td></tr><tr><td>PG1</td><td>GPIOG</td><td><code>EN_P_5V0_PA2_Pin</code></td><td>PA bank 2 5.0 V supply enable</td></tr><tr><td>PG2</td><td>GPIOG</td><td><code>EN_P_5V0_PA3_Pin</code></td><td>PA bank 3 5.0 V supply enable</td></tr><tr><td>PG3</td><td>GPIOG</td><td><code>EN_P_5V5_PA_Pin</code></td><td>PA 5.5 V supply enable</td></tr><tr><td>PG4</td><td>GPIOG</td><td><code>EN_P_1V8_CLOCK_Pin</code></td><td>Clock generator 1.8 V supply enable</td></tr><tr><td>PG5</td><td>GPIOG</td><td><code>EN_P_3V3_CLOCK_Pin</code></td><td>Clock generator 3.3 V supply enable</td></tr><tr><td>PD6</td><td>GPIOD</td><td><code>EN_DIS_RFPA_VDD_Pin</code></td><td>RF PA drain supply (22 V) enable</td></tr><tr><td>PD7</td><td>GPIOD</td><td><code>EN_DIS_COOLING_Pin</code></td><td>Cooling system enable</td></tr></tbody></table>
+
+<h3 id="6-2-spi-chip-select">6.2 SPI Chip Select<a class="ha" href="#6-2-spi-chip-select" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Pin</th><th>Port</th><th>Define Name</th><th>Purpose</th></tr></thead><tbody><tr><td>PA0</td><td>GPIOA</td><td><code>ADAR_1_CS_3V3_Pin</code></td><td>ADAR1000 #1 chip select</td></tr><tr><td>PA1</td><td>GPIOA</td><td><code>ADAR_2_CS_3V3_Pin</code></td><td>ADAR1000 #2 chip select</td></tr><tr><td>PA2</td><td>GPIOA</td><td><code>ADAR_3_CS_3V3_Pin</code></td><td>ADAR1000 #3 chip select</td></tr><tr><td>PA3</td><td>GPIOA</td><td><code>ADAR_4_CS_3V3_Pin</code></td><td>ADAR1000 #4 chip select</td></tr><tr><td>PF7</td><td>GPIOF</td><td><code>AD9523_CS_Pin</code></td><td>AD9523-1 clock generator chip select</td></tr><tr><td>PG10</td><td>GPIOG</td><td><code>ADF4382_RX_CS_Pin</code></td><td>ADF4382 RX LO chip select</td></tr><tr><td>PG14</td><td>GPIOG</td><td><code>ADF4382_TX_CS_Pin</code></td><td>ADF4382 TX LO chip select</td></tr></tbody></table>
+
+<h3 id="6-3-ad9523-clock-generator-control">6.3 AD9523 Clock Generator Control<a class="ha" href="#6-3-ad9523-clock-generator-control" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Pin</th><th>Port</th><th>Define Name</th><th>Purpose</th></tr></thead><tbody><tr><td>PF3</td><td>GPIOF</td><td><code>AD9523_PD_Pin</code></td><td>Power-down control</td></tr><tr><td>PF4</td><td>GPIOF</td><td><code>AD9523_REF_SEL_Pin</code></td><td>Reference select (REFA/REFB)</td></tr><tr><td>PF5</td><td>GPIOF</td><td><code>AD9523_SYNC_Pin</code></td><td>Synchronization pulse output</td></tr><tr><td>PF6</td><td>GPIOF</td><td><code>AD9523_RESET_Pin</code></td><td>Active-low reset</td></tr><tr><td>PF8</td><td>GPIOF</td><td><code>AD9523_STATUS0_Pin</code></td><td>Lock/status indicator 0 (input)</td></tr><tr><td>PF9</td><td>GPIOF</td><td><code>AD9523_STATUS1_Pin</code></td><td>Lock/status indicator 1 (input)</td></tr><tr><td>PF10</td><td>GPIOF</td><td><code>AD9523_EEPROM_SEL_Pin</code></td><td>EEPROM access select</td></tr></tbody></table>
+
+<h3 id="6-4-adf4382-lo-control">6.4 ADF4382 LO Control<a class="ha" href="#6-4-adf4382-lo-control" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Pin</th><th>Port</th><th>Define Name</th><th>Purpose</th></tr></thead><tbody><tr><td>PG6</td><td>GPIOG</td><td><code>ADF4382_RX_LKDET_Pin</code></td><td>RX LO lock detect (input)</td></tr><tr><td>PG7</td><td>GPIOG</td><td><code>ADF4382_RX_DELADJ_Pin</code></td><td>RX delay adjust</td></tr><tr><td>PG8</td><td>GPIOG</td><td><code>ADF4382_RX_DELSTR_Pin</code></td><td>RX delay strobe</td></tr><tr><td>PG9</td><td>GPIOG</td><td><code>ADF4382_RX_CE_Pin</code></td><td>RX chip enable</td></tr><tr><td>PG11</td><td>GPIOG</td><td><code>ADF4382_TX_LKDET_Pin</code></td><td>TX LO lock detect (input)</td></tr><tr><td>PG12</td><td>GPIOG</td><td><code>ADF4382_TX_DELSTR_Pin</code></td><td>TX delay strobe</td></tr><tr><td>PG13</td><td>GPIOG</td><td><code>ADF4382_TX_DELADJ_Pin</code></td><td>TX delay adjust</td></tr><tr><td>PG15</td><td>GPIOG</td><td><code>ADF4382_TX_CE_Pin</code></td><td>TX chip enable</td></tr></tbody></table>
+
+<h3 id="6-5-fpga-control">6.5 FPGA Control<a class="ha" href="#6-5-fpga-control" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Pin</th><th>Port</th><th>Signal Name</th><th>Purpose</th></tr></thead><tbody><tr><td>PD8</td><td>GPIOD</td><td><code>stm32_new_chirp</code></td><td>New chirp edge signal to FPGA</td></tr><tr><td>PD9</td><td>GPIOD</td><td><code>stm32_new_elevation</code></td><td>New elevation position signal</td></tr><tr><td>PD10</td><td>GPIOD</td><td><code>stm32_new_azimuth</code></td><td>New azimuth position signal</td></tr><tr><td>PD11</td><td>GPIOD</td><td><code>stm32_mixers_enable</code></td><td>RF mixer enable/disable</td></tr><tr><td>PD12</td><td>GPIOD</td><td>FPGA reset</td><td>Active-low FPGA reset</td></tr></tbody></table>
+
+<h3 id="6-6-sensors-and-peripherals">6.6 Sensors and Peripherals<a class="ha" href="#6-6-sensors-and-peripherals" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Pin</th><th>Port</th><th>Define Name</th><th>Purpose</th></tr></thead><tbody><tr><td>PC6</td><td>GPIOC</td><td><code>MAG_DRDY_Pin</code></td><td>Magnetometer data ready (input)</td></tr><tr><td>PC7</td><td>GPIOC</td><td><code>ACC_INT_Pin</code></td><td>Accelerometer interrupt (input)</td></tr><tr><td>PC8</td><td>GPIOC</td><td><code>GYR_INT_Pin</code></td><td>Gyroscope interrupt (input)</td></tr><tr><td>PD4</td><td>GPIOD</td><td><code>STEPPER_CW_P_Pin</code></td><td>Stepper motor direction (CW/CCW)</td></tr><tr><td>PD5</td><td>GPIOD</td><td><code>STEPPER_CLK_P_Pin</code></td><td>Stepper motor step clock</td></tr></tbody></table>
+
+<h3 id="6-7-pa-dac-control">6.7 PA DAC Control<a class="ha" href="#6-7-pa-dac-control" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Pin</th><th>Port</th><th>Define Name</th><th>Purpose</th></tr></thead><tbody><tr><td>PB4</td><td>GPIOB</td><td><code>DAC_1_VG_CLR_Pin</code></td><td>DAC #1 hardware clear (zero all outputs)</td></tr><tr><td>PB5</td><td>GPIOB</td><td><code>DAC_1_VG_LDAC_Pin</code></td><td>DAC #1 load DAC (simultaneous update)</td></tr><tr><td>PB8</td><td>GPIOB</td><td><code>DAC_2_VG_CLR_Pin</code></td><td>DAC #2 hardware clear</td></tr><tr><td>PB9</td><td>GPIOB</td><td><code>DAC_2_VG_LDAC_Pin</code></td><td>DAC #2 load DAC</td></tr></tbody></table>
+
+<h3 id="6-8-indicators">6.8 Indicators<a class="ha" href="#6-8-indicators" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Pin</th><th>Port</th><th>Define Name</th><th>Purpose</th></tr></thead><tbody><tr><td>PF12</td><td>GPIOF</td><td><code>LED_1_Pin</code></td><td>TX LO lock indicator</td></tr><tr><td>PF13</td><td>GPIOF</td><td><code>LED_2_Pin</code></td><td>RX LO lock indicator</td></tr><tr><td>PF14</td><td>GPIOF</td><td><code>LED_3_Pin</code></td><td>Error code blink indicator</td></tr><tr><td>PF15</td><td>GPIOF</td><td><code>LED_4_Pin</code></td><td>General status indicator</td></tr></tbody></table>
+
+<hr>
+
+<h2 id="7-error-handling">7. Error Handling<a class="ha" href="#7-error-handling" aria-hidden="true">¶</a></h2>
+
+<h3 id="7-1-error-classification">7.1 Error Classification<a class="ha" href="#7-1-error-classification" aria-hidden="true">¶</a></h3>
+
+<p>The firmware defines 16 error codes in <code>SystemError_t</code>, classified into critical and non-critical categories:</p>
+
+<p><strong>Critical errors</strong> (trigger emergency shutdown via <code>Emergency_Stop()</code>):</p>
+<ul><li><code>ERROR_RF_PA_OVERCURRENT</code> -- any $I_{dq} &gt; 2.5$ A</li><li><code>ERROR_RF_PA_BIAS</code> -- any $I_{dq} &lt; 0.1$ A (channel not biased)</li><li><code>ERROR_STEPPER_MOTOR</code> -- stepper motor fault</li><li><code>ERROR_FPGA_COMM</code> -- FPGA communication failure</li><li><code>ERROR_POWER_SUPPLY</code> -- power supply fault</li></ul>
+
+<p><strong>Non-critical errors</strong> (trigger recovery attempt):</p>
+<ul><li><code>ERROR_AD9523_CLOCK</code> -- clock generator status pin indicates fault</li><li><code>ERROR_ADF4382_TX_UNLOCK</code> / <code>ERROR_ADF4382_RX_UNLOCK</code> -- LO lock lost (recovery: re-init)</li><li><code>ERROR_ADAR1000_COMM</code> -- SPI communication failure (recovery: re-init all devices)</li><li><code>ERROR_ADAR1000_TEMP</code> -- device temperature &gt; 85 C</li><li><code>ERROR_IMU_COMM</code> -- NaN readings (recovery: re-init IMU)</li><li><code>ERROR_BMP180_COMM</code> -- pressure out of range</li><li><code>ERROR_GPS_COMM</code> -- no fix update in 30 s (auto-recovery when signal returns)</li><li><code>ERROR_TEMPERATURE_HIGH</code> -- system temperature &gt; 75 C</li><li><code>ERROR_MEMORY_ALLOC</code> -- memory allocation failure</li><li><code>ERROR_WATCHDOG_TIMEOUT</code> -- software watchdog (60 s timeout)</li></ul>
+
+<h3 id="7-2-emergency-stop">7.2 Emergency Stop<a class="ha" href="#7-2-emergency-stop" aria-hidden="true">¶</a></h3>
+
+<p><code>Emergency_Stop()</code> is the last line of defense for PA protection. It activates the DAC5578 hardware CLR pins (<code>DAC_1_VG_CLR_Pin</code> = PB4, <code>DAC_2_VG_CLR_Pin</code> = PB8), which are wired to immediately zero all DAC outputs (gate voltage goes to 0 V, pinching off all PA transistors). The function then enters an infinite loop -- recovery requires a hardware reset.</p>
+
+<h3 id="7-3-safe-mode">7.3 Safe Mode<a class="ha" href="#7-3-safe-mode" aria-hidden="true">¶</a></h3>
+
+<p>If <code>checkSystemHealthStatus()</code> returns <code>false</code> (emergency state or &gt; 10 cumulative errors), the main loop:</p>
+<ul><li>Disables mixers (PD11 LOW)</li><li>Executes <code>systemPowerDownSequence()</code> (reverse power-down: RX mode, disable PA supplies, safe bias, disable LNA, disable switches)</li><li>Enters LED blink loop (all 4 LEDs toggling) indicating safe mode</li></ul>
+
+<hr>
+
+<h2 id="8-references">8. References<a class="ha" href="#8-references" aria-hidden="true">¶</a></h2>
+
+<ul><li><a href="../00_notation/symbol_table.md">Symbol Table</a> -- standard mathematical symbol definitions</li><li><a href="../00_notation/parameter_table.md">Parameter Table</a> -- canonical numerical values for both variants</li><li><a href="../00_notation/conventions.md">Conventions</a> -- equation numbering and formatting rules</li><li><a href="../01_physics/01_fmcw_theory.md">FMCW Theory</a> -- chirp timing and PRI derivations</li><li><a href="../01_physics/03_beamforming_theory.md">Beamforming Theory</a> -- array factor and phase steering equations</li><li><a href="../02_hardware/01_system_overview.md">System Overview</a> -- AERIS-10 system architecture</li><li><a href="../02_hardware/02_rf_frontend.md">RF Front-End</a> -- mixer and PA specifications</li><li><a href="../02_hardware/03_frequency_synthesis.md">Frequency Synthesis</a> -- AD9523 and ADF4382 configuration</li><li><a href="../02_hardware/04_antenna_beamforming.md">Antenna and Beamforming</a> -- ADAR1000 register map and beam steering</li><li><a href="../02_hardware/06_power_management.md">Power Management</a> -- power sequencing and GPIO rail control</li><li><a href="../02_hardware/07_timing_budget.md">Timing Budget</a> -- pipeline latency analysis</li><li><a href="../02_hardware/08_power_budget.md">Power Budget</a> -- PA power dissipation</li><li><a href="../02_hardware/09_gps_imu_transforms.md">GPS/IMU Transforms</a> -- complementary filter and coordinate transforms</li></ul>
+
+</div>
+  </div><!-- main-content -->
+</div><!-- site-shell -->
+<script>
+mermaid.initialize({ startOnLoad: true, theme: 'dark', securityLevel: 'loose' });
+</script>
+</body>
+
+</html>

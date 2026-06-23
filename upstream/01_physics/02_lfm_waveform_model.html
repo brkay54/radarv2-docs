@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>02_lfm_waveform_model — aros Vault</title>
+<style>
+
+:root {
+  --color-blue:    #007ACC;
+  --color-green:   #2DA44E;
+  --color-yellow:  #D29922;
+  --color-purple:  #8B5CF6;
+  --color-orange:  #F59E0B;
+  --color-red:     #E5534B;
+  --color-cyan:    #0BC5EA;
+  --color-accent:  #7C3AED;
+  --text-normal:   #DCDDDE;
+  --text-muted:    #8E8EA0;
+  --background-primary:         #1E1E2E;
+  --background-secondary:       #181825;
+  --background-modifier-border: #313244;
+  --color-base-30:              #45475A;
+}
+body {
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.6;
+  margin: 0;
+}
+
+</style>
+<!-- Mermaid -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<!-- MathJax -->
+<script>window.MathJax={tex:{inlineMath:[['$','$'],['\\(','\\)']],displayMath:[['$$','$$'],['\\[','\\]']]},options:{skipHtmlTags:['script','noscript','style','textarea','pre']}};</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+<!-- Site CSS -->
+<link rel="stylesheet" href="../../site.css">
+</head>
+<body class="markdown-reading-view">
+<div class="site-shell">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <a href="../../00-Index.html" class="site-title">radarv2 / AERIS-10</a>
+      <div class="site-subtitle">aros Radar Documentation</div>
+    </div>
+    <ul class="nav-list">
+      <li class="nav-section">Core Docs</li>
+      <li><a href="../../09-Concepts-Primer.html">Radar Primer</a></li>
+      <li><a href="../../00-Index.html">Index</a></li>
+      <li><a href="../../01-System-Overview.html">System Overview</a></li>
+      <li><a href="../../02-Physics-and-Waveform.html">Physics &amp; Waveform</a></li>
+      <li><a href="../../03-Beamforming-and-Scan.html">Beamforming &amp; Scan</a></li>
+      <li><a href="../../04-Signal-Processing-Pipeline.html">Signal Processing</a></li>
+      <li><a href="../../05-Node-Architecture.html">Node Architecture</a></li>
+      <li><a href="../../06-Message-Catalog.html">Message Catalog</a></li>
+      <li><a href="../../07-Detection-and-Tracking.html">Detection &amp; Tracking</a></li>
+      <li><a href="../../08-Scenarios-and-Targets.html">Scenarios &amp; Targets</a></li>
+      <li class="nav-section">Advanced</li>
+      <li><a href="../../10-Radar-Model-Library.html">Radar Model Library</a></li>
+      <li><a href="../../11-Multi-Radar-Fusion.html">Multi-Radar Fusion</a></li>
+      <li><a href="../../12-3D-Scene.html">3-D Scene</a></li>
+      <li><a href="../../13-Reference-Tables.html">Reference Tables</a></li>
+      <li><a href="../../FUTURE-DEVELOPMENT.html">Future Development</a></li>
+      <li class="nav-section">Upstream Theory</li>
+      <li><a href="../../upstream/README.html">Upstream README</a></li>
+      <li><a href="../../upstream/00_notation/conventions.html">Notation</a></li>
+      <li><a href="../../upstream/01_physics/01_fmcw_theory.html">FMCW Theory</a></li>
+      <li><a href="../../upstream/01_physics/02_lfm_waveform_model.html">LFM Waveform</a></li>
+      <li><a href="../../upstream/01_physics/03_beamforming_theory.html">Beamforming Theory</a></li>
+      <li><a href="../../upstream/01_physics/04_detection_theory.html">Detection Theory</a></li>
+      <li><a href="../../upstream/01_physics/05_noise_analysis.html">Noise Analysis</a></li>
+      <li><a href="../../upstream/01_physics/06_calibration_theory.html">Calibration</a></li>
+      <li><a href="../../upstream/02_hardware/01_system_overview.html">HW Overview</a></li>
+      <li><a href="../../upstream/04_research/01_cfar_variants.html">CFAR Variants</a></li>
+    </ul>
+    <div class="sidebar-footer">
+      <a href="https://github.com/brkay54/radarv2-docs" target="_blank">GitHub</a>
+    </div>
+  </nav>
+  <div class="main-content">
+
+<div class="markdown-preview-section">
+<h1 id="lfm-waveform-model">LFM Waveform Model<a class="ha" href="#lfm-waveform-model" aria-hidden="true">¶</a></h1>
+
+<p class="kv-line"><span class="kv-key">Purpose:</span> <span class="kv-value">Derive the Linear Frequency Modulated (LFM) chirp signal mathematics, time-bandwidth product, matched filter theory, pulse compression, sidelobe structure, and ambiguity function for the AERIS-10 radar system.</span></p>
+
+<p class="kv-line"><span class="kv-key">Prerequisites:</span> <span class="kv-value">Familiarity with:</span></p>
+<ul><li><a href="../00_notation/symbol_table.md">Symbol Table</a> -- all symbols used herein</li><li><a href="../00_notation/parameter_table.md">Parameter Table</a> -- numerical values for both variants</li><li><a href="../00_notation/conventions.md">Conventions</a> -- equation formatting rules</li><li><a href="01_fmcw_theory.md">FMCW Theory</a> -- beat frequency, range equation, and range-Doppler coupling</li></ul>
+
+<hr>
+
+<h2 id="1-lfm-chirp-signal">1. LFM Chirp Signal<a class="ha" href="#1-lfm-chirp-signal" aria-hidden="true">¶</a></h2>
+
+<p>The transmitted signal in the AERIS-10 system is a Linear Frequency Modulated (LFM) chirp. During each pulse of duration $T_c$ (defined in the <a href="../00_notation/symbol_table.md#waveform-and-timing-parameters">Symbol Table</a>), the carrier frequency sweeps linearly across the chirp bandwidth $B$ (defined in the <a href="../00_notation/symbol_table.md#waveform-and-timing-parameters">Symbol Table</a>).</p>
+
+<h3 id="complex-baseband-representation">Complex Baseband Representation<a class="ha" href="#complex-baseband-representation" aria-hidden="true">¶</a></h3>
+
+<p>The LFM chirp signal in complex baseband form, gated by a rectangular window over the chirp duration, is:</p>
+
+<p>$$</p>
+<p>s(t) = \operatorname{rect}\!\left(\frac{t}{T_c}\right) \exp\!\left(j2\pi\!\left(f_c t + \frac{\mu}{2} t^2\right)\right) \tag{LFM-1}</p>
+<p>$$</p>
+
+<p>where the rectangular window is defined as:</p>
+
+<p>$$</p>
+<p>\operatorname{rect}\!\left(\frac{t}{T_c}\right) =</p>
+<p>\begin{cases}</p>
+<p>1, &amp; |t| \le T_c / 2 \\</p>
+<p>0, &amp; |t| &gt; T_c / 2</p>
+<p>\end{cases}</p>
+<p>\tag{LFM-2}</p>
+<p>$$</p>
+
+<p>and $\mu$ is the chirp rate (defined in the <a href="../00_notation/symbol_table.md#waveform-and-timing-parameters">Symbol Table</a>):</p>
+
+<p>$$</p>
+<p>\mu = \frac{B}{T_c} \tag{LFM-3}</p>
+<p>$$</p>
+
+<h3 id="instantaneous-frequency">Instantaneous Frequency<a class="ha" href="#instantaneous-frequency" aria-hidden="true">¶</a></h3>
+
+<p>The instantaneous frequency of the chirp is obtained from the time derivative of the phase $\phi(t) = 2\pi(f_c t + \mu t^2 / 2)$:</p>
+
+<p>$$</p>
+<p>f_i(t) = \frac{1}{2\pi}\frac{d\phi}{dt} = f_c + \mu t \tag{LFM-4}</p>
+<p>$$</p>
+
+<p>Over the chirp duration $-T_c/2 \le t \le T_c/2$, the instantaneous frequency sweeps linearly from $f_c - B/2$ to $f_c + B/2$. The total frequency excursion equals the chirp bandwidth $B$, and the sweep rate is constant at $\mu$ Hz/s.</p>
+
+<p class="kv-line"><span class="kv-key">Physical interpretation:</span> <span class="kv-value">The LFM chirp distributes its energy across the full bandwidth $B$ during the pulse duration $T_c$. This spread-spectrum property is what enables pulse compression -- recovering range resolution determined by $B$ from a long pulse of duration $T_c$.</span></p>
+
+<hr>
+
+<h2 id="2-time-bandwidth-product">2. Time-Bandwidth Product<a class="ha" href="#2-time-bandwidth-product" aria-hidden="true">¶</a></h2>
+
+<p>The time-bandwidth product (TBP) is the fundamental figure of merit for an LFM waveform. It is defined as:</p>
+
+<p>$$</p>
+<p>\text{TBP} = B \, T_c \tag{LFM-5}</p>
+<p>$$</p>
+
+<p>The TBP determines two critical system properties:</p>
+
+<ul><li><strong>Pulse compression ratio:</strong> The ratio of the uncompressed pulse width $T_c$ to the compressed pulse width $\tau_c = 1/B$ (derived in Section 4) equals $B T_c$. A larger TBP means greater compression and finer range resolution from a longer pulse.</li></ul>
+
+<ul><li><strong>Processing gain:</strong> The matched filter output SNR gain relative to the input SNR equals the TBP (derived in Section 3). This is the fundamental advantage of pulse compression radar -- achieving the range resolution of a short pulse while transmitting the energy of a long pulse.</li></ul>
+
+<h3 id="chirp-mode-comparison">Chirp Mode Comparison<a class="ha" href="#chirp-mode-comparison" aria-hidden="true">¶</a></h3>
+
+<p>The AERIS-10 system operates in two chirp modes with different durations $T_{c,1}$ and $T_{c,2}$ (see the <a href="../00_notation/parameter_table.md#waveform-and-timing">Parameter Table</a> for values). Both modes share the same bandwidth $B$ (currently TBD). The TBP for each mode is:</p>
+
+<p>$$</p>
+<p>\begin{aligned}</p>
+<p>\text{TBP}_1 &amp;= B \, T_{c,1} \\</p>
+<p>\text{TBP}_2 &amp;= B \, T_{c,2}</p>
+<p>\end{aligned}</p>
+<p>\tag{LFM-6}</p>
+<p>$$</p>
+
+<p>The ratio of time-bandwidth products is:</p>
+
+<p>$$</p>
+<p>\frac{\text{TBP}_1}{\text{TBP}_2} = \frac{T_{c,1}}{T_{c,2}} \tag{LFM-7}</p>
+<p>$$</p>
+
+<blockquote><strong>Variant Note -- Chirp Mode Comparison:</strong></blockquote>
+<blockquote>| | Long Chirp | Short Chirp |</blockquote>
+<blockquote>|--|-----------|-------------|</blockquote>
+<blockquote>| Chirp duration $T_c$ | $T_{c,1}$ | $T_{c,2}$ |</blockquote>
+<blockquote>| Time-bandwidth product | $B \, T_{c,1}$ | $B \, T_{c,2}$ |</blockquote>
+<blockquote>| Relative TBP | $T_{c,1} / T_{c,2}$ | 1 (reference) |</blockquote>
+<p>&gt;</p>
+<blockquote>See the <a href="../00_notation/parameter_table.md#waveform-and-timing">Parameter Table</a> for numerical values. Both modes achieve the same range resolution $\Delta R = c/(2B)$ (since $B$ is shared), but the long chirp provides proportionally higher processing gain.</blockquote>
+
+<hr>
+
+<h2 id="3-matched-filter-theory">3. Matched Filter Theory<a class="ha" href="#3-matched-filter-theory" aria-hidden="true">¶</a></h2>
+
+<p>The matched filter is the linear filter that maximizes the output signal-to-noise ratio for a known signal in additive white Gaussian noise. This is a consequence of the Schwarz inequality and is the optimal linear detector in the Neyman-Pearson sense.</p>
+
+<h3 id="matched-filter-definition">Matched Filter Definition<a class="ha" href="#matched-filter-definition" aria-hidden="true">¶</a></h3>
+
+<p>For a transmitted signal $s(t)$, the matched filter impulse response is the time-reversed, conjugated replica:</p>
+
+<p>$$</p>
+<p>h(t) = s^*(-t) \tag{LFM-8}</p>
+<p>$$</p>
+
+<p>Equivalently, the matched filter frequency response is the conjugate of the signal spectrum:</p>
+
+<p>$$</p>
+<p>H(f) = S^*(f) \tag{LFM-9}</p>
+<p>$$</p>
+
+<p>where $S(f) = \mathcal{F}\{s(t)\}$ is the Fourier transform of the transmitted signal.</p>
+
+<h3 id="output-snr-maximization">Output SNR Maximization<a class="ha" href="#output-snr-maximization" aria-hidden="true">¶</a></h3>
+
+<p>The matched filter output is the convolution of the received signal with the matched filter impulse response. When the received signal consists of a scaled copy of $s(t)$ embedded in white Gaussian noise with power spectral density $N_0/2$, the output SNR at the peak of the matched filter response is:</p>
+
+<p>$$</p>
+<p>\text{SNR}_\text{out} = \frac{2E}{N_0} \tag{LFM-10}</p>
+<p>$$</p>
+
+<p>where $E$ is the signal energy:</p>
+
+<p>$$</p>
+<p>E = \int_{-\infty}^{\infty} |s(t)|^2 \, dt \tag{LFM-11}</p>
+<p>$$</p>
+
+<p>This result is independent of the waveform shape -- any signal with the same energy achieves the same peak output SNR through its matched filter. The matched filter output SNR depends only on the total signal energy and the noise spectral density.</p>
+
+<h3 id="processing-gain">Processing Gain<a class="ha" href="#processing-gain" aria-hidden="true">¶</a></h3>
+
+<p>For the LFM chirp of Eq. (LFM-1) with unit amplitude over duration $T_c$, the signal energy is $E = T_c$. The input SNR (ratio of signal power to noise power in bandwidth $B$) is:</p>
+
+<p>$$</p>
+<p>\text{SNR}_\text{in} = \frac{1}{N_0 B} \tag{LFM-12}</p>
+<p>$$</p>
+
+<p>The ratio of output to input SNR defines the processing gain:</p>
+
+<p>$$</p>
+<p>G_p = \frac{\text{SNR}_\text{out}}{\text{SNR}_\text{in}} = \frac{2E / N_0}{1 / (N_0 B)} = 2 E B = 2 T_c B \approx B \, T_c \tag{LFM-13}</p>
+<p>$$</p>
+
+<p>where the factor of 2 arises from the two-sided noise spectral density convention and is conventionally absorbed into the definition. The processing gain of the matched filter equals the time-bandwidth product:</p>
+
+<p>$$</p>
+<p>\boxed{G_p = B \, T_c} \tag{LFM-14}</p>
+<p>$$</p>
+
+<p>This connects to the radar range equation: the single-pulse SNR from Eq. (FMCW-11) in <a href="01_fmcw_theory.md#signal-to-noise-ratio"><code>01_fmcw_theory.md</code></a> is enhanced by the processing gain $G_p$ after matched filtering. The post-matched-filter SNR is:</p>
+
+<p>$$</p>
+<p>\text{SNR}_\text{MF} = \text{SNR} \cdot G_p = \frac{P_t G^2 \lambda^2 \sigma}{(4\pi)^3 R^4 k_B T_0 B_n F L} \cdot B \, T_c \tag{LFM-15}</p>
+<p>$$</p>
+
+<hr>
+
+<h2 id="4-pulse-compression">4. Pulse Compression<a class="ha" href="#4-pulse-compression" aria-hidden="true">¶</a></h2>
+
+<p>Pulse compression is the physical realization of matched filtering for the LFM waveform. It converts the long chirp pulse of duration $T_c$ into a narrow compressed pulse of width $\tau_c$, achieving the range resolution of a short pulse while maintaining the energy of the long pulse.</p>
+
+<h3 id="compressed-pulse-width">Compressed Pulse Width<a class="ha" href="#compressed-pulse-width" aria-hidden="true">¶</a></h3>
+
+<p>The matched filter output for the LFM chirp has a mainlobe width (measured between the first nulls of the sinc-like envelope) determined by the bandwidth:</p>
+
+<p>$$</p>
+<p>\tau_c = \frac{1}{B} \tag{LFM-16}</p>
+<p>$$</p>
+
+<p>This is the compressed pulse width. The compression ratio is:</p>
+
+<p>$$</p>
+<p>\frac{T_c}{\tau_c} = B \, T_c = \text{TBP} \tag{LFM-17}</p>
+<p>$$</p>
+
+<h3 id="connection-to-range-resolution">Connection to Range Resolution<a class="ha" href="#connection-to-range-resolution" aria-hidden="true">¶</a></h3>
+
+<p>The compressed pulse width directly determines the range resolution. Two targets separated by $\Delta R$ produce echoes with a time-of-arrival difference of $\Delta \tau = 2\Delta R / c$. They are resolvable when this difference exceeds the compressed pulse width:</p>
+
+<p>$$</p>
+<p>\Delta \tau \ge \tau_c = \frac{1}{B}</p>
+<p>$$</p>
+
+<p>Therefore:</p>
+
+<p>$$</p>
+<p>\Delta R = \frac{c \, \tau_c}{2} = \frac{c}{2B} \tag{LFM-18}</p>
+<p>$$</p>
+
+<p>This is identical to Eq. (FMCW-19) in <a href="01_fmcw_theory.md#range-resolution"><code>01_fmcw_theory.md</code></a>, confirming that range resolution depends only on bandwidth and is independent of pulse duration.</p>
+
+<h3 id="matched-filter-output-envelope">Matched Filter Output Envelope<a class="ha" href="#matched-filter-output-envelope" aria-hidden="true">¶</a></h3>
+
+<p>The matched filter output for the unweighted LFM chirp has the form of a sinc function modulated by a residual chirp phase:</p>
+
+<p>$$</p>
+<p>y(\tau)| = T_c \left| \operatorname{sinc}\!\left(B\tau \!\left(1 - \frac{| \tau| }{T_c}\right)\right)\right| \tag{LFM-19}</p>
+<p>$$</p>
+
+<p>where $\tau$ is the delay relative to the peak. For $|\tau| \ll T_c$ (which holds for any practical compressed pulse since $\tau_c = 1/B \ll T_c$), this simplifies to:</p>
+
+<p>$$</p>
+<p>y(\tau)| \approx T_c \left| \operatorname{sinc}(B\tau)\right| \tag{LFM-20}</p>
+<p>$$</p>
+
+<p>The mainlobe has a $-3~\text{dB}$ width of approximately $0.89/B$ and first nulls at $\tau = \pm 1/B$.</p>
+
+<hr>
+
+<h2 id="5-sidelobe-structure-and-windowing">5. Sidelobe Structure and Windowing<a class="ha" href="#5-sidelobe-structure-and-windowing" aria-hidden="true">¶</a></h2>
+
+<h3 id="unweighted-sidelobe-levels">Unweighted Sidelobe Levels<a class="ha" href="#unweighted-sidelobe-levels" aria-hidden="true">¶</a></h3>
+
+<p>The sinc-like compressed pulse of Eq. (LFM-20) has sidelobes that decay slowly. The peak sidelobe level (PSL) for the unweighted (rectangular window) case is:</p>
+
+<p>$$</p>
+<p>\text{PSL}_\text{rect} = -13.3~\text{dB} \tag{LFM-21}</p>
+<p>$$</p>
+
+<p>This first sidelobe at $-13.3~\text{dB}$ below the mainlobe peak can mask weak targets adjacent to strong reflectors. In practice, a window function $w[n]$ (defined in the <a href="../00_notation/symbol_table.md#signal-processing">Symbol Table</a>) is applied to reduce the sidelobe level at the cost of widening the mainlobe.</p>
+
+<h3 id="windowing-tradeoffs">Windowing Tradeoffs<a class="ha" href="#windowing-tradeoffs" aria-hidden="true">¶</a></h3>
+
+<p>Applying a window function to the matched filter (equivalently, tapering the signal spectrum before inverse FFT) reduces sidelobes but widens the mainlobe, degrading range resolution. The fundamental tradeoff is:</p>
+
+<table class="md-table"><thead><tr><th>Window</th><th>Peak Sidelobe Level</th><th>Mainlobe Width Factor</th><th>Processing Loss</th></tr></thead><tbody><tr><td>Rectangular (none)</td><td>$-13.3~\text{dB}$</td><td>$1.0 \times (1/B)$</td><td>$0~\text{dB}$</td></tr><tr><td>Hamming</td><td>$-42.8~\text{dB}$</td><td>$1.50 \times (1/B)$</td><td>$1.34~\text{dB}$</td></tr><tr><td>Taylor ($\bar{n} = 5$, SLL $= -35~\text{dB}$)</td><td>$-35~\text{dB}$</td><td>$1.28 \times (1/B)$</td><td>$0.76~\text{dB}$</td></tr></tbody></table>
+
+<p class="kv-line"><span class="kv-key">Resolution-sidelobe tradeoff:</span> <span class="kv-value">Hamming weighting achieves a $29.5~\text{dB}$ sidelobe improvement over the rectangular window at the cost of $50\%$ mainlobe widening (degrading range resolution from $c/(2B)$ to approximately $1.5 \cdot c/(2B)$). Taylor weighting provides a more favorable compromise, achieving $-35~\text{dB}$ sidelobes with only $28\%$ mainlobe widening.</span></p>
+
+<p>The processing loss column quantifies the SNR reduction due to windowing -- the window reduces the coherent gain of the matched filter because it applies non-uniform weights to the signal spectrum. This loss is subtracted from the processing gain $G_p$ of Eq. (LFM-14).</p>
+
+<hr>
+
+<h2 id="6-ambiguity-function">6. Ambiguity Function<a class="ha" href="#6-ambiguity-function" aria-hidden="true">¶</a></h2>
+
+<p>The ambiguity function characterizes a waveform&#x27;s joint range-Doppler resolution and coupling. It is the fundamental tool for analyzing how well a radar waveform can simultaneously resolve targets in range (delay) and velocity (Doppler).</p>
+
+<h3 id="definition">Definition<a class="ha" href="#definition" aria-hidden="true">¶</a></h3>
+
+<p>The ambiguity function is defined as:</p>
+
+<p>$$</p>
+<p>\chi(\tau, \nu) = \int_{-\infty}^{\infty} s(t) \, s^*\!(t - \tau) \, e^{j2\pi \nu t} \, dt \tag{LFM-22}</p>
+<p>$$</p>
+
+<p>where $\tau$ is the delay (related to range by $\tau = 2R/c$) and $\nu$ is the Doppler frequency shift (defined in the <a href="../00_notation/symbol_table.md#signal-processing">Symbol Table</a>). The squared magnitude $|\chi(\tau, \nu)|^2$ is called the ambiguity surface.</p>
+
+<h3 id="ambiguity-function-for-the-lfm-chirp">Ambiguity Function for the LFM Chirp<a class="ha" href="#ambiguity-function-for-the-lfm-chirp" aria-hidden="true">¶</a></h3>
+
+<p>Substituting the LFM signal from Eq. (LFM-1) into the definition of Eq. (LFM-22), the ambiguity function for the LFM chirp evaluates to:</p>
+
+<p>$$</p>
+<p>\chi(\tau, \nu)| = \left(1 - \frac{| \tau| }{T_c}\right) \left| \operatorname{sinc}\!\left((\nu + \mu\tau)(T_c -| \tau| )\right)\right| , \quad| \tau| \le T_c \tag{LFM-23}</p>
+<p>$$</p>
+
+<p>The key feature is the argument of the sinc function: $\nu + \mu\tau$. The peak of the ambiguity function (where the sinc argument is zero) occurs along the line:</p>
+
+<p>$$</p>
+<p>\nu = -\mu\tau \tag{LFM-24}</p>
+<p>$$</p>
+
+<p>This is the <strong>tilted ridge</strong> characteristic of the LFM waveform. The ridge is tilted in the $(\tau, \nu)$ plane with slope $-\mu = -B/T_c$, coupling delay and Doppler measurements.</p>
+
+<h3 id="interpretation-for-the-aeris-10-system">Interpretation for the AERIS-10 System<a class="ha" href="#interpretation-for-the-aeris-10-system" aria-hidden="true">¶</a></h3>
+
+<p>The ambiguity function reveals four critical system properties:</p>
+
+<h4 id="a-range-resolution-zero-doppler-cut">(a) Range Resolution (Zero-Doppler Cut)<a class="ha" href="#a-range-resolution-zero-doppler-cut" aria-hidden="true">¶</a></h4>
+
+<p>Setting $\nu = 0$ in Eq. (LFM-23) gives the zero-Doppler cut:</p>
+
+<p>$$</p>
+<p>\chi(\tau, 0)| = \left(1 - \frac{| \tau| }{T_c}\right) \left| \operatorname{sinc}(\mu\tau(T_c -| \tau| ))\right| \tag{LFM-25}</p>
+<p>$$</p>
+
+<p>For $|\tau| \ll T_c$, this reduces to $|\operatorname{sinc}(B\tau)|$, consistent with the matched filter output of Eq. (LFM-20). The first null occurs at $\tau = 1/B$, confirming the range resolution:</p>
+
+<p>$$</p>
+<p>\Delta R = \frac{c}{2B}</p>
+<p>$$</p>
+
+<p>as derived in Eq. (LFM-18) and Eq. (FMCW-19) of <a href="01_fmcw_theory.md#range-resolution"><code>01_fmcw_theory.md</code></a>.</p>
+
+<h4 id="b-velocity-resolution-zero-delay-cut">(b) Velocity Resolution (Zero-Delay Cut)<a class="ha" href="#b-velocity-resolution-zero-delay-cut" aria-hidden="true">¶</a></h4>
+
+<p>Setting $\tau = 0$ in Eq. (LFM-23) gives the zero-delay cut:</p>
+
+<p>$$</p>
+<p>\chi(0, \nu)| = \left| \operatorname{sinc}(\nu T_c)\right| \tag{LFM-26}</p>
+<p>$$</p>
+
+<p>The first null occurs at $\nu = 1/T_c$, giving the Doppler resolution of a single chirp pulse:</p>
+
+<p>$$</p>
+<p>\Delta f_{d,\text{pulse}} = \frac{1}{T_c} \tag{LFM-27}</p>
+<p>$$</p>
+
+<p>The corresponding single-pulse velocity resolution is:</p>
+
+<p>$$</p>
+<p>\Delta v_\text{pulse} = \frac{\lambda}{2T_c} \tag{LFM-28}</p>
+<p>$$</p>
+
+<p>In practice, the AERIS-10 achieves finer velocity resolution by coherent integration across $M$ chirps in the Doppler FFT, yielding $\Delta v = \lambda / (2 M T_r)$ as given in Eq. (FMCW-21) of <a href="01_fmcw_theory.md#velocity-measurement"><code>01_fmcw_theory.md</code></a>.</p>
+
+<h4 id="c-range-doppler-coupling">(c) Range-Doppler Coupling<a class="ha" href="#c-range-doppler-coupling" aria-hidden="true">¶</a></h4>
+
+<p>The tilted ridge of Eq. (LFM-24) means that a Doppler shift $\nu$ is indistinguishable from a delay offset $\Delta\tau = -\nu/\mu$ (and vice versa). The coupling slope is:</p>
+
+<p>$$</p>
+<p>\frac{d\tau}{d\nu} = -\frac{1}{\mu} = -\frac{T_c}{B} \tag{LFM-29}</p>
+<p>$$</p>
+
+<p>Converting to range and velocity units:</p>
+
+<p>$$</p>
+<p>\frac{\Delta R}{\Delta v} = \frac{c}{2} \cdot \frac{d\tau}{d\nu} \cdot \frac{2}{\lambda} = -\frac{c \, T_c}{\lambda \, B} \tag{LFM-30}</p>
+<p>$$</p>
+
+<p>This is consistent with the range error from Doppler given in Eq. (FMCW-27) of <a href="01_fmcw_theory.md#range-doppler-coupling-analysis"><code>01_fmcw_theory.md</code></a>. For the AERIS-10 system, the coupling magnitude scales with $T_c / B$: the long chirp mode ($T_{c,1}$) has a coupling slope that is $T_{c,1}/T_{c,2}$ times that of the short chirp mode ($T_{c,2}$), consistent with the analysis in Eq. (FMCW-28).</p>
+
+<p>The 2D range-Doppler FFT processing used in the AERIS-10 FPGA pipeline separates range and Doppler, effectively resolving along the ridge rather than across it. This is why the range-Doppler map does not suffer from the coupling inherent in single-pulse range estimation.</p>
+
+<h4 id="d-first-sidelobe-level">(d) First Sidelobe Level<a class="ha" href="#d-first-sidelobe-level" aria-hidden="true">¶</a></h4>
+
+<p>The sidelobe structure of the ambiguity function along the zero-Doppler cut follows the sinc pattern discussed in Section 5, with a peak sidelobe level of $-13.3~\text{dB}$ for the unweighted case (Eq. (LFM-21)). Along the ridge direction, the sidelobes are modulated by the triangular envelope $(1 - |\tau|/T_c)$, which provides additional suppression at larger delays.</p>
+
+<hr>
+
+<h2 id="7-system-specific-analysis">7. System-Specific Analysis<a class="ha" href="#7-system-specific-analysis" aria-hidden="true">¶</a></h2>
+
+<h3 id="processing-gain-comparison">Processing Gain Comparison<a class="ha" href="#processing-gain-comparison" aria-hidden="true">¶</a></h3>
+
+<p>The matched filter processing gain from Eq. (LFM-14) for each chirp mode is:</p>
+
+<p>$$</p>
+<p>\begin{aligned}</p>
+<p>G_{p,1} &amp;= B \, T_{c,1} \\</p>
+<p>G_{p,2} &amp;= B \, T_{c,2}</p>
+<p>\end{aligned}</p>
+<p>\tag{LFM-31}</p>
+<p>$$</p>
+
+<p>In decibels:</p>
+
+<p>$$</p>
+<p>\begin{aligned}</p>
+<p>G_{p,1}\,[\text{dB}] &amp;= 10\log_{10}(B \, T_{c,1}) \\</p>
+<p>G_{p,2}\,[\text{dB}] &amp;= 10\log_{10}(B \, T_{c,2})</p>
+<p>\end{aligned}</p>
+<p>\tag{LFM-32}</p>
+<p>$$</p>
+
+<p>The processing gain advantage of the long chirp over the short chirp is:</p>
+
+<p>$$</p>
+<p>\Delta G_p\,[\text{dB}] = 10\log_{10}\!\left(\frac{T_{c,1}}{T_{c,2}}\right) \tag{LFM-33}</p>
+<p>$$</p>
+
+<blockquote><strong>Variant Note -- Processing Gain:</strong></blockquote>
+<blockquote>| | Long Chirp | Short Chirp |</blockquote>
+<blockquote>|--|-----------|-------------|</blockquote>
+<blockquote>| Chirp duration $T_c$ | $T_{c,1}$ | $T_{c,2}$ |</blockquote>
+<blockquote>| Processing gain | $B \, T_{c,1}$ | $B \, T_{c,2}$ |</blockquote>
+<blockquote>| Relative gain | $10\log_{10}(T_{c,1}/T_{c,2})~\text{dB}$ above short chirp | Reference |</blockquote>
+<p>&gt;</p>
+<blockquote>See the <a href="../00_notation/parameter_table.md#waveform-and-timing">Parameter Table</a> for numerical values. Both modes share bandwidth $B$ (currently TBD), so range resolution is identical. The long chirp trades higher processing gain and finer Doppler resolution for increased range-Doppler coupling and reduced maximum unambiguous velocity.</blockquote>
+
+<h3 id="design-tradeoffs">Design Tradeoffs<a class="ha" href="#design-tradeoffs" aria-hidden="true">¶</a></h3>
+
+<p>The two chirp modes represent complementary operating points in the AERIS-10 system:</p>
+
+<ul><li><strong>Long chirp ($T_{c,1}$):</strong> Higher processing gain $G_{p,1}$, finer Doppler resolution $\Delta v_\text{pulse} = \lambda/(2T_{c,1})$, but stronger range-Doppler coupling (slope $\propto T_{c,1}/B$) and lower maximum unambiguous range (constrained by $T_{r,1}$).</li></ul>
+
+<ul><li><strong>Short chirp ($T_{c,2}$):</strong> Lower processing gain $G_{p,2}$, coarser Doppler resolution, but weaker range-Doppler coupling and wider unambiguous range. Better suited for detecting fast-moving targets where Doppler-induced range bias must be minimized.</li></ul>
+
+<hr>
+
+<h2 id="references">References<a class="ha" href="#references" aria-hidden="true">¶</a></h2>
+
+<ul><li><a href="../00_notation/symbol_table.md">Symbol Table</a> -- canonical symbol definitions</li><li><a href="../00_notation/parameter_table.md">Parameter Table</a> -- numerical values for both AERIS-10 variants</li><li><a href="../00_notation/conventions.md">Conventions</a> -- equation numbering and formatting rules</li><li><a href="01_fmcw_theory.md">FMCW Theory</a> -- beat frequency derivation, range equation, range-Doppler coupling</li><li>Richards, M.A., <em>Fundamentals of Radar Signal Processing</em>, 2nd ed., McGraw-Hill, 2014 -- LFM waveform analysis (Ch. 4), matched filtering (Ch. 6), ambiguity function (Ch. 3)</li><li>Skolnik, M.I., <em>Introduction to Radar Systems</em>, 4th ed., McGraw-Hill, 2008 -- Pulse compression radar (Ch. 8), waveform design (Ch. 11)</li><li>Levanon, N. and Mozeson, E., <em>Radar Signals</em>, Wiley, 2004 -- Ambiguity function theory (Ch. 3-4), LFM properties (Ch. 5)</li></ul>
+
+</div>
+  </div><!-- main-content -->
+</div><!-- site-shell -->
+<script>
+mermaid.initialize({ startOnLoad: true, theme: 'dark', securityLevel: 'loose' });
+</script>
+</body>
+
+</html>

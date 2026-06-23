@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>parameter_table — aros Vault</title>
+<style>
+
+:root {
+  --color-blue:    #007ACC;
+  --color-green:   #2DA44E;
+  --color-yellow:  #D29922;
+  --color-purple:  #8B5CF6;
+  --color-orange:  #F59E0B;
+  --color-red:     #E5534B;
+  --color-cyan:    #0BC5EA;
+  --color-accent:  #7C3AED;
+  --text-normal:   #DCDDDE;
+  --text-muted:    #8E8EA0;
+  --background-primary:         #1E1E2E;
+  --background-secondary:       #181825;
+  --background-modifier-border: #313244;
+  --color-base-30:              #45475A;
+}
+body {
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.6;
+  margin: 0;
+}
+
+</style>
+<!-- Mermaid -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<!-- MathJax -->
+<script>window.MathJax={tex:{inlineMath:[['$','$'],['\\(','\\)']],displayMath:[['$$','$$'],['\\[','\\]']]},options:{skipHtmlTags:['script','noscript','style','textarea','pre']}};</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+<!-- Site CSS -->
+<link rel="stylesheet" href="../../site.css">
+</head>
+<body class="markdown-reading-view">
+<div class="site-shell">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <a href="../../00-Index.html" class="site-title">radarv2 / AERIS-10</a>
+      <div class="site-subtitle">aros Radar Documentation</div>
+    </div>
+    <ul class="nav-list">
+      <li class="nav-section">Core Docs</li>
+      <li><a href="../../09-Concepts-Primer.html">Radar Primer</a></li>
+      <li><a href="../../00-Index.html">Index</a></li>
+      <li><a href="../../01-System-Overview.html">System Overview</a></li>
+      <li><a href="../../02-Physics-and-Waveform.html">Physics &amp; Waveform</a></li>
+      <li><a href="../../03-Beamforming-and-Scan.html">Beamforming &amp; Scan</a></li>
+      <li><a href="../../04-Signal-Processing-Pipeline.html">Signal Processing</a></li>
+      <li><a href="../../05-Node-Architecture.html">Node Architecture</a></li>
+      <li><a href="../../06-Message-Catalog.html">Message Catalog</a></li>
+      <li><a href="../../07-Detection-and-Tracking.html">Detection &amp; Tracking</a></li>
+      <li><a href="../../08-Scenarios-and-Targets.html">Scenarios &amp; Targets</a></li>
+      <li class="nav-section">Advanced</li>
+      <li><a href="../../10-Radar-Model-Library.html">Radar Model Library</a></li>
+      <li><a href="../../11-Multi-Radar-Fusion.html">Multi-Radar Fusion</a></li>
+      <li><a href="../../12-3D-Scene.html">3-D Scene</a></li>
+      <li><a href="../../13-Reference-Tables.html">Reference Tables</a></li>
+      <li><a href="../../FUTURE-DEVELOPMENT.html">Future Development</a></li>
+      <li class="nav-section">Upstream Theory</li>
+      <li><a href="../../upstream/README.html">Upstream README</a></li>
+      <li><a href="../../upstream/00_notation/conventions.html">Notation</a></li>
+      <li><a href="../../upstream/01_physics/01_fmcw_theory.html">FMCW Theory</a></li>
+      <li><a href="../../upstream/01_physics/02_lfm_waveform_model.html">LFM Waveform</a></li>
+      <li><a href="../../upstream/01_physics/03_beamforming_theory.html">Beamforming Theory</a></li>
+      <li><a href="../../upstream/01_physics/04_detection_theory.html">Detection Theory</a></li>
+      <li><a href="../../upstream/01_physics/05_noise_analysis.html">Noise Analysis</a></li>
+      <li><a href="../../upstream/01_physics/06_calibration_theory.html">Calibration</a></li>
+      <li><a href="../../upstream/02_hardware/01_system_overview.html">HW Overview</a></li>
+      <li><a href="../../upstream/04_research/01_cfar_variants.html">CFAR Variants</a></li>
+    </ul>
+    <div class="sidebar-footer">
+      <a href="https://github.com/brkay54/radarv2-docs" target="_blank">GitHub</a>
+    </div>
+  </nav>
+  <div class="main-content">
+
+<div class="markdown-preview-section">
+<h1 id="master-system-parameter-table-aeris-10">Master System Parameter Table -- AERIS-10<a class="ha" href="#master-system-parameter-table-aeris-10" aria-hidden="true">¶</a></h1>
+
+<p><strong>Single source of truth for all numerical parameter values in the AERIS-10 radar system.</strong></p>
+
+<p>This table provides canonical values for both the AERIS-10 Nexus (AERIS-10N, 3 km range, patch array) and AERIS-10 Extended (AERIS-10X, 20 km range, slotted waveguide with GaN PA) variants. No other document in this project may define canonical numerical values -- all derivations and analyses must reference this file.</p>
+
+<p><strong>Related documents:</strong></p>
+<ul><li><a href="symbol_table.md">Symbol Table</a> -- standard mathematical symbol definitions and units</li><li><a href="conventions.md">Conventions</a> -- equation numbering, formatting rules, cross-reference format</li></ul>
+
+<hr>
+
+<h2 id="inconsistency-resolutions">Inconsistency Resolutions<a class="ha" href="#inconsistency-resolutions" aria-hidden="true">¶</a></h2>
+
+<p>The codebase audit (see <code>.planning/phases/01-notation-parameter-standardization/01-RESEARCH.md</code>) identified four parameter inconsistencies across firmware, FPGA, GUI, and documentation sources. Each is resolved below with documented rationale.</p>
+
+<h3 id="1-center-frequency-10-5-ghz-canonical">1. Center Frequency: 10.5 GHz (canonical)<a class="ha" href="#1-center-frequency-10-5-ghz-canonical" aria-hidden="true">¶</a></h3>
+
+<p class="kv-line"><span class="kv-key">Conflict:</span> <span class="kv-value">README and the firmware wavelength constant (<code>wavelength = 0.02857</code> m, implying $f_c = c / \lambda = 3 \times 10^8 / 0.02857 \approx 10.5~\text{GHz}$) state 10.5 GHz. The GUI variable <code>system_frequency</code> defaults to <code>10e9</code> (10.0 GHz).</span></p>
+
+<p class="kv-line"><span class="kv-key">Resolution:</span> <span class="kv-value">$f_c = 10.5~\text{GHz}$ is canonical. The firmware wavelength constant is the most authoritative source because it directly affects beamforming calculations (element spacing = $\lambda/2$). The GUI default of 10.0 GHz appears to be an outdated or placeholder value.</span></p>
+
+<p class="kv-line"><span class="kv-key">Action required:</span> <span class="kv-value">Flag <code>system_frequency = 10e9</code> in <code>GUI_V6.py</code> for codebase correction to <code>10.5e9</code>.</span></p>
+
+<h3 id="2-prf-discrepancy-firmware-pri-vs-gui-prf">2. PRF Discrepancy: Firmware PRI vs. GUI PRF<a class="ha" href="#2-prf-discrepancy-firmware-pri-vs-gui-prf" aria-hidden="true">¶</a></h3>
+
+<p class="kv-line"><span class="kv-key">Conflict:</span> <span class="kv-value">Firmware defines <code>PRI1 = 167</code> $\mu\text{s}$ (implying chirp-level $f_{r,1} \approx 5988~\text{Hz}$). GUI defines <code>prf1 = 1000</code> Hz -- a factor of ~6 difference.</span></p>
+
+<p class="kv-line"><span class="kv-key">Resolution:</span> <span class="kv-value">These refer to different timing levels:</span></p>
+<ul><li><strong>Firmware <code>PRI1 = 167</code> $\mu\text{s}$:</strong> The chirp repetition interval -- the time between successive chirp transmissions within a coherent processing interval (CPI). This is the true radar PRF.</li><li><strong>GUI <code>prf1 = 1000</code> Hz:</strong> A display or processing update rate used for GUI rendering, NOT the chirp-level PRF.</li></ul>
+
+<p>Both values are documented in the parameter table below with clear labels to prevent confusion.</p>
+
+<h3 id="3-adc-resolution-8-bit-ad9484">3. ADC Resolution: 8-bit (AD9484)<a class="ha" href="#3-adc-resolution-8-bit-ad9484" aria-hidden="true">¶</a></h3>
+
+<p class="kv-line"><span class="kv-key">Conflict:</span> <span class="kv-value">The FPGA Verilog parameter <code>ADC_WIDTH = 8</code> in <code>ddc_400m.v</code> indicates an 8-bit data path. <code>STACK.md</code> claims &quot;14-bit ADC.&quot;</span></p>
+
+<p class="kv-line"><span class="kv-key">Resolution:</span> <span class="kv-value">The AD9484 is an 8-bit, 500 MSPS ADC per its datasheet. The FPGA data path width (<code>ADC_WIDTH = 8</code>) confirms this. The &quot;14-bit&quot; claim in STACK.md is incorrect -- likely a confusion with a different ADC part number or a planned upgrade that was never implemented.</span></p>
+
+<p class="kv-line"><span class="kv-key">Canonical value:</span> <span class="kv-value">8-bit ADC (AD9484, 500 MSPS rated, operated at 400 MSPS).</span></p>
+
+<h3 id="4-beam-steering-range-phase-shift-vs-steering-angle">4. Beam Steering Range: Phase Shift vs. Steering Angle<a class="ha" href="#4-beam-steering-range-phase-shift-vs-steering-angle" aria-hidden="true">¶</a></h3>
+
+<p class="kv-line"><span class="kv-key">Conflict:</span> <span class="kv-value">README states &quot;+/-45 degrees&quot; steering range. The firmware array <code>phase_differences[31]</code> contains inter-element phase shifts from $-160^\circ$ to $+160^\circ$.</span></p>
+
+<p class="kv-line"><span class="kv-key">Resolution:</span> <span class="kv-value">These describe different quantities:</span></p>
+<ul><li><strong>$\Delta\phi_n$: $-160^\circ$ to $+160^\circ$</strong> -- the inter-element phase shift applied by the ADAR1000 beamformer ICs.</li><li><strong>Steering angle $\theta$</strong> -- derived from the phase shift via $\theta = \arcsin\!\left(\frac{\Delta\phi \cdot \lambda}{2\pi d}\right)$. With $d = \lambda/2$, this gives $\theta = \arcsin\!\left(\frac{\Delta\phi}{\pi}\right)$, yielding a maximum steering angle of approximately $\pm 33^\circ$ at $\Delta\phi = \pm 160^\circ$.</li></ul>
+
+<p>The README&#x27;s &quot;+/-45 degrees&quot; may refer to a design goal or a different calculation basis. The parameter table records the firmware phase shift range; the actual steering angle is a derived quantity documented in the antenna/beamforming section.</p>
+
+<hr>
+
+<h2 id="system-parameters">System Parameters<a class="ha" href="#system-parameters" aria-hidden="true">¶</a></h2>
+
+<h3 id="waveform-and-timing">Waveform and Timing<a class="ha" href="#waveform-and-timing" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Parameter</th><th>Symbol</th><th>Nexus (AERIS-10N)</th><th>Extended (AERIS-10X)</th><th>Firmware Var</th><th>FPGA Param</th><th>GUI Var</th><th>Source</th></tr></thead><tbody><tr><td>Center frequency</td><td>$f_c$</td><td>10.5 GHz</td><td>10.5 GHz</td><td>--</td><td>--</td><td><code>system_frequency</code></td><td>README, firmware $\lambda$</td></tr><tr><td>Chirp bandwidth</td><td>$B$</td><td>TBD</td><td>TBD</td><td>--</td><td>--</td><td>--</td><td>Requires ADF4382 config</td></tr><tr><td>Wavelength</td><td>$\lambda$</td><td>0.02857 m</td><td>0.02857 m</td><td><code>wavelength</code></td><td>--</td><td>--</td><td>main.cpp:L1133</td></tr><tr><td>Long chirp duration</td><td>$T_{c,1}$</td><td>30 $\mu\text{s}$</td><td>30 $\mu\text{s}$</td><td><code>T1</code></td><td><code>USE_LONG_CHIRP</code></td><td><code>chirp_duration_1</code></td><td>main.cpp:L~200</td></tr><tr><td>Short chirp duration</td><td>$T_{c,2}$</td><td>0.5 $\mu\text{s}$</td><td>0.5 $\mu\text{s}$</td><td><code>T2</code></td><td>--</td><td><code>chirp_duration_2</code></td><td>main.cpp:L~201</td></tr><tr><td>Long chirp PRI</td><td>$T_{r,1}$</td><td>167 $\mu\text{s}$</td><td>167 $\mu\text{s}$</td><td><code>PRI1</code></td><td>--</td><td>--</td><td>main.cpp:L~202</td></tr><tr><td>Short chirp PRI</td><td>$T_{r,2}$</td><td>175 $\mu\text{s}$</td><td>175 $\mu\text{s}$</td><td><code>PRI2</code></td><td>--</td><td>--</td><td>main.cpp:L~203</td></tr><tr><td>Guard time</td><td>$T_\text{guard}$</td><td>175.4 $\mu\text{s}$</td><td>175.4 $\mu\text{s}$</td><td><code>Guard</code></td><td>--</td><td>--</td><td>main.cpp:L~204</td></tr><tr><td>Chirps per position</td><td>$M$</td><td>32</td><td>32</td><td><code>m_max</code></td><td><code>CHIRPS_PER_FRAME</code></td><td><code>chirps_per_position</code></td><td>main.cpp, doppler_processor.v</td></tr><tr><td>Elevation positions</td><td>$N_\text{el}$</td><td>31</td><td>31</td><td><code>n_max</code></td><td>--</td><td>--</td><td>main.cpp</td></tr><tr><td>Azimuth positions</td><td>$N_\text{az}$</td><td>50</td><td>50</td><td><code>y_max</code></td><td>--</td><td>--</td><td>main.cpp</td></tr></tbody></table>
+
+<h3 id="antenna-and-beamforming">Antenna and Beamforming<a class="ha" href="#antenna-and-beamforming" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Parameter</th><th>Symbol</th><th>Nexus (AERIS-10N)</th><th>Extended (AERIS-10X)</th><th>Firmware Var</th><th>FPGA Param</th><th>GUI Var</th><th>Source</th></tr></thead><tbody><tr><td>Array elements</td><td>$N$</td><td>16 (8x2 subarrays)</td><td>16 (cascaded)</td><td>--</td><td>--</td><td>--</td><td>README</td></tr><tr><td>Element spacing</td><td>$d$</td><td>$\lambda/2$ (~14.3 mm)</td><td>$\lambda/2$</td><td><code>element_spacing</code></td><td>--</td><td>--</td><td>main.cpp:L1134</td></tr><tr><td>Antenna type</td><td>--</td><td>8x16 patch array</td><td>32x16 slotted waveguide</td><td>--</td><td>--</td><td>--</td><td>README</td></tr><tr><td>Phase shift range</td><td>$\Delta\phi_n$</td><td>$-160^\circ$ to $+160^\circ$</td><td>$-160^\circ$ to $+160^\circ$</td><td><code>phase_differences[31]</code></td><td>--</td><td>--</td><td>main.cpp</td></tr><tr><td>ADAR1000 units</td><td>--</td><td>4</td><td>4</td><td>--</td><td>--</td><td>--</td><td>README</td></tr></tbody></table>
+
+<h3 id="rf-front-end">RF Front-End<a class="ha" href="#rf-front-end" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Parameter</th><th>Symbol</th><th>Nexus (AERIS-10N)</th><th>Extended (AERIS-10X)</th><th>Firmware Var</th><th>FPGA Param</th><th>GUI Var</th><th>Source</th></tr></thead><tbody><tr><td>Output power/element</td><td>$P_t$</td><td>~1 W (ADTR1107)</td><td>10 W (QPA2962 GaN)</td><td>--</td><td>--</td><td>--</td><td>README</td></tr><tr><td>LNA noise figure</td><td>$F_\text{LNA}$</td><td>TBD (ADTR1107 datasheet)</td><td>TBD</td><td>--</td><td>--</td><td>--</td><td>Datasheet needed</td></tr><tr><td>Mixer</td><td>--</td><td>LT5552</td><td>LT5552</td><td>--</td><td>--</td><td>--</td><td>README</td></tr><tr><td>ADC</td><td>--</td><td>AD9484 (8-bit, 500 MSPS)</td><td>AD9484 (8-bit, 500 MSPS)</td><td>--</td><td>--</td><td>--</td><td>Datasheet</td></tr></tbody></table>
+
+<h3 id="signal-processing-fpga">Signal Processing (FPGA)<a class="ha" href="#signal-processing-fpga" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Parameter</th><th>Symbol</th><th>Nexus (AERIS-10N)</th><th>Extended (AERIS-10X)</th><th>Firmware Var</th><th>FPGA Param</th><th>GUI Var</th><th>Source</th></tr></thead><tbody><tr><td>ADC sample rate</td><td>$f_s$</td><td>400 MHz</td><td>400 MHz</td><td>--</td><td><code>FS</code></td><td>--</td><td>ddc_400m.v</td></tr><tr><td>IF frequency</td><td>$f_\text{IF}$</td><td>120 MHz</td><td>120 MHz</td><td><code>IF_freq</code></td><td><code>IF_FREQ</code></td><td>--</td><td>main.cpp, ddc_400m.v</td></tr><tr><td>ADC data width</td><td>--</td><td>8 bits</td><td>8 bits</td><td>--</td><td><code>ADC_WIDTH</code></td><td>--</td><td>ddc_400m.v</td></tr><tr><td>NCO width</td><td>--</td><td>16 bits</td><td>16 bits</td><td>--</td><td><code>NCO_WIDTH</code></td><td>--</td><td>ddc_400m.v</td></tr><tr><td>CIC stages</td><td>$N_\text{CIC}$</td><td>5</td><td>5</td><td>--</td><td><code>STAGES</code></td><td>--</td><td>cic_decimator.v</td></tr><tr><td>CIC decimation</td><td>$D_\text{CIC}$</td><td>4</td><td>4</td><td>--</td><td><code>DECIMATION</code></td><td>--</td><td>cic_decimator.v</td></tr><tr><td>FFT/buffer size</td><td>$N_\text{FFT}$</td><td>1024</td><td>1024</td><td>--</td><td><code>BUFFER_SIZE</code></td><td>--</td><td>matched_filter.v</td></tr><tr><td>Doppler FFT size</td><td>$N_\text{Doppler}$</td><td>32</td><td>32</td><td>--</td><td><code>DOPPLER_FFT_SIZE</code></td><td>--</td><td>doppler_processor.v</td></tr><tr><td>Range bins</td><td>$N_R$</td><td>64</td><td>64</td><td>--</td><td><code>RANGE_BINS</code></td><td>--</td><td>doppler_processor.v</td></tr><tr><td>Long chirp samples</td><td>--</td><td>3000</td><td>3000</td><td>--</td><td><code>LONG_CHIRP_SAMPLES</code></td><td>--</td><td>matched_filter.v</td></tr><tr><td>Short chirp samples</td><td>--</td><td>50</td><td>50</td><td>--</td><td><code>SHORT_CHIRP_SAMPLES</code></td><td>--</td><td>matched_filter.v</td></tr></tbody></table>
+
+<h3 id="frequency-synthesis">Frequency Synthesis<a class="ha" href="#frequency-synthesis" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Parameter</th><th>Symbol</th><th>Nexus (AERIS-10N)</th><th>Extended (AERIS-10X)</th><th>Firmware Var</th><th>FPGA Param</th><th>GUI Var</th><th>Source</th></tr></thead><tbody><tr><td>Clock reference</td><td>--</td><td>100 MHz (AD9523-1)</td><td>100 MHz (AD9523-1)</td><td>--</td><td>--</td><td>--</td><td>README</td></tr><tr><td>Synthesizers</td><td>--</td><td>2x ADF4382 (TX/RX LO)</td><td>2x ADF4382</td><td>--</td><td>--</td><td>--</td><td>README</td></tr></tbody></table>
+
+<h3 id="fpga-clock-domains">FPGA Clock Domains<a class="ha" href="#fpga-clock-domains" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Parameter</th><th>Symbol</th><th>Nexus (AERIS-10N)</th><th>Extended (AERIS-10X)</th><th>Firmware Var</th><th>FPGA Param</th><th>GUI Var</th><th>Source</th></tr></thead><tbody><tr><td>ADC clock</td><td>--</td><td>400 MHz</td><td>400 MHz</td><td>--</td><td>--</td><td>--</td><td>ARCHITECTURE.md</td></tr><tr><td>DAC clock</td><td>--</td><td>120 MHz</td><td>120 MHz</td><td>--</td><td><code>clk_120m_dac</code></td><td>--</td><td>dac_interface_single.v</td></tr><tr><td>System clock</td><td>--</td><td>100 MHz</td><td>100 MHz</td><td>--</td><td>--</td><td>--</td><td>ARCHITECTURE.md</td></tr></tbody></table>
+
+<h3 id="system-level-derived-tbd">System-Level (Derived/TBD)<a class="ha" href="#system-level-derived-tbd" aria-hidden="true">¶</a></h3>
+
+<table class="md-table"><thead><tr><th>Parameter</th><th>Symbol</th><th>Nexus (AERIS-10N)</th><th>Extended (AERIS-10X)</th><th>Firmware Var</th><th>FPGA Param</th><th>GUI Var</th><th>Source</th></tr></thead><tbody><tr><td>Max detection range</td><td>$R_\text{max}$</td><td>3 km</td><td>20 km</td><td>--</td><td>--</td><td><code>max_distance</code> (50 km display)</td><td>README</td></tr><tr><td>Stepper steps/rev</td><td>--</td><td>200</td><td>200</td><td><code>Stepper_steps</code></td><td>--</td><td>--</td><td>main.cpp</td></tr><tr><td>Magnetic declination</td><td>--</td><td>$-0.61^\circ$</td><td>$-0.61^\circ$</td><td><code>Mag_Declination</code></td><td>--</td><td>--</td><td>main.cpp</td></tr><tr><td>GUI PRF long</td><td>--</td><td>--</td><td>--</td><td>--</td><td>--</td><td><code>prf1</code> = 1000 Hz</td><td>GUI_V6.py (display rate, NOT chirp PRF)</td></tr><tr><td>GUI PRF short</td><td>--</td><td>--</td><td>--</td><td>--</td><td>--</td><td><code>prf2</code> = 2000 Hz</td><td>GUI_V6.py (display rate)</td></tr></tbody></table>
+
+<hr>
+
+<h2 id="tbd-tracking">TBD Tracking<a class="ha" href="#tbd-tracking" aria-hidden="true">¶</a></h2>
+
+<p>The following parameters have unknown or unverified values. Each is annotated with the downstream phase that requires its resolution.</p>
+
+<table class="md-table"><thead><tr><th>Parameter</th><th>Symbol</th><th>What Is Needed</th><th>Required Before</th></tr></thead><tbody><tr><td>Chirp bandwidth</td><td>$B$</td><td>ADF4382 configuration analysis or chirp LUT examination to determine sweep range</td><td>Phase 2 (Physics derivations need $B$ for range resolution $\Delta R = c / 2B$)</td></tr><tr><td>LNA noise figure (Nexus)</td><td>$F_\text{LNA}$</td><td>ADTR1107 datasheet lookup (integrated T/R module NF)</td><td>Phase 2 (Radar range equation requires noise figure chain)</td></tr><tr><td>LNA noise figure (Extended)</td><td>$F_\text{LNA}$</td><td>QPA2962 + external LNA datasheet analysis</td><td>Phase 2 (Radar range equation)</td></tr><tr><td>Nexus antenna gain</td><td>$G$</td><td>8x16 patch array gain calculation or measurement data</td><td>Phase 2 (Link budget requires antenna gain)</td></tr><tr><td>Extended antenna gain</td><td>$G$</td><td>32x16 slotted waveguide array analysis or measurement data</td><td>Phase 2 (Link budget)</td></tr><tr><td>Extended noise figure chain</td><td>$F$</td><td>Full receive chain NF analysis for GaN variant</td><td>Phase 3 (Hardware documentation of RF chain)</td></tr></tbody></table>
+
+<hr>
+
+<h2 id="footer">Footer<a class="ha" href="#footer" aria-hidden="true">¶</a></h2>
+
+<p>All parameter values must be updated in THIS file only. No other document may define canonical numerical values. If a discrepancy is found between this table and a source file (firmware, FPGA, GUI, or datasheet), update this table with the corrected value and document the resolution in the Inconsistency Resolutions section above.</p>
+
+<p>When referencing parameter values in derivations or analysis documents, use symbolic notation (e.g., $f_c$, $T_{c,1}$, $M$) and link to this file for the numerical value. Keep derivations general; substitute specific numbers only in worked examples that explicitly reference this table.</p>
+
+</div>
+  </div><!-- main-content -->
+</div><!-- site-shell -->
+<script>
+mermaid.initialize({ startOnLoad: true, theme: 'dark', securityLevel: 'loose' });
+</script>
+</body>
+
+</html>
