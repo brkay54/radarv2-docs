@@ -31,6 +31,8 @@ body {
 }
 
 </style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- Mermaid -->
 <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
 <!-- MathJax -->
@@ -40,17 +42,31 @@ body {
 <link rel="stylesheet" href="../../site.css">
 </head>
 <body class="markdown-reading-view">
+<!-- Site header -->
+<header class="site-header">
+  <a href="../../00-Index.html" class="site-title">
+    radarv2
+    <span class="site-title-badge">AERIS-10</span>
+  </a>
+  <div class="site-subtitle">aros Radar Documentation</div>
+  <div class="site-header-links">
+    <a href="https://github.com/brkay54/radarv2-docs" target="_blank">GitHub</a>
+    <a href="../../upstream/README.html">Upstream Theory</a>
+  </div>
+</header>
 <div class="site-shell">
-  <nav class="sidebar" id="sidebar">
+  <!-- Sidebar -->
+  <nav class="sidebar">
     <div class="sidebar-header">
-      <a href="../../00-Index.html" class="site-title">radarv2 / AERIS-10</a>
-      <div class="site-subtitle">aros Radar Documentation</div>
+      <div class="sidebar-project">radarv2 Docs</div>
+      <div class="sidebar-version">AERIS-10 · aros example</div>
     </div>
     <ul class="nav-list">
-      <li class="nav-section">Core Docs</li>
-      <li><a href="../../09-Concepts-Primer.html">Radar Primer</a></li>
+      <li class="nav-section">Getting Started</li>
+      <li><a href="../../09-Concepts-Primer.html">Radar Primer (101)</a></li>
       <li><a href="../../00-Index.html">Index</a></li>
       <li><a href="../../01-System-Overview.html">System Overview</a></li>
+      <li class="nav-section">Core Docs</li>
       <li><a href="../../02-Physics-and-Waveform.html">Physics &amp; Waveform</a></li>
       <li><a href="../../03-Beamforming-and-Scan.html">Beamforming &amp; Scan</a></li>
       <li><a href="../../04-Signal-Processing-Pipeline.html">Signal Processing</a></li>
@@ -65,7 +81,7 @@ body {
       <li><a href="../../13-Reference-Tables.html">Reference Tables</a></li>
       <li><a href="../../FUTURE-DEVELOPMENT.html">Future Development</a></li>
       <li class="nav-section">Upstream Theory</li>
-      <li><a href="../../upstream/README.html">Upstream README</a></li>
+      <li><a href="../../upstream/README.html">Overview</a></li>
       <li><a href="../../upstream/00_notation/conventions.html">Notation</a></li>
       <li><a href="../../upstream/01_physics/01_fmcw_theory.html">FMCW Theory</a></li>
       <li><a href="../../upstream/01_physics/02_lfm_waveform_model.html">LFM Waveform</a></li>
@@ -77,9 +93,10 @@ body {
       <li><a href="../../upstream/04_research/01_cfar_variants.html">CFAR Variants</a></li>
     </ul>
     <div class="sidebar-footer">
-      <a href="https://github.com/brkay54/radarv2-docs" target="_blank">GitHub</a>
+      <a href="https://github.com/brkay54/radarv2-docs" target="_blank">GitHub ↗</a>
     </div>
   </nav>
+  <!-- Main -->
   <div class="main-content">
 
 <div class="markdown-preview-section">
@@ -346,7 +363,7 @@ body {
   </div><!-- main-content -->
 </div><!-- site-shell -->
 <script>
-mermaid.initialize({ startOnLoad: true, theme: 'dark', securityLevel: 'loose' });
+mermaid.initialize({ startOnLoad: true, theme: 'neutral', securityLevel: 'loose' });
 </script>
 </body>
 
