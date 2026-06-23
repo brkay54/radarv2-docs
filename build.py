@@ -96,7 +96,51 @@ BODY_CLOSE = """\
   </div><!-- main-content -->
 </div><!-- site-shell -->
 <script>
-mermaid.initialize({ startOnLoad: true, theme: 'neutral', securityLevel: 'loose' });
+mermaid.initialize({
+  startOnLoad: false,
+  theme: 'neutral',
+  securityLevel: 'loose',
+  fontFamily: 'Inter, system-ui, sans-serif',
+  fontSize: 14,
+  flowchart: { useMaxWidth: false, htmlLabels: true, curve: 'basis' },
+  sequence:  { useMaxWidth: false },
+  er:        { useMaxWidth: false },
+  gantt:     { useMaxWidth: false },
+});
+
+async function initMermaid() {
+  var elements = document.querySelectorAll('.mermaid');
+  if (!elements.length) return;
+  try { await mermaid.run({ querySelector: '.mermaid' }); } catch(e) { console.error('mermaid', e); }
+  elements.forEach(function(container) {
+    var svg = container.querySelector('svg');
+    if (!svg) return;
+    svg.removeAttribute('width');
+    svg.removeAttribute('height');
+    svg.style.cssText = 'width:100%;height:100%;max-width:none;display:block;';
+    if (!svg.getAttribute('viewBox')) {
+      try { var b=svg.getBBox(); svg.setAttribute('viewBox',b.x+' '+b.y+' '+b.width+' '+b.height); } catch(_){}
+    }
+    try {
+      var pz = svgPanZoom(svg, {
+        zoomEnabled: true, controlIconsEnabled: true,
+        fit: true, center: true,
+        minZoom: 0.2, maxZoom: 20,
+        zoomScaleSensitivity: 0.25,
+        mouseWheelZoomEnabled: true,
+        dblClickZoomEnabled: false,
+      });
+      svg.addEventListener('dblclick', function() { pz.resetZoom(); pz.center(); });
+      var hint = document.createElement('div');
+      hint.className = 'mermaid-hint';
+      hint.textContent = 'Scroll to zoom · drag to pan · dbl-click to reset';
+      container.appendChild(hint);
+    } catch(e) { console.error('svgPanZoom', e); }
+  });
+}
+
+if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', initMermaid); }
+else { initMermaid(); }
 </script>
 </body>
 """
@@ -106,6 +150,8 @@ HEAD_INJECT = """\
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- Mermaid -->
 <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<!-- svg-pan-zoom for interactive mermaid diagrams -->
+<script src="https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/dist/svg-pan-zoom.min.js"></script>
 <!-- MathJax -->
 <script>window.MathJax={{tex:{{inlineMath:[['$','$'],['\\\\(','\\\\)']],displayMath:[['$$','$$'],['\\\\[','\\\\]']]}},options:{{skipHtmlTags:['script','noscript','style','textarea','pre']}}}};</script>
 <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
@@ -459,15 +505,43 @@ pre code {
   font-size: 13px;
 }
 
-/* ── Mermaid ── */
+/* ── Mermaid — interactive pan/zoom ── */
 .mermaid {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: 8px;
-  padding: 20px;
-  margin: 16px 0;
-  overflow-x: auto;
-  text-align: center;
+  margin: 20px 0;
+  overflow: hidden;
+  min-height: 380px;
+  height: 380px;
+  position: relative;
+  cursor: grab;
+  user-select: none;
+}
+.mermaid:active { cursor: grabbing; }
+.mermaid svg {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  display: block;
+}
+/* svg-pan-zoom control icons */
+.mermaid .svg-pan-zoom-control { cursor: pointer; }
+.mermaid-hint {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 11px;
+  color: var(--color-text-subtle);
+  background: rgba(255,255,255,0.9);
+  padding: 3px 10px;
+  border-radius: 20px;
+  pointer-events: none;
+  white-space: nowrap;
+  border: 1px solid var(--color-border-light);
+  font-family: var(--font-sans);
+  backdrop-filter: blur(4px);
 }
 
 /* ── Tables ── */
