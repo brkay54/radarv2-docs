@@ -1,0 +1,92 @@
+[
+  {
+    "id": "09-Concepts-Primer",
+    "title": "Radar Primer (101)",
+    "url": "09-Concepts-Primer.html",
+    "body": "Radar Concepts Primer ¶ For newcomers — read this first"
+  },
+  {
+    "id": "00-Index",
+    "title": "Index / Overview",
+    "url": "00-Index.html",
+    "body": "radarv2 — AERIS-10 Pulse-LFM Phased-Array Radar (aros example) ¶ What this is"
+  },
+  {
+    "id": "01-System-Overview",
+    "title": "System Overview",
+    "url": "01-System-Overview.html",
+    "body": "System Overview ¶ In one sentence"
+  },
+  {
+    "id": "02-Physics-and-Waveform",
+    "title": "Physics & Waveform",
+    "url": "02-Physics-and-Waveform.html",
+    "body": "Physics and Waveform ¶ Scope"
+  },
+  {
+    "id": "03-Beamforming-and-Scan",
+    "title": "Beamforming & Scan",
+    "url": "03-Beamforming-and-Scan.html",
+    "body": "Beamforming and Scan Schedule ¶ Scope"
+  },
+  {
+    "id": "04-Signal-Processing-Pipeline",
+    "title": "Signal Processing Pipeline",
+    "url": "04-Signal-Processing-Pipeline.html",
+    "body": "Signal Processing Pipeline ¶ Scope"
+  },
+  {
+    "id": "05-Node-Architecture",
+    "title": "Node Architecture",
+    "url": "05-Node-Architecture.html",
+    "body": "Node Architecture ¶ Scope"
+  },
+  {
+    "id": "06-Message-Catalog",
+    "title": "Message Catalog",
+    "url": "06-Message-Catalog.html",
+    "body": "Message Catalog ¶ Scope"
+  },
+  {
+    "id": "07-Detection-and-Tracking",
+    "title": "Detection & Tracking",
+    "url": "07-Detection-and-Tracking.html",
+    "body": "Detection and Tracking ¶ Scope"
+  },
+  {
+    "id": "08-Scenarios-and-Targets",
+    "title": "Scenarios & Targets",
+    "url": "08-Scenarios-and-Targets.html",
+    "body": "Scenarios and Targets ¶ Scope"
+  },
+  {
+    "id": "10-Radar-Model-Library",
+    "title": "Radar Model Library",
+    "url": "10-Radar-Model-Library.html",
+    "body": "Radar Model Library ¶ Scope"
+  },
+  {
+    "id": "11-Multi-Radar-Fusion",
+    "title": "Multi-Radar Fusion",
+    "url": "11-Multi-Radar-Fusion.html",
+    "body": "Multi-Radar Fusion and Central Control ¶ Scope"
+  },
+  {
+    "id": "12-3D-Scene",
+    "title": "3-D Scene",
+    "url": "12-3D-Scene.html",
+    "body": "3D Scene Visualization (Lichtblick) ¶ Scope"
+  },
+  {
+    "id": "13-Reference-Tables",
+    "title": "Reference Tables",
+    "url": "13-Reference-Tables.html",
+    "body": "Reference Tables (appendix) ¶ Scope"
+  },
+  {
+    "id": "FUTURE-DEVELOPMENT",
+    "title": "Future Development",
+    "url": "FUTURE-DEVELOPMENT.html",
+    "body": "radarv2 — Future Development ¶ Purpose"
+  }
+]

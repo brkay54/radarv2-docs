@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """Build radarv2 vault HTML into a GitHub Pages site."""
 
-import os
+import argparse
+import html as html_mod
+import json
 import re
 import shutil
-import html as html_mod
 from pathlib import Path
 
+# Defaults — overridden by --src / --dst CLI args
 SRC = Path("/home/berkay/projects/aros-private/vault/radarv2")
 DST = Path("/home/berkay/projects/radarv2-docs")
 
@@ -52,6 +54,10 @@ NAV_TEMPLATE = """\
     <div class="sidebar-header">
       <div class="sidebar-project">radarv2 Docs</div>
       <div class="sidebar-version">AERIS-10 · aros example</div>
+      <div class="sidebar-search">
+        <input id="site-search" type="search" placeholder="Search docs…" autocomplete="off" spellcheck="false">
+        <div id="search-results" class="search-results"></div>
+      </div>
     </div>
     <ul class="nav-list">
       <li class="nav-section">Getting Started</li>
@@ -95,73 +101,22 @@ NAV_TEMPLATE = """\
 BODY_CLOSE = """\
   </div><!-- main-content -->
 </div><!-- site-shell -->
-<script>
-mermaid.initialize({
-  startOnLoad: false,
-  theme: 'neutral',
-  securityLevel: 'loose',
-  fontFamily: 'Inter, system-ui, sans-serif',
-  fontSize: 14,
-  flowchart: { useMaxWidth: false, htmlLabels: true, curve: 'basis' },
-  sequence:  { useMaxWidth: false },
-  er:        { useMaxWidth: false },
-  gantt:     { useMaxWidth: false },
-});
-
-async function initMermaid() {
-  var elements = document.querySelectorAll('.mermaid');
-  if (!elements.length) return;
-  try { await mermaid.run({ querySelector: '.mermaid' }); } catch(e) { console.error('mermaid', e); }
-  elements.forEach(function(container) {
-    var svg = container.querySelector('svg');
-    if (!svg) return;
-    svg.removeAttribute('width');
-    svg.removeAttribute('height');
-    svg.style.cssText = 'width:100%;height:100%;max-width:none;display:block;';
-    if (!svg.getAttribute('viewBox')) {
-      try { var b=svg.getBBox(); svg.setAttribute('viewBox',b.x+' '+b.y+' '+b.width+' '+b.height); } catch(_){}
-    }
-    try {
-      var pz = svgPanZoom(svg, {
-        zoomEnabled: true, controlIconsEnabled: true,
-        fit: true, center: true,
-        minZoom: 0.2, maxZoom: 20,
-        zoomScaleSensitivity: 0.25,
-        mouseWheelZoomEnabled: true,
-        dblClickZoomEnabled: false,
-      });
-      svg.addEventListener('dblclick', function() { pz.resetZoom(); pz.center(); });
-      var hint = document.createElement('div');
-      hint.className = 'mermaid-hint';
-      hint.textContent = 'Scroll to zoom · drag to pan · dbl-click to reset';
-      container.appendChild(hint);
-    } catch(e) { console.error('svgPanZoom', e); }
-  });
-}
-
-if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', initMermaid); }
-else { initMermaid(); }
-</script>
 </body>
 """
 
 HEAD_INJECT = """\
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<!-- Mermaid -->
-<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
-<!-- svg-pan-zoom for interactive mermaid diagrams -->
-<script src="https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/dist/svg-pan-zoom.min.js"></script>
 <!-- MathJax -->
 <script>window.MathJax={{tex:{{inlineMath:[['$','$'],['\\\\(','\\\\)']],displayMath:[['$$','$$'],['\\\\[','\\\\]']]}},options:{{skipHtmlTags:['script','noscript','style','textarea','pre']}}}};</script>
 <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
-<!-- Site CSS -->
+<!-- Site -->
 <link rel="stylesheet" href="{css_path}">
+<script src="{js_path}" defer></script>
 </head>"""
 
 
 def depth_from_root(rel_path: Path) -> int:
-    """Number of directory levels below site root."""
     return len(rel_path.parent.parts)
 
 
@@ -171,6 +126,10 @@ def root_prefix(depth: int) -> str:
 
 def css_path(depth: int) -> str:
     return root_prefix(depth) + "site.css"
+
+
+def js_path(depth: int) -> str:
+    return root_prefix(depth) + "site.js"
 
 
 def convert_mermaid(content: str) -> str:
@@ -201,21 +160,18 @@ def convert_wikilinks(content: str, depth: int) -> str:
 def add_nav(content: str, depth: int) -> str:
     root = root_prefix(depth)
     nav = NAV_TEMPLATE.format(root=root)
-    # Replace <body ...> opening tag
     content = re.sub(r'<body[^>]*>', nav, content, count=1)
-    # Replace </body>
     content = content.replace("</body>", BODY_CLOSE, 1)
     return content
 
 
 def inject_head(content: str, depth: int) -> str:
-    inject = HEAD_INJECT.format(css_path=css_path(depth))
+    inject = HEAD_INJECT.format(css_path=css_path(depth), js_path=js_path(depth))
     content = content.replace("</head>", inject, 1)
     return content
 
 
 def remove_inline_style(content: str) -> str:
-    # Remove the inline style from .markdown-preview-section div
     content = re.sub(
         r'(<div class="markdown-preview-section") style="[^"]*"',
         r'\1',
@@ -247,9 +203,425 @@ def copy_binary(src_file: Path, rel: Path):
     print(f"  copied:    {rel}")
 
 
+def write_site_js():
+    js = r"""// site.js — radarv2-docs interactive layer
+
+// ── 0. Mermaid + svgPanZoom ──────────────────────────────────────────
+(function() {
+  function loadScript(src, cb) {
+    var s = document.createElement('script');
+    s.src = src;
+    s.onload = cb;
+    document.head.appendChild(s);
+  }
+
+  function initMermaid() {
+    if (!document.querySelector('.mermaid')) return;
+    loadScript('https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/dist/svg-pan-zoom.min.js', function() {
+      mermaid.initialize({
+        startOnLoad: false,
+        theme: 'neutral',
+        securityLevel: 'loose',
+        fontFamily: 'Inter, system-ui, sans-serif',
+        fontSize: 14,
+        flowchart: { useMaxWidth: false, htmlLabels: true, curve: 'basis' },
+        sequence:  { useMaxWidth: false },
+        er:        { useMaxWidth: false },
+        gantt:     { useMaxWidth: false },
+      });
+      mermaid.run({ querySelector: '.mermaid' }).then(function() {
+        document.querySelectorAll('.mermaid').forEach(function(container) {
+          var svg = container.querySelector('svg');
+          if (!svg) return;
+          svg.removeAttribute('width');
+          svg.removeAttribute('height');
+          svg.style.cssText = 'width:100%;height:100%;max-width:none;display:block;';
+          if (!svg.getAttribute('viewBox')) {
+            try { var b = svg.getBBox(); svg.setAttribute('viewBox', b.x+' '+b.y+' '+b.width+' '+b.height); } catch(_) {}
+          }
+          try {
+            var pz = svgPanZoom(svg, {
+              zoomEnabled: true, controlIconsEnabled: true,
+              fit: true, center: true,
+              minZoom: 0.2, maxZoom: 20,
+              zoomScaleSensitivity: 0.25,
+              mouseWheelZoomEnabled: true,
+              dblClickZoomEnabled: false,
+            });
+            svg.addEventListener('dblclick', function() { pz.resetZoom(); pz.center(); });
+            var hint = document.createElement('div');
+            hint.className = 'mermaid-hint';
+            hint.textContent = 'Scroll to zoom · drag to pan · dbl-click to reset';
+            container.appendChild(hint);
+          } catch(e) {}
+        });
+      }).catch(function(e) { console.error('mermaid', e); });
+    });
+  }
+
+  loadScript('https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js', initMermaid);
+})();
+
+// ── 1. Active nav highlighting ────────────────────────────────────────
+(function() {
+  var file = window.location.pathname.split('/').pop() || 'index.html';
+  document.querySelectorAll('.nav-list li a').forEach(function(a) {
+    var hfile = (a.getAttribute('href') || '').split('/').pop();
+    if (hfile && hfile === file) {
+      a.classList.add('nav-active');
+      setTimeout(function() { a.scrollIntoView({ block: 'nearest' }); }, 100);
+    }
+  });
+})();
+
+// ── 2. Right-side TOC with scroll spy ────────────────────────────────
+(function() {
+  var section = document.querySelector('.markdown-preview-section');
+  if (!section) return;
+  var headings = Array.from(section.querySelectorAll('h2, h3'));
+  if (headings.length < 2) return;
+
+  var toc = document.createElement('aside');
+  toc.className = 'page-toc';
+  var tocTitle = document.createElement('div');
+  tocTitle.className = 'page-toc-title';
+  tocTitle.textContent = 'On this page';
+  toc.appendChild(tocTitle);
+
+  var links = [];
+  headings.forEach(function(h) {
+    var a = document.createElement('a');
+    a.href = '#' + h.id;
+    a.textContent = h.textContent.replace(/¶$/, '').trim();
+    a.className = 'toc-link' + (h.tagName === 'H3' ? ' toc-h3' : '');
+    toc.appendChild(a);
+    links.push({ el: h, link: a });
+  });
+
+  var mainContent = document.querySelector('.main-content');
+  if (mainContent) {
+    mainContent.appendChild(toc);
+    document.documentElement.classList.add('has-toc');
+  }
+
+  var activeLink = null;
+  var observer = new IntersectionObserver(function(entries) {
+    entries.forEach(function(e) {
+      if (e.isIntersecting) {
+        var item = links.find(function(l) { return l.el === e.target; });
+        if (item) {
+          if (activeLink) activeLink.classList.remove('toc-active');
+          activeLink = item.link;
+          activeLink.classList.add('toc-active');
+        }
+      }
+    });
+  }, { rootMargin: '-60px 0px -70% 0px', threshold: 0 });
+
+  headings.forEach(function(h) { observer.observe(h); });
+})();
+
+// ── 3. Prev / Next navigation + keyboard shortcuts ────────────────────
+(function() {
+  var PAGES = [
+    '09-Concepts-Primer.html',
+    '00-Index.html',
+    '01-System-Overview.html',
+    '02-Physics-and-Waveform.html',
+    '03-Beamforming-and-Scan.html',
+    '04-Signal-Processing-Pipeline.html',
+    '05-Node-Architecture.html',
+    '06-Message-Catalog.html',
+    '07-Detection-and-Tracking.html',
+    '08-Scenarios-and-Targets.html',
+    '10-Radar-Model-Library.html',
+    '11-Multi-Radar-Fusion.html',
+    '12-3D-Scene.html',
+    '13-Reference-Tables.html',
+    'FUTURE-DEVELOPMENT.html',
+  ];
+  var TITLES = {
+    '09-Concepts-Primer.html':           'Radar Primer',
+    '00-Index.html':                      'Index',
+    '01-System-Overview.html':            'System Overview',
+    '02-Physics-and-Waveform.html':       'Physics & Waveform',
+    '03-Beamforming-and-Scan.html':       'Beamforming & Scan',
+    '04-Signal-Processing-Pipeline.html': 'Signal Processing',
+    '05-Node-Architecture.html':          'Node Architecture',
+    '06-Message-Catalog.html':            'Message Catalog',
+    '07-Detection-and-Tracking.html':     'Detection & Tracking',
+    '08-Scenarios-and-Targets.html':      'Scenarios & Targets',
+    '10-Radar-Model-Library.html':        'Radar Model Library',
+    '11-Multi-Radar-Fusion.html':         'Multi-Radar Fusion',
+    '12-3D-Scene.html':                   '3-D Scene',
+    '13-Reference-Tables.html':           'Reference Tables',
+    'FUTURE-DEVELOPMENT.html':            'Future Development',
+  };
+
+  var file = window.location.pathname.split('/').pop() || '';
+  var idx = PAGES.indexOf(file);
+  if (idx === -1) return;
+
+  var prev = idx > 0 ? PAGES[idx - 1] : null;
+  var next = idx < PAGES.length - 1 ? PAGES[idx + 1] : null;
+
+  // Determine root prefix from sidebar link hrefs
+  var root = '';
+  var navA = document.querySelector('.nav-list li a');
+  if (navA) {
+    var rel = navA.getAttribute('href') || '';
+    var ups = (rel.match(/\.\.\//g) || []).length;
+    for (var i = 0; i < ups; i++) root += '../';
+  }
+
+  var section = document.querySelector('.markdown-preview-section');
+  if (!section) return;
+
+  var pager = document.createElement('nav');
+  pager.className = 'doc-pager';
+
+  if (prev) {
+    var pa = document.createElement('a');
+    pa.href = root + prev;
+    pa.className = 'pager-prev';
+    pa.innerHTML = '<span class="pager-label">← Previous</span><span class="pager-title">' + TITLES[prev] + '</span>';
+    pager.appendChild(pa);
+  } else {
+    pager.appendChild(document.createElement('span'));
+  }
+
+  if (next) {
+    var na = document.createElement('a');
+    na.href = root + next;
+    na.className = 'pager-next';
+    na.innerHTML = '<span class="pager-label">Next →</span><span class="pager-title">' + TITLES[next] + '</span>';
+    pager.appendChild(na);
+  }
+
+  section.appendChild(pager);
+
+  document.addEventListener('keydown', function(e) {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    if (e.altKey && e.key === 'ArrowLeft' && prev) window.location.href = root + prev;
+    if (e.altKey && e.key === 'ArrowRight' && next) window.location.href = root + next;
+  });
+})();
+
+// ── 4. Copy-to-clipboard on code blocks ──────────────────────────────
+(function() {
+  document.querySelectorAll('pre').forEach(function(pre) {
+    var btn = document.createElement('button');
+    btn.className = 'copy-btn';
+    btn.textContent = 'Copy';
+    pre.appendChild(btn);
+    btn.addEventListener('click', function() {
+      var code = pre.querySelector('code');
+      var text = code ? code.innerText : pre.innerText;
+      // Remove the button text from the copy
+      text = text.replace(/\nCopy$/, '').replace(/^Copy\n/, '');
+      navigator.clipboard.writeText(text).then(function() {
+        btn.textContent = 'Copied ✓';
+        btn.classList.add('copied');
+        setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+      }).catch(function() {
+        btn.textContent = 'Error';
+        setTimeout(function() { btn.textContent = 'Copy'; }, 1500);
+      });
+    });
+  });
+})();
+
+// ── 5. Dark mode toggle ───────────────────────────────────────────────
+(function() {
+  var stored = localStorage.getItem('rdv2-theme');
+  if (stored === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+
+  var btn = document.createElement('button');
+  btn.className = 'theme-toggle';
+  btn.setAttribute('aria-label', 'Toggle dark mode');
+  btn.textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '☀' : '🌙';
+
+  btn.addEventListener('click', function() {
+    var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    if (isDark) {
+      document.documentElement.removeAttribute('data-theme');
+      localStorage.setItem('rdv2-theme', 'light');
+      btn.textContent = '🌙';
+    } else {
+      document.documentElement.setAttribute('data-theme', 'dark');
+      localStorage.setItem('rdv2-theme', 'dark');
+      btn.textContent = '☀';
+    }
+  });
+
+  var headerLinks = document.querySelector('.site-header-links');
+  if (headerLinks) headerLinks.insertBefore(btn, headerLinks.firstChild);
+})();
+
+// ── 6. Back-to-top button ─────────────────────────────────────────────
+(function() {
+  var btn = document.createElement('button');
+  btn.className = 'back-to-top';
+  btn.setAttribute('aria-label', 'Back to top');
+  btn.textContent = '↑';
+  document.body.appendChild(btn);
+
+  window.addEventListener('scroll', function() {
+    btn.classList.toggle('visible', window.scrollY > 300);
+  }, { passive: true });
+
+  btn.addEventListener('click', function() {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+})();
+
+// ── 7. Client-side search (lunr.js, lazy-loaded) ─────────────────────
+(function() {
+  var input = document.getElementById('site-search');
+  var resultsEl = document.getElementById('search-results');
+  if (!input || !resultsEl) return;
+
+  var lunrLoaded = false;
+  var indexData = null;
+  var lunrIndex = null;
+
+  var root = '';
+  var navA = document.querySelector('.nav-list li a');
+  if (navA) {
+    var rel = navA.getAttribute('href') || '';
+    var ups = (rel.match(/\.\.\//g) || []).length;
+    for (var i = 0; i < ups; i++) root += '../';
+  }
+
+  function loadLunr(cb) {
+    if (lunrLoaded) { cb(); return; }
+    var s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/lunr@2.3.9/lunr.min.js';
+    s.onload = function() { lunrLoaded = true; cb(); };
+    document.head.appendChild(s);
+  }
+
+  function buildIndex(data) {
+    indexData = data;
+    lunrIndex = lunr(function() {
+      this.ref('id');
+      this.field('title', { boost: 10 });
+      this.field('body');
+      data.forEach(function(doc) { this.add(doc); }, this);
+    });
+  }
+
+  function escapeHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function showResults(query) {
+    resultsEl.innerHTML = '';
+    if (!query || query.length < 2) { resultsEl.style.display = 'none'; return; }
+    if (!lunrIndex) { return; }
+    try {
+      var results = lunrIndex.search(query + '~1').slice(0, 8);
+      if (!results.length) {
+        resultsEl.innerHTML = '<div class="search-no-results">No results for “' + escapeHtml(query) + '”</div>';
+        resultsEl.style.display = 'block';
+        return;
+      }
+      results.forEach(function(r) {
+        var doc = indexData.find(function(d) { return d.id === r.ref; });
+        if (!doc) return;
+        var item = document.createElement('a');
+        item.href = root + doc.url;
+        item.className = 'search-result-item';
+        item.innerHTML =
+          '<div class="search-result-title">' + escapeHtml(doc.title) + '</div>' +
+          '<div class="search-result-body">' + escapeHtml(doc.body.slice(0, 90)) + '…</div>';
+        resultsEl.appendChild(item);
+      });
+      resultsEl.style.display = 'block';
+    } catch(e) { resultsEl.style.display = 'none'; }
+  }
+
+  input.addEventListener('focus', function() {
+    loadLunr(function() {
+      if (indexData) { showResults(input.value.trim()); return; }
+      fetch(root + 'search-index.json')
+        .then(function(r) { return r.json(); })
+        .then(function(data) { buildIndex(data); showResults(input.value.trim()); })
+        .catch(function(e) { console.error('search-index load failed', e); });
+    });
+  });
+
+  var debounce = null;
+  input.addEventListener('input', function() {
+    clearTimeout(debounce);
+    var q = input.value.trim();
+    debounce = setTimeout(function() { showResults(q); }, 150);
+  });
+
+  document.addEventListener('click', function(e) {
+    if (!input.contains(e.target) && !resultsEl.contains(e.target)) {
+      resultsEl.style.display = 'none';
+    }
+  });
+
+  input.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') { resultsEl.style.display = 'none'; input.blur(); }
+  });
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === '/' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+      e.preventDefault();
+      input.focus();
+      input.select();
+    }
+  });
+})();
+"""
+    (DST / "site.js").write_text(js, encoding="utf-8")
+    print("  wrote: site.js")
+
+
+def build_search_index():
+    """Generate search-index.json from all top-level HTML pages."""
+    PAGES_ORDER = [
+        ("09-Concepts-Primer.html",           "Radar Primer (101)"),
+        ("00-Index.html",                      "Index / Overview"),
+        ("01-System-Overview.html",            "System Overview"),
+        ("02-Physics-and-Waveform.html",       "Physics & Waveform"),
+        ("03-Beamforming-and-Scan.html",       "Beamforming & Scan"),
+        ("04-Signal-Processing-Pipeline.html", "Signal Processing Pipeline"),
+        ("05-Node-Architecture.html",          "Node Architecture"),
+        ("06-Message-Catalog.html",            "Message Catalog"),
+        ("07-Detection-and-Tracking.html",     "Detection & Tracking"),
+        ("08-Scenarios-and-Targets.html",      "Scenarios & Targets"),
+        ("10-Radar-Model-Library.html",        "Radar Model Library"),
+        ("11-Multi-Radar-Fusion.html",         "Multi-Radar Fusion"),
+        ("12-3D-Scene.html",                   "3-D Scene"),
+        ("13-Reference-Tables.html",           "Reference Tables"),
+        ("FUTURE-DEVELOPMENT.html",            "Future Development"),
+    ]
+    index = []
+    for filename, title in PAGES_ORDER:
+        dst_file = DST / filename
+        if not dst_file.exists():
+            continue
+        raw = dst_file.read_text(encoding="utf-8")
+        m = re.search(r'class="markdown-preview-section"[^>]*>(.*?)</div>', raw, re.DOTALL)
+        text = ""
+        if m:
+            text = re.sub(r'<[^>]+>', ' ', m.group(1))
+            text = re.sub(r'\s+', ' ', text).strip()[:400]
+        doc_id = filename.replace(".html", "")
+        index.append({"id": doc_id, "title": title, "url": filename, "body": text})
+    (DST / "search-index.json").write_text(
+        json.dumps(index, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    print("  wrote: search-index.json")
+
+
 def write_site_css():
     css = """\
-/* radarv2-docs — Slate + Indigo theme (Layout 001-A, Palette 002-B) */
+/* radarv2-docs — Slate + Indigo theme */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 
 :root {
@@ -313,7 +685,6 @@ body {
   gap: 8px;
   white-space: nowrap;
 }
-
 .site-title:hover { color: #e0e7ff; text-decoration: none; }
 
 .site-title-badge {
@@ -336,6 +707,7 @@ body {
 .site-header-links {
   margin-left: auto;
   display: flex;
+  align-items: center;
   gap: 2px;
 }
 
@@ -348,7 +720,6 @@ body {
   border-radius: 5px;
   transition: all .12s;
 }
-
 .site-header-links a:hover {
   background: rgba(255,255,255,0.1);
   color: #fff;
@@ -423,13 +794,11 @@ body {
   transition: all .1s;
   line-height: 1.4;
 }
-
 .nav-list li a:hover {
   color: var(--color-primary);
   background: var(--color-primary-light);
   border-left-color: var(--color-primary);
 }
-
 .nav-list li a.nav-active {
   color: var(--color-primary);
   background: var(--color-primary-bg);
@@ -444,12 +813,7 @@ body {
   font-size: 12px;
   font-family: var(--font-sans);
 }
-
-.sidebar-footer a {
-  color: var(--color-text-subtle);
-  text-decoration: none;
-}
-
+.sidebar-footer a { color: var(--color-text-subtle); text-decoration: none; }
 .sidebar-footer a:hover { color: var(--color-primary); text-decoration: none; }
 
 /* ── Main content ── */
@@ -473,7 +837,6 @@ h3 { font-size: 16px; font-weight: 600; color: var(--color-text); margin: 24px 0
 h4 { font-size: 14px; font-weight: 600; color: var(--color-text-muted); margin: 20px 0 8px; text-transform: uppercase; letter-spacing: .05em; }
 
 p { color: var(--color-text-muted); margin: 0 0 14px; line-height: 1.7; }
-
 a { color: var(--color-primary); text-decoration: none; }
 a:hover { text-decoration: underline; }
 
@@ -495,8 +858,8 @@ pre {
   padding: 18px 20px;
   overflow-x: auto;
   margin: 16px 0;
+  position: relative;
 }
-
 pre code {
   background: none;
   border: none;
@@ -504,6 +867,26 @@ pre code {
   color: #e2e8f0;
   font-size: 13px;
 }
+
+/* ── Copy button ── */
+.copy-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.15);
+  color: #94a3b8;
+  font-size: 11px;
+  font-family: var(--font-sans);
+  padding: 3px 9px;
+  border-radius: 4px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity .15s, background .15s;
+}
+pre:hover .copy-btn { opacity: 1; }
+.copy-btn:hover { background: rgba(255,255,255,0.15); color: #e2e8f0; }
+.copy-btn.copied { background: #16a34a; border-color: #16a34a; color: #fff; opacity: 1; }
 
 /* ── Mermaid — interactive pan/zoom ── */
 .mermaid {
@@ -519,13 +902,7 @@ pre code {
   user-select: none;
 }
 .mermaid:active { cursor: grabbing; }
-.mermaid svg {
-  width: 100% !important;
-  height: 100% !important;
-  max-width: none !important;
-  display: block;
-}
-/* svg-pan-zoom control icons */
+.mermaid svg { width: 100% !important; height: 100% !important; max-width: none !important; display: block; }
 .mermaid .svg-pan-zoom-control { cursor: pointer; }
 .mermaid-hint {
   position: absolute;
@@ -545,82 +922,32 @@ pre code {
 }
 
 /* ── Tables ── */
-.md-table {
-  border-collapse: collapse;
-  width: 100%;
-  margin: 16px 0;
-  font-size: 13px;
-  font-family: var(--font-sans);
-}
-
-.md-table th {
-  background: var(--color-surface);
-  padding: 8px 14px;
-  text-align: left;
-  font-weight: 600;
-  color: var(--color-text);
-  border: 1px solid var(--color-border);
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: .04em;
-}
-
-.md-table td {
-  padding: 8px 14px;
-  border: 1px solid var(--color-border-light);
-  color: var(--color-text-muted);
-  vertical-align: top;
-}
-
+.md-table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 13px; font-family: var(--font-sans); }
+.md-table th { background: var(--color-surface); padding: 8px 14px; text-align: left; font-weight: 600; color: var(--color-text); border: 1px solid var(--color-border); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+.md-table td { padding: 8px 14px; border: 1px solid var(--color-border-light); color: var(--color-text-muted); vertical-align: top; }
 .md-table tr:hover td { background: var(--color-surface); }
 
 /* ── Callouts ── */
-.callout {
-  border-radius: 6px;
-  padding: 12px 16px;
-  margin: 16px 0;
-  border-left: 3px solid var(--color-primary);
-  background: var(--color-primary-light);
-  font-size: 14px;
-}
-
-.callout-title {
-  font-weight: 700;
-  margin-bottom: 4px;
-  color: var(--color-primary-dark);
-  font-size: 13px;
-  font-family: var(--font-sans);
-}
-
+.callout { border-radius: 6px; padding: 12px 16px; margin: 16px 0; border-left: 3px solid var(--color-primary); background: var(--color-primary-light); font-size: 14px; }
+.callout-title { font-weight: 700; margin-bottom: 4px; color: var(--color-primary-dark); font-size: 13px; font-family: var(--font-sans); }
 .callout-content { color: var(--color-text-muted); }
 .callout-content p { color: var(--color-text-muted); margin-bottom: 4px; }
-
 .callout[data-callout="warning"]  { border-color: #d97706; background: #fffbeb; }
 .callout[data-callout="warning"] .callout-title  { color: #92400e; }
-.callout[data-callout="danger"],
-.callout[data-callout="error"]    { border-color: #dc2626; background: #fef2f2; }
-.callout[data-callout="danger"] .callout-title,
-.callout[data-callout="error"] .callout-title   { color: #991b1b; }
+.callout[data-callout="danger"], .callout[data-callout="error"] { border-color: #dc2626; background: #fef2f2; }
+.callout[data-callout="danger"] .callout-title, .callout[data-callout="error"] .callout-title { color: #991b1b; }
 .callout[data-callout="info"]     { border-color: #0ea5e9; background: #f0f9ff; }
 .callout[data-callout="info"] .callout-title    { color: #0369a1; }
 .callout[data-callout="note"]     { border-color: #16a34a; background: #f0fdf4; }
 .callout[data-callout="note"] .callout-title    { color: #15803d; }
 .callout[data-callout="abstract"] { border-color: #0ea5e9; background: #f0f9ff; }
-.callout[data-callout="abstract"] .callout-title{ color: #0369a1; }
+.callout[data-callout="abstract"] .callout-title { color: #0369a1; }
 .callout[data-callout="tip"]      { border-color: #16a34a; background: #f0fdf4; }
 .callout[data-callout="tip"] .callout-title     { color: #15803d; }
 
 /* ── Internal links ── */
-.internal-link {
-  color: var(--color-primary);
-  text-decoration: none;
-  border-bottom: 1px solid #c7d2fe;
-}
-.internal-link:hover {
-  color: var(--color-primary-dark);
-  border-bottom-color: var(--color-primary);
-  text-decoration: none;
-}
+.internal-link { color: var(--color-primary); text-decoration: none; border-bottom: 1px solid #c7d2fe; }
+.internal-link:hover { color: var(--color-primary-dark); border-bottom-color: var(--color-primary); text-decoration: none; }
 .wikilink-unresolved { color: var(--color-text-subtle); font-style: italic; }
 
 /* ── Heading anchors ── */
@@ -634,12 +961,196 @@ ul, ol { padding-left: 24px; margin-bottom: 14px; }
 li { color: var(--color-text-muted); margin-bottom: 4px; }
 li code { font-size: .83em; }
 
+/* ── Right-side TOC ── */
+.page-toc {
+  position: fixed;
+  top: var(--header-height);
+  right: 0;
+  width: 220px;
+  padding: 20px 14px;
+  height: calc(100vh - var(--header-height));
+  overflow-y: auto;
+  border-left: 1px solid var(--color-border-light);
+  background: var(--color-bg);
+  z-index: 50;
+  scrollbar-width: thin;
+}
+.page-toc-title {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  color: var(--color-text-subtle);
+  margin-bottom: 10px;
+  font-family: var(--font-sans);
+}
+.toc-link {
+  display: block;
+  font-size: 12px;
+  color: var(--color-text-subtle);
+  text-decoration: none;
+  padding: 3px 0 3px 10px;
+  border-left: 2px solid transparent;
+  transition: all .1s;
+  line-height: 1.4;
+  font-family: var(--font-sans);
+}
+.toc-link:hover { color: var(--color-primary); border-left-color: var(--color-primary); text-decoration: none; }
+.toc-link.toc-active { color: var(--color-primary); border-left-color: var(--color-primary); font-weight: 600; }
+.toc-link.toc-h3 { padding-left: 20px; font-size: 11px; }
+.has-toc .main-content { margin-right: 220px; }
+@media (max-width: 1100px) {
+  .page-toc { display: none; }
+  .has-toc .main-content { margin-right: 0; }
+}
+
+/* ── Dark mode toggle button ── */
+.theme-toggle {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.2);
+  color: rgba(255,255,255,0.7);
+  font-size: 14px;
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all .15s;
+  margin-right: 4px;
+  flex-shrink: 0;
+}
+.theme-toggle:hover { background: rgba(255,255,255,0.12); color: #fff; }
+
+/* ── Dark mode variables ── */
+[data-theme="dark"] {
+  --color-bg:            #0f172a;
+  --color-surface:       #1e293b;
+  --color-surface-alt:   #273549;
+  --color-border:        #334155;
+  --color-border-light:  #1e293b;
+  --color-text:          #e2e8f0;
+  --color-text-muted:    #94a3b8;
+  --color-text-subtle:   #64748b;
+  --color-primary-light: #1e1b4b;
+  --color-primary-bg:    #1e1b4b;
+}
+[data-theme="dark"] pre { background: #020617; }
+[data-theme="dark"] .site-header { background: #0f0e2e; }
+[data-theme="dark"] .sidebar { background: #0f172a; }
+[data-theme="dark"] .page-toc { background: #0f172a; }
+[data-theme="dark"] .mermaid-hint { background: rgba(15,23,42,0.9); }
+[data-theme="dark"] #site-search { background: #1e293b; color: #e2e8f0; border-color: #334155; }
+[data-theme="dark"] .search-results { background: #1e293b; border-color: #334155; }
+[data-theme="dark"] .search-result-title { color: #e2e8f0; }
+[data-theme="dark"] .search-result-item:hover { background: #1e1b4b; }
+[data-theme="dark"] .doc-pager a { border-color: #334155; }
+[data-theme="dark"] .doc-pager a:hover { background: #1e1b4b; border-color: var(--color-primary); }
+
+/* ── Back-to-top ── */
+.back-to-top {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: #fff;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity .2s, transform .2s;
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(79,70,229,0.4);
+  line-height: 1;
+}
+.back-to-top.visible { opacity: 1; transform: translateY(0); }
+.back-to-top:hover { background: var(--color-primary-dark); }
+
+/* ── Prev/Next pager ── */
+.doc-pager {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 40px;
+  padding-top: 24px;
+  border-top: 1px solid var(--color-border-light);
+  gap: 12px;
+}
+.doc-pager a {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 18px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  text-decoration: none;
+  flex: 1;
+  max-width: 48%;
+  transition: all .15s;
+}
+.pager-prev { text-align: left; }
+.pager-next { text-align: right; margin-left: auto; }
+.doc-pager a:hover { border-color: var(--color-primary); background: var(--color-primary-bg); text-decoration: none; }
+.pager-label { font-size: 11px; color: var(--color-text-subtle); text-transform: uppercase; letter-spacing: .06em; font-family: var(--font-sans); display: block; }
+.pager-title { font-size: 13px; font-weight: 600; color: var(--color-primary); font-family: var(--font-sans); display: block; }
+
+/* ── Search ── */
+.sidebar-search { margin-top: 10px; position: relative; }
+#site-search {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  font-size: 12px;
+  font-family: var(--font-sans);
+  background: var(--color-bg);
+  color: var(--color-text);
+  outline: none;
+  transition: border-color .15s, box-shadow .15s;
+}
+#site-search:focus { border-color: var(--color-primary); box-shadow: 0 0 0 2px rgba(79,70,229,0.15); }
+#site-search::placeholder { color: var(--color-text-subtle); }
+.search-results {
+  display: none;
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+  z-index: 500;
+  max-height: 380px;
+  overflow-y: auto;
+}
+.search-result-item {
+  display: block;
+  padding: 10px 12px;
+  text-decoration: none;
+  border-bottom: 1px solid var(--color-border-light);
+  transition: background .1s;
+}
+.search-result-item:last-child { border-bottom: none; }
+.search-result-item:hover { background: var(--color-primary-bg); text-decoration: none; }
+.search-result-title { font-size: 13px; font-weight: 600; color: var(--color-text); font-family: var(--font-sans); }
+.search-result-body { font-size: 11px; color: var(--color-text-subtle); margin-top: 2px; font-family: var(--font-sans); line-height: 1.4; }
+.search-no-results { padding: 12px; font-size: 13px; color: var(--color-text-subtle); font-family: var(--font-sans); text-align: center; }
+
 /* ── Responsive ── */
 @media (max-width: 768px) {
   .sidebar { display: none; }
   .main-content { margin-left: 0; }
   .markdown-preview-section { padding: 24px 20px 60px; }
   .site-subtitle { display: none; }
+  .back-to-top { bottom: 16px; right: 16px; }
 }
 """
     (DST / "site.css").write_text(css, encoding="utf-8")
@@ -656,8 +1167,20 @@ def write_index():
 
 
 def main():
-    print("Building radarv2-docs site...")
+    parser = argparse.ArgumentParser(description="Build radarv2-docs GitHub Pages site")
+    parser.add_argument('--src', default='/home/berkay/projects/aros-private/vault/radarv2',
+                        help='Source vault directory')
+    parser.add_argument('--dst', default='/home/berkay/projects/radarv2-docs',
+                        help='Output site directory')
+    args = parser.parse_args()
+
+    global SRC, DST
+    SRC = Path(args.src)
+    DST = Path(args.dst)
+
+    print(f"Building radarv2-docs site...\n  src: {SRC}\n  dst: {DST}")
     write_site_css()
+    write_site_js()
     write_index()
 
     for src_file in sorted(SRC.rglob("*")):
@@ -668,8 +1191,8 @@ def main():
             process_html(src_file, rel)
         elif src_file.suffix in (".svg", ".png", ".jpg", ".jpeg", ".gif", ".ico"):
             copy_binary(src_file, rel)
-        # skip .md and other files
 
+    build_search_index()
     print("Done.")
 
 
