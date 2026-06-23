@@ -1,5 +1,190 @@
 // site.js — radarv2-docs interactive layer
 
+// ── -1. DOM fixup: display math · blockquotes · stray elements ──────────
+(function() {
+  function fixDisplayMath(container) {
+    var changed = true;
+    while (changed) {
+      changed = false;
+      var children = Array.from(container.children);
+      for (var i = 0; i < children.length; i++) {
+        var el = children[i];
+        if (el.tagName !== 'P') continue;
+        if (el.textContent.trim() !== '$$') continue;
+        // Collect subsequent P children until closing $$
+        var lines = [];
+        var j = i + 1;
+        while (j < children.length && children[j].tagName === 'P') {
+          if (children[j].textContent.trim() === '$$') break;
+          lines.push(children[j].textContent);
+          j++;
+        }
+        if (j < children.length && children[j].tagName === 'P' &&
+            children[j].textContent.trim() === '$$' && lines.length > 0) {
+          var div = document.createElement('div');
+          div.className = 'math-block';
+          div.textContent = '$$' + lines.join('\n') + '$$';
+          container.insertBefore(div, el);
+          for (var k = i; k <= j; k++) {
+            if (children[k].parentNode) children[k].parentNode.removeChild(children[k]);
+          }
+          changed = true;
+          break;
+        }
+      }
+    }
+  }
+
+  function fixStrayElements(container) {
+    Array.from(container.children).forEach(function(el) {
+      if (el.tagName === 'P') {
+        var t = el.textContent.trim();
+        if (t === '>' || t === '') el.parentNode.removeChild(el);
+      }
+    });
+  }
+
+  function parseMarkdownTable(lines) {
+    try {
+      // Find separator line index
+      var sepIdx = -1;
+      for (var i = 0; i < lines.length; i++) {
+        if (/^\|[\s|:-]+\|?\s*$/.test(lines[i])) { sepIdx = i; break; }
+      }
+      if (sepIdx < 1) return null;
+
+      var splitRow = function(line) {
+        return line.replace(/^\||\|$/g, '').split('|').map(function(s) { return s.trim(); });
+      };
+
+      var table = document.createElement('table');
+      table.className = 'md-table';
+
+      var thead = document.createElement('thead');
+      var hrow = document.createElement('tr');
+      splitRow(lines[0]).forEach(function(h) {
+        var th = document.createElement('th');
+        th.textContent = h;
+        hrow.appendChild(th);
+      });
+      thead.appendChild(hrow);
+      table.appendChild(thead);
+
+      var tbody = document.createElement('tbody');
+      for (var i = sepIdx + 1; i < lines.length; i++) {
+        if (!lines[i].startsWith('|')) continue;
+        var cells = splitRow(lines[i]);
+        var row = document.createElement('tr');
+        cells.forEach(function(c) {
+          var td = document.createElement('td');
+          td.textContent = c;
+          row.appendChild(td);
+        });
+        tbody.appendChild(row);
+      }
+      table.appendChild(tbody);
+      return table;
+    } catch(e) { return null; }
+  }
+
+  function fixBlockquotes(container) {
+    // Step 1: merge consecutive blockquote siblings
+    var changed = true;
+    while (changed) {
+      changed = false;
+      var kids = Array.from(container.children);
+      for (var i = 0; i < kids.length - 1; i++) {
+        if (kids[i].tagName === 'BLOCKQUOTE' && kids[i + 1].tagName === 'BLOCKQUOTE') {
+          kids[i].appendChild(document.createElement('br'));
+          while (kids[i + 1].firstChild) kids[i].appendChild(kids[i + 1].firstChild);
+          kids[i + 1].parentNode.removeChild(kids[i + 1]);
+          changed = true;
+          break;
+        }
+      }
+    }
+
+    // Step 2: process each blockquote
+    Array.from(container.children).forEach(function(el) {
+      if (el.tagName !== 'BLOCKQUOTE') return;
+      var text = (el.innerText || el.textContent).trim();
+      var lines = text.split('\n').map(function(l) { return l.trim(); }).filter(Boolean);
+
+      // Find first line starting with | (table may be preceded by a title line)
+      var tableStart = -1;
+      for (var ti = 0; ti < lines.length; ti++) {
+        if (lines[ti].startsWith('|')) { tableStart = ti; break; }
+      }
+      if (tableStart >= 0) {
+        var tbl = parseMarkdownTable(lines.slice(tableStart));
+        if (tbl) {
+          // Keep any pre-table text as a small header blockquote
+          if (tableStart > 0) {
+            var hdr = document.createElement('blockquote');
+            hdr.textContent = lines.slice(0, tableStart).join(' ');
+            el.parentNode.insertBefore(hdr, el);
+          }
+          el.parentNode.insertBefore(tbl, el);
+          el.parentNode.removeChild(el);
+          return;
+        }
+      }
+
+      // Convert **bold** and *italic* markdown syntax in innerHTML
+      // Use [^*]* to allow <br> and other HTML across merged blockquote lines
+      var html = el.innerHTML;
+      html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+      html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+      el.innerHTML = html;
+    });
+  }
+
+  // Fix **bold** markdown that spans across consecutive <p> sibling elements
+  function fixCrossParaBold(parent) {
+    var changed = true;
+    while (changed) {
+      changed = false;
+      var kids = Array.from(parent.children);
+      for (var i = 0; i < kids.length - 1; i++) {
+        if (kids[i].tagName !== 'P' || kids[i + 1].tagName !== 'P') continue;
+        var html = kids[i].innerHTML;
+        var cnt = (html.match(/\*\*/g) || []).length;
+        if (cnt % 2 !== 0) {
+          kids[i].innerHTML += ' ' + kids[i + 1].innerHTML;
+          kids[i + 1].parentNode.removeChild(kids[i + 1]);
+          changed = true; break;
+        }
+      }
+    }
+    // After merging, convert **bold** within each p
+    Array.from(parent.querySelectorAll('p')).forEach(function(p) {
+      if (p.innerHTML.indexOf('**') < 0) return;
+      p.innerHTML = p.innerHTML.replace(/\*\*([^*<>]+)\*\*/g, '<strong>$1</strong>');
+    });
+  }
+
+  function fixDOM() {
+    var container = document.querySelector('.markdown-preview-section');
+    if (!container) return;
+    fixStrayElements(container);
+    fixDisplayMath(container);
+    fixBlockquotes(container);
+    // Fix **bold** cross-paragraph in main content and callout content
+    fixCrossParaBold(container);
+    container.querySelectorAll('.callout-content').forEach(fixCrossParaBold);
+    // Re-trigger MathJax if it already completed its initial pass
+    if (window.MathJax && window.MathJax.typesetPromise) {
+      window.MathJax.typesetPromise();
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', fixDOM);
+  } else {
+    fixDOM();
+  }
+})();
+
 // ── 0. Mermaid + svgPanZoom ──────────────────────────────────────────
 (function() {
   function loadScript(src, cb) {
@@ -316,7 +501,7 @@
     try {
       var results = lunrIndex.search(query + '~1').slice(0, 8);
       if (!results.length) {
-        resultsEl.innerHTML = '<div class="search-no-results">No results for “' + escapeHtml(query) + '”</div>';
+        resultsEl.innerHTML = '<div class="search-no-results">No results for "' + escapeHtml(query) + '"</div>';
         resultsEl.style.display = 'block';
         return;
       }

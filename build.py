@@ -204,7 +204,169 @@ def copy_binary(src_file: Path, rel: Path):
 
 
 def write_site_js():
+    src = Path(__file__).parent / "site.js"
+    dst = DST / "site.js"
+    if src.resolve() == dst.resolve():
+        print("  skipped: site.js (already in place)")
+        return
+    content = _read_asset("site.js")
+    dst.write_text(content, encoding="utf-8")
+    print("  wrote: site.js")
+
+
+def _write_site_js_inline():
     js = r"""// site.js — radarv2-docs interactive layer
+
+// ── -1. DOM fixup: display math · blockquotes · stray elements ──────────
+(function() {
+  function fixDisplayMath(container) {
+    var changed = true;
+    while (changed) {
+      changed = false;
+      var children = Array.from(container.children);
+      for (var i = 0; i < children.length; i++) {
+        var el = children[i];
+        if (el.tagName !== 'P') continue;
+        if (el.textContent.trim() !== '$$') continue;
+        var lines = [];
+        var j = i + 1;
+        while (j < children.length && children[j].tagName === 'P') {
+          if (children[j].textContent.trim() === '$$') break;
+          lines.push(children[j].textContent);
+          j++;
+        }
+        if (j < children.length && children[j].tagName === 'P' &&
+            children[j].textContent.trim() === '$$' && lines.length > 0) {
+          var div = document.createElement('div');
+          div.className = 'math-block';
+          div.textContent = '$$' + lines.join('\n') + '$$';
+          container.insertBefore(div, el);
+          for (var k = i; k <= j; k++) {
+            if (children[k].parentNode) children[k].parentNode.removeChild(children[k]);
+          }
+          changed = true;
+          break;
+        }
+      }
+    }
+  }
+
+  function fixStrayElements(container) {
+    Array.from(container.children).forEach(function(el) {
+      if (el.tagName === 'P') {
+        var t = el.textContent.trim();
+        if (t === '>' || t === '') el.parentNode.removeChild(el);
+      }
+    });
+  }
+
+  function parseMarkdownTable(lines) {
+    try {
+      var sepIdx = -1;
+      for (var i = 0; i < lines.length; i++) {
+        if (/^\|[\s|:-]+\|?\s*$/.test(lines[i])) { sepIdx = i; break; }
+      }
+      if (sepIdx < 1) return null;
+
+      var splitRow = function(line) {
+        return line.replace(/^\||\|$/g, '').split('|').map(function(s) { return s.trim(); });
+      };
+
+      var table = document.createElement('table');
+      table.className = 'md-table';
+
+      var thead = document.createElement('thead');
+      var hrow = document.createElement('tr');
+      splitRow(lines[0]).forEach(function(h) {
+        var th = document.createElement('th');
+        th.textContent = h;
+        hrow.appendChild(th);
+      });
+      thead.appendChild(hrow);
+      table.appendChild(thead);
+
+      var tbody = document.createElement('tbody');
+      for (var i = sepIdx + 1; i < lines.length; i++) {
+        if (!lines[i].startsWith('|')) continue;
+        var cells = splitRow(lines[i]);
+        var row = document.createElement('tr');
+        cells.forEach(function(c) {
+          var td = document.createElement('td');
+          td.textContent = c;
+          row.appendChild(td);
+        });
+        tbody.appendChild(row);
+      }
+      table.appendChild(tbody);
+      return table;
+    } catch(e) { return null; }
+  }
+
+  function fixBlockquotes(container) {
+    var changed = true;
+    while (changed) {
+      changed = false;
+      var kids = Array.from(container.children);
+      for (var i = 0; i < kids.length - 1; i++) {
+        if (kids[i].tagName === 'BLOCKQUOTE' && kids[i + 1].tagName === 'BLOCKQUOTE') {
+          kids[i].appendChild(document.createElement('br'));
+          while (kids[i + 1].firstChild) kids[i].appendChild(kids[i + 1].firstChild);
+          kids[i + 1].parentNode.removeChild(kids[i + 1]);
+          changed = true;
+          break;
+        }
+      }
+    }
+
+    Array.from(container.children).forEach(function(el) {
+      if (el.tagName !== 'BLOCKQUOTE') return;
+      var text = (el.innerText || el.textContent).trim();
+      var lines = text.split('\n').map(function(l) { return l.trim(); }).filter(Boolean);
+
+      var tableStart = -1;
+      for (var ti = 0; ti < lines.length; ti++) {
+        if (lines[ti].startsWith('|')) { tableStart = ti; break; }
+      }
+      if (tableStart >= 0) {
+        var tbl = parseMarkdownTable(lines.slice(tableStart));
+        if (tbl) {
+          if (tableStart > 0) {
+            var hdr = document.createElement('blockquote');
+            hdr.textContent = lines.slice(0, tableStart).join(' ');
+            el.parentNode.insertBefore(hdr, el);
+          }
+          el.parentNode.insertBefore(tbl, el);
+          el.parentNode.removeChild(el);
+          return;
+        }
+      }
+
+      var html = el.innerHTML;
+      html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+      html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+      el.innerHTML = html;
+    });
+  }
+
+  function fixDOM() {
+    var container = document.querySelector('.markdown-preview-section');
+    if (!container) return;
+    fixStrayElements(container);
+    fixDisplayMath(container);
+    fixBlockquotes(container);
+    if (window.MathJax && window.MathJax.typesetPromise) {
+      window.MathJax.typesetPromise();
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', fixDOM);
+  } else {
+    fixDOM();
+  }
+})();
+
+// ── 0. Mermaid + svgPanZoom ──────────────────────────────────────────
 
 // ── 0. Mermaid + svgPanZoom ──────────────────────────────────────────
 (function() {
@@ -578,7 +740,7 @@ def write_site_js():
 })();
 """
     (DST / "site.js").write_text(js, encoding="utf-8")
-    print("  wrote: site.js")
+    print("  wrote: site.js (inline fallback)")
 
 
 def build_search_index():
@@ -619,7 +781,27 @@ def build_search_index():
     print("  wrote: search-index.json")
 
 
+def _read_asset(name: str) -> str:
+    """Read site asset from alongside build.py, falling back to DST."""
+    candidates = [Path(__file__).parent / name, DST / name]
+    for p in candidates:
+        if p.exists():
+            return p.read_text(encoding="utf-8")
+    raise FileNotFoundError(f"Asset not found: {name}")
+
+
 def write_site_css():
+    src = Path(__file__).parent / "site.css"
+    dst = DST / "site.css"
+    if src.resolve() == dst.resolve():
+        print("  skipped: site.css (already in place)")
+        return
+    content = _read_asset("site.css")
+    dst.write_text(content, encoding="utf-8")
+    print("  wrote: site.css")
+
+
+def _write_site_css_inline():
     css = """\
 /* radarv2-docs — Slate + Indigo theme */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
@@ -627,6 +809,7 @@ def write_site_css():
 :root {
   --sidebar-width: 260px;
   --header-height: 52px;
+  /* NOTE: --color-text-muted updated to #374151 for better readability */
 
   --color-bg:            #ffffff;
   --color-surface:       #f8fafc;
@@ -1154,7 +1337,7 @@ li code { font-size: .83em; }
 }
 """
     (DST / "site.css").write_text(css, encoding="utf-8")
-    print("  wrote: site.css")
+    print("  wrote: site.css (inline fallback)")
 
 
 def write_index():
